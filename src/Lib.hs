@@ -226,7 +226,7 @@ japan :: (Construction :> es, Sourced :> es) => Flag es
 japan = CountryFlag
   { flagIsoCode = "JPN"
   , flagName = "Japan"
-  , flagDescription = sourced "Description" flagLaw "A white rectangular flag with a crimson-red disc at the center."
+  , flagDescription = sourced "Description" flagLaw "A white rectangular flag with a red disc at the center."
   , flagDesign = design
   }
 
