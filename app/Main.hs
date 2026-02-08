@@ -9,7 +9,8 @@ import Diagrams.Backend.SVG
 import Effectful
 import System.Directory (createDirectoryIfMissing)
 import Data.Char (toLower)
-import Data.List (nub)
+import Data.List (nub, sortOn, groupBy, intercalate)
+import Data.Function (on)
 
 main :: IO ()
 main = do
@@ -25,7 +26,7 @@ main = do
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
 
 -- | Process a single flag: render SVG and extract metadata
-processFlag :: Flag (Sourced : Construction : '[]) -> IO (String, String, String, String, [Source])
+processFlag :: Flag (Sourced : Construction : '[]) -> IO (String, String, String, String, [SourcedElement])
 processFlag flag = do
   let isoLower = map toLower (flagIsoCode flag)
       svgFile = isoLower ++ ".svg"
@@ -48,7 +49,7 @@ processFlag flag = do
   pure (svgFile, flagName flag, description, flagIsoCode flag, allSources)
 
 -- | Generate the index.html content
-generateIndex :: [(String, String, String, String, [Source])] -> String
+generateIndex :: [(String, String, String, String, [SourcedElement])] -> String
 generateIndex flags = unlines
   [ "<!DOCTYPE html>"
   , "<html lang=\"en\">"
@@ -63,6 +64,7 @@ generateIndex flags = unlines
   , "    th { background-color: #f4f4f4; }"
   , "    img { max-width: 150px; height: auto; }"
   , "    ul { margin: 0; padding-left: 20px; }"
+  , "    .elements { font-size: 0.9em; color: #666; }"
   , "  </style>"
   , "</head>"
   , "<body>"
@@ -93,16 +95,39 @@ generateIndex flags = unlines
       , "      </tr>"
       ]
     
+    -- Group elements by source and format
+    formatSources :: [SourcedElement] -> String
     formatSources [] = "<em>None</em>"
-    formatSources srcs = "<ul>" ++ concatMap formatSource srcs ++ "</ul>"
+    formatSources elements = 
+      let grouped = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) elements
+      in "<ul>" ++ concatMap formatSourceGroup grouped ++ "</ul>"
     
-    formatSource SourceHabitual = "<li><em>Habitual practice</em></li>"
-    formatSource (SourceAuthoritativeWebsite title url) = 
-      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a></li>"
-    formatSource (SourceLaw title url) = 
-      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Law)</li>"
-    formatSource (SourcePublication title url) = 
-      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Publication)</li>"
+    -- Key for sorting sources (to group same sources together)
+    sourceKey :: Source -> String
+    sourceKey SourceHabitual = "0"
+    sourceKey (SourceLaw title _) = "1" ++ title
+    sourceKey (SourceAuthoritativeWebsite title _) = "2" ++ title
+    sourceKey (SourcePublication title _) = "3" ++ title
+    
+    formatSourceGroup :: [SourcedElement] -> String
+    formatSourceGroup [] = ""
+    formatSourceGroup group@((_, src):_) = 
+      let elementNames = map fst group
+          elementsStr = "<span class=\"elements\">(" ++ escapeHtml (joinElements elementNames) ++ ")</span>"
+      in formatSourceWithElements src elementsStr
+    
+    joinElements :: [String] -> String
+    joinElements xs = intercalate ", " xs
+    
+    formatSourceWithElements :: Source -> String -> String
+    formatSourceWithElements SourceHabitual elems = 
+      "<li>Habitual practice " ++ elems ++ "</li>"
+    formatSourceWithElements (SourceAuthoritativeWebsite title url) elems = 
+      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> " ++ elems ++ "</li>"
+    formatSourceWithElements (SourceLaw title url) elems = 
+      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Law) " ++ elems ++ "</li>"
+    formatSourceWithElements (SourcePublication title url) elems = 
+      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Publication) " ++ elems ++ "</li>"
     
     escapeHtml :: String -> String
     escapeHtml = concatMap escapeChar

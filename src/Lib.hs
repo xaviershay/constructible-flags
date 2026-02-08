@@ -15,6 +15,7 @@ module Lib
     , runConstructionTrace
     , Sourced(..)
     , Source(..)
+    , SourcedElement
     , sourced
     , sourcedM
     , runSourcedPure
@@ -95,11 +96,14 @@ runSourcedTrace = reinterpret_ (runState @[String] []) $ \case
     modify (++ [name ++ " sourced from " ++ srcDesc])
     pure val
 
--- | Interpreter that collects all Source values
-runSourcedCollect :: Eff (Sourced : es) a -> Eff es (a, [Source])
-runSourcedCollect = reinterpret_ (runState @[Source] []) $ \case
-  GetSourced _ src val -> do
-    modify (++ [src])
+-- | A sourced element: the element name and its source
+type SourcedElement = (String, Source)
+
+-- | Interpreter that collects all sourced elements with their sources
+runSourcedCollect :: Eff (Sourced : es) a -> Eff es (a, [SourcedElement])
+runSourcedCollect = reinterpret_ (runState @[SourcedElement] []) $ \case
+  GetSourced name src val -> do
+    modify (++ [(name, src)])
     pure val
 
 -- | Effect for geometric constructions
@@ -150,7 +154,7 @@ france :: (Construction :> es, Sourced :> es) => Flag es
 france = CountryFlag
   { flagIsoCode = "FRA"
   , flagName = "France"
-  , flagDescription = sourced "Description" constitution "The national emblem is the tricolour flag, blue, white, red."
+  , flagDescription = sourced "Description" constitution "A tricolour flag, blue, white, red."
   , flagDesign = design
   }
 
@@ -162,7 +166,7 @@ france = CountryFlag
     --[ "https://www.info.gouv.fr/upload/media/default/0001/08/8df5f17cebb84f2c19a9953154719c80086d6c3b.png"
     --]
     constitution = SourceLaw
-        "French Constitution, Article 2 (translated)"
+        "French Constitution, Article 2"
         "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000006527453"
 
     design :: (Construction :> es, Sourced :> es) => Eff es (Diagram B)
