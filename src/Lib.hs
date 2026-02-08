@@ -7,8 +7,7 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Lib
-    ( frenchFlag
-    , Construction(..)
+    ( Construction(..)
     , natural
     , naturalProportion
     , runConstructionSVG
@@ -23,6 +22,7 @@ module Lib
     , PantoneId(..)
     , pmsToRGB
     , Flag(..)
+    , france
     ) where
 
 import Diagrams.Prelude hiding (trace, Dynamic)
@@ -145,27 +145,35 @@ pmsToRGB :: Sourced :> es => PantoneId -> Eff es (Colour Double)
 pmsToRGB PMSRed032 = sourced "RGB Conversion" pantone (sRGB24 230 49 62)
 pmsToRGB PMSReflexBlue = sourced "RGB Conversion" pantone (sRGB24 16 11 136)
 
--- French flag: three vertical stripes (blue, white, red)
-frenchFlag :: (Construction :> es, Sourced :> es) => Eff es (Diagram B)
-frenchFlag = do
-  (w, h) <- sourcedM "2:3 proportion" habitual $ naturalProportion 1 2
-  redColor <- sourced "Red" londonOlympics2012 PMSRed032 >>= pmsToRGB
-  whiteColor <- sourced "White" habitual white
-  blueColor <- sourced "Blue" londonOlympics2012 PMSReflexBlue >>= pmsToRGB
-  let stripe c = rect w h # fc c # lw none
-  pure $ hcat $ map stripe [blueColor, whiteColor, redColor]
 
 france :: (Construction :> es, Sourced :> es) => Flag es
 france = CountryFlag
   { flagIsoCode = "FRA"
   , flagName = "France"
   , flagDescription = sourced "Description" constitution "The national emblem is the tricolour flag, blue, white, red."
-  , flagDesign = frenchFlag
+  , flagDesign = design
   }
 
   where
+    govWebsite = mkSource
+        "Official Government Website"
+        "https://www.info.gouv.fr/marque-de-letat/les-couleurs#les-couleurs-principales"
+        "Official French Government Guidelines"
+        2024
+
+    --[ "https://www.info.gouv.fr/upload/media/default/0001/08/8df5f17cebb84f2c19a9953154719c80086d6c3b.png"
+    --]
     constitution = mkSource
         "FrenchConstitution"
         "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000006527453"
         "French Constitution, Article 2 (translated)"
         2024
+
+    design :: (Construction :> es, Sourced :> es) => Eff es (Diagram B)
+    design = do
+        (w, h) <- sourcedM "2:3 proportion" habitual $ naturalProportion 1 2
+        blueColor <- sourced "Blue" govWebsite (sRGB24 0 0 145)
+        whiteColor <- sourced "White" govWebsite (sRGB24 255 255 255)
+        redColor <- sourced "Red" govWebsite (sRGB24 255 0 14)
+        let stripe c = rect w h # fc c # lw none
+        pure $ hcat $ map stripe [blueColor, whiteColor, redColor]
