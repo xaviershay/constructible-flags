@@ -26,7 +26,7 @@ main = do
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
 
 -- | Process a single flag: render SVG and extract metadata
-processFlag :: Flag (Sourced : Construction : '[]) -> IO (String, String, String, String, [SourcedElement])
+processFlag :: Flag (Sourced : Construction : '[]) -> IO (String, String, String, String, [SourcedElement], [ConstructionElement])
 processFlag flag = do
   let isoLower = map toLower (flagIsoCode flag)
       svgFile = isoLower ++ ".svg"
@@ -44,12 +44,15 @@ processFlag flag = do
   let (_, descSources) = runPureEff $ runConstructionPure $ runSourcedCollect $ flagDescription flag
   let allSources = nub (designSources ++ descSources)
   
+  -- Collect construction operations
+  let (_, constructions) = runPureEff $ runConstructionCollect $ runSourcedPure $ flagDesign flag
+  
   putStrLn $ "Generated " ++ svgFile ++ " (" ++ flagName flag ++ ")"
   
-  pure (svgFile, flagName flag, description, flagIsoCode flag, allSources)
+  pure (svgFile, flagName flag, description, flagIsoCode flag, allSources, constructions)
 
 -- | Generate the index.html content
-generateIndex :: [(String, String, String, String, [SourcedElement])] -> String
+generateIndex :: [(String, String, String, String, [SourcedElement], [ConstructionElement])] -> String
 generateIndex flags = unlines
   [ "<!DOCTYPE html>"
   , "<html lang=\"en\">"
@@ -75,6 +78,7 @@ generateIndex flags = unlines
   , "        <th>Design</th>"
   , "        <th>Name</th>"
   , "        <th>Description</th>"
+  , "        <th>Construction</th>"
   , "        <th>Sources</th>"
   , "      </tr>"
   , "    </thead>"
@@ -86,14 +90,29 @@ generateIndex flags = unlines
   , "</html>"
   ]
   where
-    flagRow (svgFile, name, desc, _, sources) = unlines
+    flagRow (svgFile, name, desc, _, sources, constructions) = unlines
       [ "      <tr>"
       , "        <td><a href=\"" ++ svgFile ++ "\"><img src=\"" ++ svgFile ++ "\" alt=\"" ++ escapeHtml name ++ " flag\"></a></td>"
       , "        <td>" ++ escapeHtml name ++ "</td>"
       , "        <td>" ++ escapeHtml desc ++ "</td>"
+      , "        <td>" ++ formatConstructions constructions ++ "</td>"
       , "        <td>" ++ formatSources sources ++ "</td>"
       , "      </tr>"
       ]
+    
+    -- Format construction operations grouped by technique
+    formatConstructions :: [ConstructionElement] -> String
+    formatConstructions [] = "<em>None</em>"
+    formatConstructions elems =
+      let naturals = [n | ConstructionNatural n <- elems]
+      in if null naturals
+         then "<em>None</em>"
+         else "<ul>" ++ formatNaturals naturals ++ "</ul>"
+    
+    formatNaturals :: [Int] -> String
+    formatNaturals ns = 
+      let unique = nub ns
+      in "<li>Natural <span class=\"elements\">(" ++ intercalate ", " (map show unique) ++ ")</span></li>"
     
     -- Group elements by source and format
     formatSources :: [SourcedElement] -> String

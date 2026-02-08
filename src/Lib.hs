@@ -8,11 +8,13 @@
 
 module Lib
     ( Construction(..)
+    , ConstructionElement(..)
     , natural
     , naturalProportion
     , runConstructionPure
     , runConstructionSVG
     , runConstructionTrace
+    , runConstructionCollect
     , Sourced(..)
     , Source(..)
     , SourcedElement
@@ -138,6 +140,17 @@ runConstructionTrace = reinterpret_ (runState @[String] []) $ \case
     modify (++ ["natural " ++ show n])
     pure (fromIntegral n)
 
+-- | A construction element: the technique name and its parameter
+data ConstructionElement = ConstructionNatural Int
+  deriving (Show, Eq)
+
+-- | Interpreter that collects all construction operations
+runConstructionCollect :: Eff (Construction : es) a -> Eff es (a, [ConstructionElement])
+runConstructionCollect = reinterpret_ (runState @[ConstructionElement] []) $ \case
+  Natural n -> do
+    modify (++ [ConstructionNatural n])
+    pure (fromIntegral n)
+
 -- | Pantone color identifier
 data PantoneId =
     PMSRed032C
@@ -178,7 +191,43 @@ france = CountryFlag
         let stripe c = rect w h # fc c # lw none
         pure $ hcat $ map stripe [blueColor, whiteColor, redColor]
 
+japan :: (Construction :> es, Sourced :> es) => Flag es
+japan = CountryFlag
+  { flagIsoCode = "JPN"
+  , flagName = "Japan"
+  , flagDescription = sourced "Description" flagLaw "A white rectangular flag with a crimson-red disc at the center."
+  , flagDesign = design
+  }
+
+  where
+    flagLaw = SourceLaw
+        "Act on National Flag and Anthem (Law No. 127 of 1999)"
+        "https://elaws.e-gov.go.jp/document?lawid=411AC0000000127"
+
+    design :: (Construction :> es, Sourced :> es) => Eff es (Diagram B)
+    design = do
+        -- 2:3 proportion (height:width)
+        (w, h) <- sourcedM "2:3 proportion" habitual $ naturalProportion 3 2
+
+        -- Disc diameter is 3/5 of the height
+        three <- natural 3
+        five <- natural 5
+
+        -- TODO: This is all cheating for now, just getting something in place.
+        let discDiameter = sourcedM "Disc height" flagLaw $ pure $ (three / five) * h
+        discRadius <- (/ 2) <$> discDiameter
+
+        -- Colors from official specification
+        whiteColor <- sourced "White" flagLaw (sRGB24 255 255 255)
+        redColor <- sourced "Crimson" flagLaw (sRGB24 188 0 45)
+
+        let background = rect w h # fc whiteColor # lw none
+        let disc = circle discRadius # fc redColor # lw none
+
+        pure $ disc `atop` background
+
 allCountryFlags :: [Flag (Sourced : Construction : '[])]
 allCountryFlags =
     [ france
+    , japan
     ]
