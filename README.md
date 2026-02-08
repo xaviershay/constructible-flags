@@ -13,3 +13,4 @@ Sources and source types are included so that quality can be assessed.
 ## TODO
 
 * Incorporate source notes out of comments
+* Switch to representing constructible numbers, probably using a simple expression tree
