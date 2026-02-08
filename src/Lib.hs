@@ -14,7 +14,6 @@ module Lib
     , runConstructionTrace
     , Sourced(..)
     , Source
-    , mkSource
     , sourced
     , sourcedM
     , runSourcedPure
@@ -31,18 +30,12 @@ import Effectful
 import Effectful.Dispatch.Dynamic
 import Effectful.State.Static.Local (runState, modify)
 
--- | Source information for attributed data
-data Source = Source
-  { sourceId          :: String
-  , sourceUrl         :: String
-  , sourceDescription :: String
-  , sourceYear        :: Int
-  }
-  deriving (Show, Eq)
+type URL = String
+type Title = String
 
--- | Create a Source with the given information
-mkSource :: String -> String -> String -> Int -> Source
-mkSource = Source
+-- | Source information for attributed data
+data Source = SourceHabitual | SourceAuthoritativeWebsite Title URL | SourceLaw Title URL | SourcePublication Title URL
+  deriving (Show, Eq)
 
 -- | A flag with its metadata and construction
 data Flag es = CountryFlag
@@ -52,33 +45,20 @@ data Flag es = CountryFlag
   , flagDesign      :: Eff es (Diagram B)
   }
 
+sourceDescription :: Source -> Maybe String
+sourceDescription (SourcePublication "London Olympics 2012 Flag & Anthems Manual" _) = Just "The London Olympic committee specified PMS color values as part of their flag manual, which were approved by relevant governments. Flag manuals from Olympics since (last checked 2024) do not contain PMS values."
+sourceDescription _ = Nothing
+
 londonOlympics2012 :: Source
-londonOlympics2012 = mkSource
-  "LondonOlympics2012"
+londonOlympics2012 = SourcePublication
+  "London Olympics 2012 Flag & Anthems Manual"
   "https://library.olympics.com/Default/doc/SYRACUSE/34593/flags-and-anthems-manual-london-2012-spp-final-version-london-organising-committee-of-the-olympic-ga?_lg=en-GB"
-  "The London Olympic committee specified PMS color values as part of their flag manual, which were approved by relevant governments. Flag manuals from Olympics since (last checked 2024) do not contain PMS values."
-  2012
 
 pantone :: Source
-pantone = mkSource
-  "Pantone"
-  "https://www.pantone.com/"
-  "RGB approximation used by Pantone for its own colors, using C (coated) variants."
-  2024
-
-fotw :: Source
-fotw = mkSource
-  "Flags of the World"
-  "https://www.crwflags.com/fotw/flags/index.html"
-  "Self-proclaimed \"largest site devoted to vexillology\". Used as a secondary source when primary has not yet been identified."
-  2024
+pantone = SourceAuthoritativeWebsite "Pantone" "https://www.pantone.com/"
 
 habitual :: Source
-habitual = mkSource
-  "Habitual"
-  ""
-  "No primary source exists but unanimous agreement among other sources."
-  2024
+habitual = SourceHabitual
 
 -- | Effect for sourced/attributed values
 data Sourced :: Effect where
@@ -104,7 +84,12 @@ runSourcedPure = interpret_ $ \case
 runSourcedTrace :: Eff (Sourced : es) a -> Eff es (a, [String])
 runSourcedTrace = reinterpret_ (runState @[String] []) $ \case
   GetSourced name src val -> do
-    modify (++ [name ++ " sourced from " ++ sourceId src ++ " (" ++ show (sourceYear src) ++ ")"])
+    let srcDesc = case src of
+          SourceHabitual -> "habitual"
+          SourceAuthoritativeWebsite title _ -> title
+          SourceLaw title _ -> title
+          SourcePublication title _ -> title
+    modify (++ [name ++ " sourced from " ++ srcDesc])
     pure val
 
 -- | Effect for geometric constructions
@@ -136,14 +121,14 @@ runConstructionTrace = reinterpret_ (runState @[String] []) $ \case
 
 -- | Pantone color identifier
 data PantoneId =
-     PMSRed032
-  | PMSReflexBlue
+    PMSRed032C
+  | PMSReflexBlueC
   deriving (Show, Eq)
 
 -- | Convert a Pantone identifier to RGB color (sourced from Pantone website)
 pmsToRGB :: Sourced :> es => PantoneId -> Eff es (Colour Double)
-pmsToRGB PMSRed032 = sourced "RGB Conversion" pantone (sRGB24 230 49 62)
-pmsToRGB PMSReflexBlue = sourced "RGB Conversion" pantone (sRGB24 16 11 136)
+pmsToRGB PMSRed032C = sourced "RGB Conversion" pantone (sRGB24 230 49 62)
+pmsToRGB PMSReflexBlueC = sourced "RGB Conversion" pantone (sRGB24 16 11 136)
 
 
 france :: (Construction :> es, Sourced :> es) => Flag es
@@ -155,19 +140,15 @@ france = CountryFlag
   }
 
   where
-    govWebsite = mkSource
-        "Official Government Website"
+    govWebsite = SourceAuthoritativeWebsite
+        "Official French Government Color Guidelines"
         "https://www.info.gouv.fr/marque-de-letat/les-couleurs#les-couleurs-principales"
-        "Official French Government Guidelines"
-        2024
 
     --[ "https://www.info.gouv.fr/upload/media/default/0001/08/8df5f17cebb84f2c19a9953154719c80086d6c3b.png"
     --]
-    constitution = mkSource
-        "FrenchConstitution"
-        "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000006527453"
+    constitution = SourceLaw
         "French Constitution, Article 2 (translated)"
-        2024
+        "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000006527453"
 
     design :: (Construction :> es, Sourced :> es) => Eff es (Diagram B)
     design = do
