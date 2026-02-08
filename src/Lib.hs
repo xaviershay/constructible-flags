@@ -30,7 +30,7 @@ module Lib
     , allCountryFlags
     ) where
 
-import Diagrams.Prelude hiding (trace, Dynamic)
+import Diagrams.Prelude hiding (trace, Dynamic, boxCenter)
 import Diagrams.Backend.SVG
 import Effectful
 import Effectful.Dispatch.Dynamic
@@ -112,12 +112,24 @@ runSourcedCollect = reinterpret_ (runState @[SourcedElement] []) $ \case
 data Construction :: Effect where
   -- | Get a natural number (1, 2, 3, ...)
   Natural :: Int -> Construction m Double
+  -- | Get a rational number as a ratio of two naturals
+  Rational :: Int -> Int -> Construction m Double
+  -- | Get the center point of a box with given (width, height)
+  BoxCenter :: (Double, Double) -> Construction m (Double, Double)
 
 type instance DispatchOf Construction = 'Dynamic
 
 -- | Get a natural number as a constructible value
 natural :: Construction :> es => Int -> Eff es Double
 natural n = send (Natural n)
+
+-- | Get a rational number as a ratio of two naturals
+rational :: Construction :> es => Int -> Int -> Eff es Double
+rational num denom = send (Rational num denom)
+
+-- | Get the center point of a box with given (width, height)
+boxCenter :: Construction :> es => (Double, Double) -> Eff es (Double, Double)
+boxCenter dims = send (BoxCenter dims)
 
 -- | Get a proportion as a pair of natural numbers (width, height)
 naturalProportion :: Construction :> es => Int -> Int -> Eff es (Double, Double)
@@ -127,11 +139,15 @@ naturalProportion w h = (,) <$> natural w <*> natural h
 runConstructionSVG :: Eff (Construction : es) (Diagram B) -> Eff es (Diagram B)
 runConstructionSVG = interpret_ $ \case
   Natural n -> pure (fromIntegral n)
+  Rational num denom -> pure (fromIntegral num / fromIntegral denom)
+  BoxCenter (w, h) -> pure (w / 2, h / 2)
 
 -- | Interpreter that just evaluates constructions (for any return type)
 runConstructionPure :: Eff (Construction : es) a -> Eff es a
 runConstructionPure = interpret_ $ \case
   Natural n -> pure (fromIntegral n)
+  Rational num denom -> pure (fromIntegral num / fromIntegral denom)
+  BoxCenter (w, h) -> pure (w / 2, h / 2)
 
 -- | Interpreter that traces all construction operations
 runConstructionTrace :: Eff (Construction : es) a -> Eff es (a, [String])
@@ -139,9 +155,18 @@ runConstructionTrace = reinterpret_ (runState @[String] []) $ \case
   Natural n -> do
     modify (++ ["natural " ++ show n])
     pure (fromIntegral n)
+  Rational num denom -> do
+    modify (++ ["rational " ++ show num ++ "/" ++ show denom])
+    pure (fromIntegral num / fromIntegral denom)
+  BoxCenter (w, h) -> do
+    modify (++ ["boxCenter (" ++ show w ++ ", " ++ show h ++ ")"])
+    pure (w / 2, h / 2)
 
 -- | A construction element: the technique name and its parameter
-data ConstructionElement = ConstructionNatural Int
+data ConstructionElement
+  = ConstructionNatural Int
+  | ConstructionRational Int Int
+  | ConstructionBoxCenter (Double, Double)
   deriving (Show, Eq)
 
 -- | Interpreter that collects all construction operations
@@ -150,6 +175,12 @@ runConstructionCollect = reinterpret_ (runState @[ConstructionElement] []) $ \ca
   Natural n -> do
     modify (++ [ConstructionNatural n])
     pure (fromIntegral n)
+  Rational num denom -> do
+    modify (++ [ConstructionRational num denom])
+    pure (fromIntegral num / fromIntegral denom)
+  BoxCenter dims@(w, h) -> do
+    modify (++ [ConstructionBoxCenter dims])
+    pure (w / 2, h / 2)
 
 -- | Pantone color identifier
 data PantoneId =
@@ -201,30 +232,33 @@ japan = CountryFlag
 
   where
     flagLaw = SourceLaw
-        "Act on National Flag and Anthem (Law No. 127 of 1999)"
+        "Act on National Flag and Anthem (Law #127 of 1999)"
         "https://elaws.e-gov.go.jp/document?lawid=411AC0000000127"
+
+    govWebsite = SourceAuthoritativeWebsite
+      "Official Government Website"
+      "https://www.japan.go.jp/japan/flagandanthem/index.html"
+      -- Exact colors are not specified in any primay document. Those used here
+      -- match those used in the example flag given by current government
+      -- website. Other common cited goverment sources are not available online
+      -- to verify, and are also much older (latest being 2008).
 
     design :: (Construction :> es, Sourced :> es) => Eff es (Diagram B)
     design = do
         -- 2:3 proportion (height:width)
-        (w, h) <- sourcedM "2:3 proportion" habitual $ naturalProportion 3 2
+        (h, w) <- sourcedM "2:3 proportion" flagLaw $ naturalProportion 2 3
 
-        -- Disc diameter is 3/5 of the height
-        three <- natural 3
-        five <- natural 5
+        (cx, cy) <- boxCenter (w, h)
 
-        -- TODO: This is all cheating for now, just getting something in place.
-        let discDiameter = sourcedM "Disc height" flagLaw $ pure $ (three / five) * h
-        discRadius <- (/ 2) <$> discDiameter
+        discRadius <- sourcedM "Disc Height" flagLaw $ rational 3 5
 
-        -- Colors from official specification
-        whiteColor <- sourced "White" flagLaw (sRGB24 255 255 255)
-        redColor <- sourced "Crimson" flagLaw (sRGB24 188 0 45)
+        whiteColor <- sourced "White" govWebsite (sRGB24 255 255 255)
+        redColor <- sourced "Red" govWebsite (sRGB24 245 43 42)
 
-        let background = rect w h # fc whiteColor # lw none
-        let disc = circle discRadius # fc redColor # lw none
+        let background = rect w h # alignBL # fc whiteColor # lw none
+        let disc = circle discRadius # fc redColor # lw none # moveTo (p2 (cx, cy))
 
-        pure $ disc `atop` background
+        pure $ disc <> background
 
 allCountryFlags :: [Flag (Sourced : Construction : '[])]
 allCountryFlags =

@@ -105,14 +105,39 @@ generateIndex flags = unlines
     formatConstructions [] = "<em>None</em>"
     formatConstructions elems =
       let naturals = [n | ConstructionNatural n <- elems]
-      in if null naturals
+          rationals = [(num, denom) | ConstructionRational num denom <- elems]
+          boxCenters = [dims | ConstructionBoxCenter dims <- elems]
+          items = concat
+            [ if null naturals then [] else [formatNaturals naturals]
+            , if null rationals then [] else [formatRationals rationals]
+            , if null boxCenters then [] else [formatBoxCenters boxCenters]
+            ]
+      in if null items
          then "<em>None</em>"
-         else "<ul>" ++ formatNaturals naturals ++ "</ul>"
+         else "<ul>" ++ concat items ++ "</ul>"
     
     formatNaturals :: [Int] -> String
     formatNaturals ns = 
       let unique = nub ns
       in "<li>Natural <span class=\"elements\">(" ++ intercalate ", " (map show unique) ++ ")</span></li>"
+    
+    formatRationals :: [(Int, Int)] -> String
+    formatRationals rs = 
+      let unique = nub rs
+          formatRational (num, denom) = show num ++ "/" ++ show denom
+      in "<li>Rational <span class=\"elements\">(" ++ intercalate ", " (map formatRational unique) ++ ")</span></li>"
+    
+    formatBoxCenters :: [(Double, Double)] -> String
+    formatBoxCenters bs = 
+      let unique = nub bs
+          formatDouble :: Double -> String
+          formatDouble x = 
+            let rounded = fromIntegral (round x :: Int)
+            in if abs (x - rounded) < 1e-10
+               then show (round x :: Int)
+               else show x
+          formatBox (w, h) = "(" ++ formatDouble w ++ ", " ++ formatDouble h ++ ")"
+      in "<li>Box Center <span class=\"elements\">(" ++ intercalate ", " (map formatBox unique) ++ ")</span></li>"
     
     -- Group elements by source and format
     formatSources :: [SourcedElement] -> String

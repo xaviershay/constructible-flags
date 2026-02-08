@@ -9,3 +9,7 @@ This isn't particularly _useful_, but I find it _interesting_.
 Instructions for each flag are defined inside an effect, that allows inspection of the types of operations needed to draw that flag.
 
 Sources and source types are included so that quality can be assessed.
+
+## TODO
+
+* Incorporate source notes out of comments
