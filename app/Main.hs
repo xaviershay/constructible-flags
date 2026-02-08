@@ -9,10 +9,15 @@ import System.Directory (createDirectoryIfMissing)
 main :: IO ()
 main = do
   createDirectoryIfMissing True "out"
-  let diagram = runPureEff $ runConstructionSVG frenchFlag
-  renderSVG "out/fr.svg" (mkWidth 300) diagram
+  let diagram = runPureEff $ runSourcedPure $ runConstructionSVG frenchFlag
+  renderSVG "out/fra.svg" (mkWidth 300) diagram
   
   -- Demo: show the trace of construction operations
-  let (_, trace) = runPureEff $ runConstructionTrace frenchFlag
+  let (_, trace) = runPureEff $ runSourcedPure $ runConstructionTrace frenchFlag
   putStrLn "Construction trace:"
   mapM_ (putStrLn . ("  " ++)) trace
+
+  -- Demo: show the trace of sourced values
+  let (_, sources) = runPureEff $ runSourcedTrace $ runConstructionSVG frenchFlag
+  putStrLn "Source trace:"
+  mapM_ (putStrLn . ("  " ++)) sources
