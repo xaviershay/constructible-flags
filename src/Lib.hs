@@ -14,13 +14,15 @@ module Lib
     , runConstructionSVG
     , runConstructionTrace
     , Sourced(..)
-    , Source(..)
+    , Source
+    , mkSource
     , sourced
     , sourcedM
     , runSourcedPure
     , runSourcedTrace
     , PantoneId(..)
     , pmsToRGB
+    , Flag(..)
     ) where
 
 import Diagrams.Prelude hiding (trace, Dynamic)
@@ -38,37 +40,45 @@ data Source = Source
   }
   deriving (Show, Eq)
 
-londonOlympics2012 :: Source
-londonOlympics2012 = Source
-  { sourceId          = "LondonOlympics2012"
-  , sourceUrl         = "https://library.olympics.com/Default/doc/SYRACUSE/34593/flags-and-anthems-manual-london-2012-spp-final-version-london-organising-committee-of-the-olympic-ga?_lg=en-GB"
-  , sourceDescription = "The London Olympic committee specified PMS color values as part of their flag manual, which were approved by relevant governments. Flag manuals from Olympics since (last checked 2024) do not contain PMS values."
-  , sourceYear        = 2012
+-- | Create a Source with the given information
+mkSource :: String -> String -> String -> Int -> Source
+mkSource = Source
+
+-- | A flag with its metadata and construction
+data Flag es = CountryFlag
+  { flagIsoCode     :: String
+  , flagName        :: String
+  , flagDescription :: Eff es String
+  , flagDesign      :: Eff es (Diagram B)
   }
+
+londonOlympics2012 :: Source
+londonOlympics2012 = mkSource
+  "LondonOlympics2012"
+  "https://library.olympics.com/Default/doc/SYRACUSE/34593/flags-and-anthems-manual-london-2012-spp-final-version-london-organising-committee-of-the-olympic-ga?_lg=en-GB"
+  "The London Olympic committee specified PMS color values as part of their flag manual, which were approved by relevant governments. Flag manuals from Olympics since (last checked 2024) do not contain PMS values."
+  2012
 
 pantone :: Source
-pantone = Source
-  { sourceId          = "Pantone"
-  , sourceUrl         = "https://www.pantone.com/"
-  , sourceDescription = "RGB approximation used by Pantone for its own colors, using C (coated) variants."
-  , sourceYear        = 2024
-  }
+pantone = mkSource
+  "Pantone"
+  "https://www.pantone.com/"
+  "RGB approximation used by Pantone for its own colors, using C (coated) variants."
+  2024
 
 fotw :: Source
-fotw = Source
-  { sourceId          = "Flags of the World"
-  , sourceUrl         = "https://www.crwflags.com/fotw/flags/index.html"
-  , sourceDescription = "Self-proclaimed \"largest site devoted to vexillology\". Used as a secondary source when primary has not yet been identified."
-  , sourceYear        = 2024
-  }
+fotw = mkSource
+  "Flags of the World"
+  "https://www.crwflags.com/fotw/flags/index.html"
+  "Self-proclaimed \"largest site devoted to vexillology\". Used as a secondary source when primary has not yet been identified."
+  2024
 
 habitual :: Source
-habitual = Source
-  { sourceId          = "Habitual"
-  , sourceUrl         = ""
-  , sourceDescription = "No primary source exists but unanimous agreement among other sources."
-  , sourceYear        = 2024
-  }
+habitual = mkSource
+  "Habitual"
+  ""
+  "No primary source exists but unanimous agreement among other sources."
+  2024
 
 -- | Effect for sourced/attributed values
 data Sourced :: Effect where
@@ -144,3 +154,18 @@ frenchFlag = do
   blueColor <- sourced "Blue" londonOlympics2012 PMSReflexBlue >>= pmsToRGB
   let stripe c = rect w h # fc c # lw none
   pure $ hcat $ map stripe [blueColor, whiteColor, redColor]
+
+france :: (Construction :> es, Sourced :> es) => Flag es
+france = CountryFlag
+  { flagIsoCode = "FRA"
+  , flagName = "France"
+  , flagDescription = sourced "Description" constitution "The national emblem is the tricolour flag, blue, white, red."
+  , flagDesign = frenchFlag
+  }
+
+  where
+    constitution = mkSource
+        "FrenchConstitution"
+        "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000006527453"
+        "French Constitution, Article 2 (translated)"
+        2024
