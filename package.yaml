@@ -23,6 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 - diagrams-lib
 - diagrams-svg
+- effectful-core
 
 ghc-options:
 - -Wall
@@ -49,6 +50,7 @@ executables:
     dependencies:
     - constructible-flags
     - directory
+    - effectful-core
 
 tests:
   constructible-flags-test:
