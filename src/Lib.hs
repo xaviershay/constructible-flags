@@ -10,18 +10,21 @@ module Lib
     ( Construction(..)
     , natural
     , naturalProportion
+    , runConstructionPure
     , runConstructionSVG
     , runConstructionTrace
     , Sourced(..)
-    , Source
+    , Source(..)
     , sourced
     , sourcedM
     , runSourcedPure
     , runSourcedTrace
+    , runSourcedCollect
     , PantoneId(..)
     , pmsToRGB
     , Flag(..)
     , france
+    , allCountryFlags
     ) where
 
 import Diagrams.Prelude hiding (trace, Dynamic)
@@ -92,6 +95,13 @@ runSourcedTrace = reinterpret_ (runState @[String] []) $ \case
     modify (++ [name ++ " sourced from " ++ srcDesc])
     pure val
 
+-- | Interpreter that collects all Source values
+runSourcedCollect :: Eff (Sourced : es) a -> Eff es (a, [Source])
+runSourcedCollect = reinterpret_ (runState @[Source] []) $ \case
+  GetSourced _ src val -> do
+    modify (++ [src])
+    pure val
+
 -- | Effect for geometric constructions
 data Construction :: Effect where
   -- | Get a natural number (1, 2, 3, ...)
@@ -110,6 +120,11 @@ naturalProportion w h = (,) <$> natural w <*> natural h
 -- | Interpreter that produces an SVG diagram
 runConstructionSVG :: Eff (Construction : es) (Diagram B) -> Eff es (Diagram B)
 runConstructionSVG = interpret_ $ \case
+  Natural n -> pure (fromIntegral n)
+
+-- | Interpreter that just evaluates constructions (for any return type)
+runConstructionPure :: Eff (Construction : es) a -> Eff es a
+runConstructionPure = interpret_ $ \case
   Natural n -> pure (fromIntegral n)
 
 -- | Interpreter that traces all construction operations
@@ -158,3 +173,8 @@ france = CountryFlag
         redColor <- sourced "Red" govWebsite (sRGB24 255 0 14)
         let stripe c = rect w h # fc c # lw none
         pure $ hcat $ map stripe [blueColor, whiteColor, redColor]
+
+allCountryFlags :: [Flag (Sourced : Construction : '[])]
+allCountryFlags =
+    [ france
+    ]

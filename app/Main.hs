@@ -1,3 +1,6 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
+
 module Main (main) where
 
 import Lib
@@ -5,19 +8,107 @@ import Diagrams.Prelude hiding (trace)
 import Diagrams.Backend.SVG
 import Effectful
 import System.Directory (createDirectoryIfMissing)
+import Data.Char (toLower)
+import Data.List (nub)
 
 main :: IO ()
 main = do
   createDirectoryIfMissing True "out"
-  let diagram = runPureEff $ runSourcedPure $ runConstructionSVG $ flagDesign france
-  renderSVG "out/fra.svg" (mkWidth 300) diagram
   
-  -- Demo: show the trace of construction operations
-  let (_, trace) = runPureEff $ runSourcedPure $ runConstructionTrace $ flagDesign france
-  putStrLn "Construction trace:"
-  mapM_ (putStrLn . ("  " ++)) trace
+  -- Generate SVG for each flag and collect metadata for index
+  flagData <- mapM processFlag allCountryFlags
+  
+  -- Generate index.html
+  let html = generateIndex flagData
+  writeFile "out/index.html" html
+  
+  putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
 
-  -- Demo: show the trace of sourced values
-  let (_, sources) = runPureEff $ runSourcedTrace $ runConstructionSVG $ flagDesign france
-  putStrLn "Source trace:"
-  mapM_ (putStrLn . ("  " ++)) sources
+-- | Process a single flag: render SVG and extract metadata
+processFlag :: Flag (Sourced : Construction : '[]) -> IO (String, String, String, String, [Source])
+processFlag flag = do
+  let isoLower = map toLower (flagIsoCode flag)
+      svgFile = isoLower ++ ".svg"
+      svgPath = "out/" ++ svgFile
+      
+  -- Render the SVG (run Sourced first since it's outer in the effect stack)
+  let diagram = runPureEff $ runConstructionSVG $ runSourcedPure $ flagDesign flag
+  renderSVG svgPath (mkWidth 300) diagram
+  
+  -- Get description (use runConstructionPure for non-Diagram results)
+  let description = runPureEff $ runConstructionPure $ runSourcedPure $ flagDescription flag
+  
+  -- Collect sources from design and description
+  let (_, designSources) = runPureEff $ runConstructionPure $ runSourcedCollect $ flagDesign flag
+  let (_, descSources) = runPureEff $ runConstructionPure $ runSourcedCollect $ flagDescription flag
+  let allSources = nub (designSources ++ descSources)
+  
+  putStrLn $ "Generated " ++ svgFile ++ " (" ++ flagName flag ++ ")"
+  
+  pure (svgFile, flagName flag, description, flagIsoCode flag, allSources)
+
+-- | Generate the index.html content
+generateIndex :: [(String, String, String, String, [Source])] -> String
+generateIndex flags = unlines
+  [ "<!DOCTYPE html>"
+  , "<html lang=\"en\">"
+  , "<head>"
+  , "  <meta charset=\"UTF-8\">"
+  , "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+  , "  <title>Constructible Flags</title>"
+  , "  <style>"
+  , "    body { font-family: sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }"
+  , "    table { border-collapse: collapse; width: 100%; }"
+  , "    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: top; }"
+  , "    th { background-color: #f4f4f4; }"
+  , "    img { max-width: 150px; height: auto; }"
+  , "    ul { margin: 0; padding-left: 20px; }"
+  , "  </style>"
+  , "</head>"
+  , "<body>"
+  , "  <h1>Constructible Flags</h1>"
+  , "  <table>"
+  , "    <thead>"
+  , "      <tr>"
+  , "        <th>Design</th>"
+  , "        <th>Name</th>"
+  , "        <th>Description</th>"
+  , "        <th>Sources</th>"
+  , "      </tr>"
+  , "    </thead>"
+  , "    <tbody>"
+  , concatMap flagRow flags
+  , "    </tbody>"
+  , "  </table>"
+  , "</body>"
+  , "</html>"
+  ]
+  where
+    flagRow (svgFile, name, desc, _, sources) = unlines
+      [ "      <tr>"
+      , "        <td><a href=\"" ++ svgFile ++ "\"><img src=\"" ++ svgFile ++ "\" alt=\"" ++ escapeHtml name ++ " flag\"></a></td>"
+      , "        <td>" ++ escapeHtml name ++ "</td>"
+      , "        <td>" ++ escapeHtml desc ++ "</td>"
+      , "        <td>" ++ formatSources sources ++ "</td>"
+      , "      </tr>"
+      ]
+    
+    formatSources [] = "<em>None</em>"
+    formatSources srcs = "<ul>" ++ concatMap formatSource srcs ++ "</ul>"
+    
+    formatSource SourceHabitual = "<li><em>Habitual practice</em></li>"
+    formatSource (SourceAuthoritativeWebsite title url) = 
+      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a></li>"
+    formatSource (SourceLaw title url) = 
+      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Law)</li>"
+    formatSource (SourcePublication title url) = 
+      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Publication)</li>"
+    
+    escapeHtml :: String -> String
+    escapeHtml = concatMap escapeChar
+      where
+        escapeChar '<' = "&lt;"
+        escapeChar '>' = "&gt;"
+        escapeChar '&' = "&amp;"
+        escapeChar '"' = "&quot;"
+        escapeChar c   = [c]
