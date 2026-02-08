@@ -234,14 +234,7 @@ japan = CountryFlag
     flagLaw = SourceLaw
         "Act on National Flag and Anthem (Law #127 of 1999)"
         "https://elaws.e-gov.go.jp/document?lawid=411AC0000000127"
-
-    govWebsite = SourceAuthoritativeWebsite
-      "Official Government Website"
-      "https://www.japan.go.jp/japan/flagandanthem/index.html"
-      -- Exact colors are not specified in any primay document. Those used here
-      -- match those used in the example flag given by current government
-      -- website. Other common cited goverment sources are not available online
-      -- to verify, and are also much older (latest being 2008).
+        -- Exact colors not specified in text, but an example flag is given and these colors are used.
 
     design :: (Construction :> es, Sourced :> es) => Eff es (Diagram B)
     design = do
@@ -252,8 +245,8 @@ japan = CountryFlag
 
         discRadius <- sourcedM "Disc Height" flagLaw $ rational 3 5
 
-        whiteColor <- sourced "White" govWebsite (sRGB24 255 255 255)
-        redColor <- sourced "Red" govWebsite (sRGB24 245 43 42)
+        whiteColor <- sourced "White" flagLaw (sRGB24 255 255 255)
+        redColor <- sourced "Red" flagLaw (sRGB24 245 0 0)
 
         let background = rect w h # alignBL # fc whiteColor # lw none
         let disc = circle discRadius # fc redColor # lw none # moveTo (p2 (cx, cy))
