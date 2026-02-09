@@ -69,7 +69,7 @@ main = do
 
   -- Render step 0: initial points, but only those that are live
   let livePts0 = filter (`elem` (liveAfter !! 0)) initialPts
-      step0Dia = renderLabelledDots (zip ["a","b"] initialPts) livePts0
+      step0Dia = renderDots livePts0
 
   -- Render steps 1..n
   let stepDias = [ let layerIdx    = i - 1
@@ -91,9 +91,14 @@ main = do
 
   let allDias = step0Dia : stepDias
 
+  -- Compute a uniform bounding box from the union of all diagrams,
+  -- so every SVG renders on the same canvas size and position.
+  let combined  = mconcat allDias :: Diagram B
+      frameDia  = phantom combined :: Diagram B   -- invisible, same envelope
+
   mapM_ (\(i, dia) -> do
       let path = "out/debug/step-" ++ padNum i ++ ".svg"
-      renderSVG path (mkWidth 400) (dia # pad 1.3)
+      renderSVG path (mkWidth 400) ((dia <> frameDia) # pad 1.3)
       putStrLn $ "  Wrote " ++ path
     ) (zip [0::Int ..] allDias)
 
@@ -131,7 +136,6 @@ generateDebugIndex entries _ = unlines
   , "  .group .group > h3 { color: #7ab648; }"
   , "</style></head><body>"
   , "<h1>Construction Steps</h1>"
-  , "<div class=\"step\"><img src=\"step-00.svg\" width=\"300\"><p>Initial points</p></div>"
   , renderEntries entries
   , "</body></html>"
   ]
@@ -166,21 +170,6 @@ layerLabel LayerIntersectLC {}    = "Intersect line–circle"
 layerLabel LayerIntersectCC {}    = "Intersect circle–circle"
 layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
 
--- | Render the two initial points as labeled black dots
-renderInitialPoints :: (FC.Point, FC.Point) -> Diagram B
-renderInitialPoints ((ax, ay), (bx, by)) =
-    renderLabelledDots [("a", (ax, ay)), ("b", (bx, by))] [(ax, ay), (bx, by)]
-
--- | Render labelled dots, but only for points in the live set
-renderLabelledDots :: [(String, FC.Point)] -> [FC.Point] -> Diagram B
-renderLabelledDots labelled live =
-    mconcat [ renderDot label pt | (label, pt) <- labelled, pt `elem` live ]
-  where
-    renderDot label (x, y) =
-      (  circle 0.04 # fc black # lw none
-      <> text label # fontSizeL 0.12 # fc black # translate (r2 (0, -0.12))
-      ) # moveTo (p2 (x, y))
-
 -- | Render a complete layer (used only by non-debug code paths)
 renderLayer :: ConstructionLayer -> Diagram B
 renderLayer l = renderConstructionGeom l <> renderFill l
@@ -212,17 +201,10 @@ renderFill (LayerTriangle col (x1, y1) (x2, y2) (x3, y3)) =
           # moveTo (p2 (x1, y1))
 renderFill _ = mempty
 
--- | Render a dotted construction line, extended beyond the defining points
+-- | Render a dotted construction line connecting two points
 renderLine :: (Double, Double) -> (Double, Double) -> Diagram B
 renderLine (x1, y1) (x2, y2) =
-    let dx = x2 - x1
-        dy = y2 - y1
-        ext = 0.5
-        xa = x1 - ext * dx
-        ya = y1 - ext * dy
-        xb = x2 + ext * dx
-        yb = y2 + ext * dy
-    in fromVertices [p2 (xa, ya), p2 (xb, yb)]
+    fromVertices [p2 (x1, y1), p2 (x2, y2)]
          # dashingG [0.05, 0.05] 0
          # lc grey
          # lwG 0.02
