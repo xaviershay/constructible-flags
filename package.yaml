@@ -24,6 +24,7 @@ dependencies:
 - colour
 - diagrams-lib
 - diagrams-svg
+- directory
 - effectful-core
 
 ghc-options:
@@ -50,8 +51,6 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - constructible-flags
-    - directory
-    - effectful-core
 
 tests:
   constructible-flags-test:
