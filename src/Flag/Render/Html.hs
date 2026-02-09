@@ -27,6 +27,9 @@ generateIndex flags = unlines
   , "  <meta charset=\"UTF-8\">"
   , "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
   , "  <title>Constructible Flags</title>"
+  , "  <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css\">"
+  , "  <script defer src=\"https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js\"></script>"
+  , "  <script defer src=\"https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js\" onload=\"renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});\"></script>"
   , "  <style>"
   , "    body { font-family: sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }"
   , "    table { border-collapse: collapse; width: 100%; }"
@@ -34,6 +37,7 @@ generateIndex flags = unlines
   , "    th { background-color: #f4f4f4; }"
   , "    img { max-width: 150px; height: auto; }"
   , "    ul { margin: 0; padding-left: 20px; }"
+  , "    .katex-display { margin: 0;  }"
   , "    .elements { font-size: 0.9em; color: #666; }"
   , "  </style>"
   , "</head>"
@@ -76,16 +80,16 @@ generateIndex flags = unlines
           ccCount = length [() | StepIntersectCC <- ss]
           ftCount = length [() | StepFillTriangle <- ss]
           fcCount = length [() | StepFillCircle <- ss]
-          items = concat
-            [ if llCount > 0 then ["<li>Intersect line\8211line \215" ++ show llCount ++ "</li>"] else []
-            , if lcCount > 0 then ["<li>Intersect line\8211circle \215" ++ show lcCount ++ "</li>"] else []
-            , if ccCount > 0 then ["<li>Intersect circle\8211circle \215" ++ show ccCount ++ "</li>"] else []
-            , if ftCount > 0 then ["<li>Fill triangle \215" ++ show ftCount ++ "</li>"] else []
-            , if fcCount > 0 then ["<li>Fill circle \215" ++ show fcCount ++ "</li>"] else []
+          rows = concat
+            [ if llCount > 0 then ["\\text{\9472}\\!\\cap\\!\\text{\9472} &\\times " ++ show llCount] else []
+            , if lcCount > 0 then ["\\text{\9472}\\!\\cap\\!\\bigcirc &\\times " ++ show lcCount] else []
+            , if ccCount > 0 then ["\\bigcirc\\!\\cap\\!\\bigcirc &\\times " ++ show ccCount] else []
+            , if ftCount > 0 then ["\\blacktriangle &\\times " ++ show ftCount] else []
+            , if fcCount > 0 then ["\\bullet &\\times " ++ show fcCount] else []
             ]
-      in if null items
+      in if null rows
          then "<em>None</em>"
-         else "<ul>" ++ concat items ++ "</ul>"
+         else "<span style=\"font-size:75%\">$$\\begin{aligned}" ++ intercalate "\\\\" rows ++ "\\end{aligned}$$</span>"
     
     -- Group elements by source and format
     formatSources :: [SourcedElement] -> String
