@@ -40,6 +40,7 @@ library
       Flag.Pantone
       Flag.Registry
       Flag.Render.Debug
+      Flag.Render.DebugV2
       Flag.Render.Diagram
       Flag.Render.Html
       Flag.Source

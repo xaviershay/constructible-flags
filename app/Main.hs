@@ -19,12 +19,14 @@ import Flag.Registry (allCountryFlags, japan)
 import Flag.Render.Diagram (drawingToDiagram)
 import Flag.Render.Html (generateIndex)
 import Flag.Render.Debug (buildDebug)
+import Flag.Render.DebugV2 (buildDebugV2)
 
 main :: IO ()
 --main = buildHtml
 main = do
   buildHtml
   buildDebug japan
+  buildDebugV2 japan
 
 -- ---------------------------------------------------------------------------
 -- HTML index build
