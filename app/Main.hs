@@ -73,11 +73,15 @@ numberedLeaves (NLeaf i _ l : rest) = (i, l) : numberedLeaves rest
 numberedLeaves (NGroup _ cs : rest) = numberedLeaves cs ++ numberedLeaves rest
 
 main :: IO ()
-main = do
+main = buildHtml
+  
+  
+buildDebug = do
   createDirectoryIfMissing True "out/debug"
 
-  let input = ((0, 0), (1, 0)) :: (FC.Point, FC.Point)
-      (result, tree) = evalTree exampleDesign input
+  let flagArrow = runPureEff $ runSourcedPure $ flagDesign france
+      input = ((0, 0), (1, 0)) :: (FC.Point, FC.Point)
+      (result, tree) = evalTree flagArrow input
       (_, numbered)  = numberTree 1 tree
       leaves         = numberedLeaves numbered
       allLayers      = map snd leaves
@@ -280,6 +284,7 @@ escapeHtml = concatMap escapeChar
     escapeChar '"' = "&quot;"
     escapeChar c   = [c]
 
+buildHtml :: IO ()
 buildHtml = do
   createDirectoryIfMissing True "out"
   
@@ -293,33 +298,38 @@ buildHtml = do
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
 
 -- | Process a single flag: render SVG and extract metadata
-processFlag :: Flag (Sourced : Construction : '[]) -> IO (String, String, String, String, [SourcedElement], [ConstructionElement])
+processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, [SourcedElement], [Step])
 processFlag flag = do
   let isoLower = map toLower (flagIsoCode flag)
       svgFile = isoLower ++ ".svg"
       svgPath = "out/" ++ svgFile
       
-  -- Render the SVG (run Sourced first since it's outer in the effect stack)
-  let diagram = runPureEff $ runConstructionSVG $ runSourcedPure $ flagDesign flag
+  -- Resolve the FlagA arrow (sources colours etc.)
+  let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
+  
+  -- Evaluate the arrow on a unit input to get the Drawing
+  let flagInput = ((0, 0), (1, 0)) :: (FC.Point, FC.Point)
+      drawing = eval flagArrow flagInput
+      diagram = drawingToDiagram (optimize drawing)
   renderSVG svgPath (mkWidth 300) diagram
   
-  -- Get description (use runConstructionPure for non-Diagram results)
-  let description = runPureEff $ runConstructionPure $ runSourcedPure $ flagDescription flag
+  -- Get description
+  let description = runPureEff $ runSourcedPure $ flagDescription flag
   
   -- Collect sources from design and description
-  let (_, designSources) = runPureEff $ runConstructionPure $ runSourcedCollect $ flagDesign flag
-  let (_, descSources) = runPureEff $ runConstructionPure $ runSourcedCollect $ flagDescription flag
+  let (_, designSources) = runPureEff $ runSourcedCollect $ flagDesign flag
+  let (_, descSources) = runPureEff $ runSourcedCollect $ flagDescription flag
   let allSources = nub (designSources ++ descSources)
   
-  -- Collect construction operations
-  let (_, constructions) = runPureEff $ runConstructionCollect $ runSourcedPure $ flagDesign flag
+  -- Extract construction steps from the FlagA arrow
+  let constructionSteps = steps flagArrow
   
   putStrLn $ "Generated " ++ svgFile ++ " (" ++ flagName flag ++ ")"
   
-  pure (svgFile, flagName flag, description, flagIsoCode flag, allSources, constructions)
+  pure (svgFile, flagName flag, description, flagIsoCode flag, allSources, constructionSteps)
 
 -- | Generate the index.html content
-generateIndex :: [(String, String, String, String, [SourcedElement], [ConstructionElement])] -> String
+generateIndex :: [(String, String, String, String, [SourcedElement], [Step])] -> String
 generateIndex flags = unlines
   [ "<!DOCTYPE html>"
   , "<html lang=\"en\">"
@@ -357,54 +367,33 @@ generateIndex flags = unlines
   , "</html>"
   ]
   where
-    flagRow (svgFile, name, desc, _, sources, constructions) = unlines
+    flagRow (svgFile, name, desc, _, sources, constructionSteps) = unlines
       [ "      <tr>"
       , "        <td><a href=\"" ++ svgFile ++ "\"><img src=\"" ++ svgFile ++ "\" alt=\"" ++ escapeHtml name ++ " flag\"></a></td>"
       , "        <td>" ++ escapeHtml name ++ "</td>"
       , "        <td>" ++ escapeHtml desc ++ "</td>"
-      , "        <td>" ++ formatConstructions constructions ++ "</td>"
+      , "        <td>" ++ formatSteps constructionSteps ++ "</td>"
       , "        <td>" ++ formatSources sources ++ "</td>"
       , "      </tr>"
       ]
     
-    -- Format construction operations grouped by technique
-    formatConstructions :: [ConstructionElement] -> String
-    formatConstructions [] = "<em>None</em>"
-    formatConstructions elems =
-      let naturals = [n | ConstructionNatural n <- elems]
-          rationals = [(num, denom) | ConstructionRational num denom <- elems]
-          boxCenters = [dims | ConstructionBoxCenter dims <- elems]
+    -- Format construction steps grouped by kind
+    formatSteps :: [Step] -> String
+    formatSteps [] = "<em>None</em>"
+    formatSteps ss =
+      let llCount = length [() | StepIntersectLL <- ss]
+          lcCount = length [() | StepIntersectLC <- ss]
+          ccCount = length [() | StepIntersectCC <- ss]
+          ftCount = length [() | StepFillTriangle <- ss]
           items = concat
-            [ if null naturals then [] else [formatNaturals naturals]
-            , if null rationals then [] else [formatRationals rationals]
-            , if null boxCenters then [] else [formatBoxCenters boxCenters]
+            [ if llCount > 0 then ["<li>Intersect line\8211line \215" ++ show llCount ++ "</li>"] else []
+            , if lcCount > 0 then ["<li>Intersect line\8211circle \215" ++ show lcCount ++ "</li>"] else []
+            , if ccCount > 0 then ["<li>Intersect circle\8211circle \215" ++ show ccCount ++ "</li>"] else []
+            , if ftCount > 0 then ["<li>Fill triangle \215" ++ show ftCount ++ "</li>"] else []
             ]
       in if null items
          then "<em>None</em>"
          else "<ul>" ++ concat items ++ "</ul>"
-    
-    formatNaturals :: [Int] -> String
-    formatNaturals ns = 
-      let unique = nub ns
-      in "<li>Natural <span class=\"elements\">(" ++ intercalate ", " (map show unique) ++ ")</span></li>"
-    
-    formatRationals :: [(Int, Int)] -> String
-    formatRationals rs = 
-      let unique = nub rs
-          formatRational (num, denom) = show num ++ "/" ++ show denom
-      in "<li>Rational <span class=\"elements\">(" ++ intercalate ", " (map formatRational unique) ++ ")</span></li>"
-    
-    formatBoxCenters :: [(Double, Double)] -> String
-    formatBoxCenters bs = 
-      let unique = nub bs
-          formatDouble :: Double -> String
-          formatDouble x = 
-            let rounded = fromIntegral (round x :: Int)
-            in if abs (x - rounded) < 1e-10
-               then show (round x :: Int)
-               else show x
-          formatBox (w, h) = "(" ++ formatDouble w ++ ", " ++ formatDouble h ++ ")"
-      in "<li>Box Center <span class=\"elements\">(" ++ intercalate ", " (map formatBox unique) ++ ")</span></li>"
     
     -- Group elements by source and format
     formatSources :: [SourcedElement] -> String
@@ -422,8 +411,8 @@ generateIndex flags = unlines
     
     formatSourceGroup :: [SourcedElement] -> String
     formatSourceGroup [] = ""
-    formatSourceGroup group@((_, src):_) = 
-      let elementNames = map fst group
+    formatSourceGroup grp@((_, src):_) = 
+      let elementNames = map fst grp
           elementsStr = "<span class=\"elements\">(" ++ escapeHtml (joinElements elementNames) ++ ")</span>"
       in formatSourceWithElements src elementsStr
     

@@ -5,17 +5,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE Arrows #-}
 
 module Lib
-    ( Construction(..)
-    , ConstructionElement(..)
-    , natural
-    , naturalProportion
-    , runConstructionPure
-    , runConstructionSVG
-    , runConstructionTrace
-    , runConstructionCollect
-    , Sourced(..)
+    ( Sourced(..)
     , Source(..)
     , SourcedElement
     , sourced
@@ -30,11 +23,14 @@ module Lib
     , allCountryFlags
     ) where
 
-import Diagrams.Prelude hiding (trace, Dynamic, boxCenter)
-import Diagrams.Backend.SVG
 import Effectful
 import Effectful.Dispatch.Dynamic
 import Effectful.State.Static.Local (runState, modify)
+import Data.Colour
+import Data.Colour.SRGB (sRGB24)
+import Control.Arrow (returnA)
+
+import FlagConstruction
 
 type URL = String
 type Title = String
@@ -48,7 +44,7 @@ data Flag es = CountryFlag
   { flagIsoCode     :: String
   , flagName        :: String
   , flagDescription :: Eff es String
-  , flagDesign      :: Eff es (Diagram B)
+  , flagDesign      :: Eff es (FlagA (Point, Point) Drawing)
   }
 
 sourceDescription :: Source -> Maybe String
@@ -108,80 +104,6 @@ runSourcedCollect = reinterpret_ (runState @[SourcedElement] []) $ \case
     modify (++ [(name, src)])
     pure val
 
--- | Effect for geometric constructions
-data Construction :: Effect where
-  -- | Get a natural number (1, 2, 3, ...)
-  Natural :: Int -> Construction m Double
-  -- | Get a rational number as a ratio of two naturals
-  Rational :: Int -> Int -> Construction m Double
-  -- | Get the center point of a box with given (width, height)
-  BoxCenter :: (Double, Double) -> Construction m (Double, Double)
-
-type instance DispatchOf Construction = 'Dynamic
-
--- | Get a natural number as a constructible value
-natural :: Construction :> es => Int -> Eff es Double
-natural n = send (Natural n)
-
--- | Get a rational number as a ratio of two naturals
-rational :: Construction :> es => Int -> Int -> Eff es Double
-rational num denom = send (Rational num denom)
-
--- | Get the center point of a box with given (width, height)
-boxCenter :: Construction :> es => (Double, Double) -> Eff es (Double, Double)
-boxCenter dims = send (BoxCenter dims)
-
--- | Get a proportion as a pair of natural numbers (width, height)
-naturalProportion :: Construction :> es => Int -> Int -> Eff es (Double, Double)
-naturalProportion w h = (,) <$> natural w <*> natural h
-
--- | Interpreter that produces an SVG diagram
-runConstructionSVG :: Eff (Construction : es) (Diagram B) -> Eff es (Diagram B)
-runConstructionSVG = interpret_ $ \case
-  Natural n -> pure (fromIntegral n)
-  Rational num denom -> pure (fromIntegral num / fromIntegral denom)
-  BoxCenter (w, h) -> pure (w / 2, h / 2)
-
--- | Interpreter that just evaluates constructions (for any return type)
-runConstructionPure :: Eff (Construction : es) a -> Eff es a
-runConstructionPure = interpret_ $ \case
-  Natural n -> pure (fromIntegral n)
-  Rational num denom -> pure (fromIntegral num / fromIntegral denom)
-  BoxCenter (w, h) -> pure (w / 2, h / 2)
-
--- | Interpreter that traces all construction operations
-runConstructionTrace :: Eff (Construction : es) a -> Eff es (a, [String])
-runConstructionTrace = reinterpret_ (runState @[String] []) $ \case
-  Natural n -> do
-    modify (++ ["natural " ++ show n])
-    pure (fromIntegral n)
-  Rational num denom -> do
-    modify (++ ["rational " ++ show num ++ "/" ++ show denom])
-    pure (fromIntegral num / fromIntegral denom)
-  BoxCenter (w, h) -> do
-    modify (++ ["boxCenter (" ++ show w ++ ", " ++ show h ++ ")"])
-    pure (w / 2, h / 2)
-
--- | A construction element: the technique name and its parameter
-data ConstructionElement
-  = ConstructionNatural Int
-  | ConstructionRational Int Int
-  | ConstructionBoxCenter (Double, Double)
-  deriving (Show, Eq)
-
--- | Interpreter that collects all construction operations
-runConstructionCollect :: Eff (Construction : es) a -> Eff es (a, [ConstructionElement])
-runConstructionCollect = reinterpret_ (runState @[ConstructionElement] []) $ \case
-  Natural n -> do
-    modify (++ [ConstructionNatural n])
-    pure (fromIntegral n)
-  Rational num denom -> do
-    modify (++ [ConstructionRational num denom])
-    pure (fromIntegral num / fromIntegral denom)
-  BoxCenter dims@(w, h) -> do
-    modify (++ [ConstructionBoxCenter dims])
-    pure (w / 2, h / 2)
-
 -- | Pantone color identifier
 data PantoneId =
     PMSRed032C
@@ -194,7 +116,7 @@ pmsToRGB PMSRed032C = sourced "RGB Conversion" pantone (sRGB24 230 49 62)
 pmsToRGB PMSReflexBlueC = sourced "RGB Conversion" pantone (sRGB24 16 11 136)
 
 
-france :: (Construction :> es, Sourced :> es) => Flag es
+france :: Sourced :> es => Flag es
 france = CountryFlag
   { flagIsoCode = "FRA"
   , flagName = "France"
@@ -207,54 +129,27 @@ france = CountryFlag
         "Official French Government Color Guidelines"
         "https://www.info.gouv.fr/marque-de-letat/les-couleurs#les-couleurs-principales"
 
-    --[ "https://www.info.gouv.fr/upload/media/default/0001/08/8df5f17cebb84f2c19a9953154719c80086d6c3b.png"
-    --]
     constitution = SourceLaw
         "French Constitution, Article 2"
         "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000006527453"
 
-    design :: (Construction :> es, Sourced :> es) => Eff es (Diagram B)
+    design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        (w, h) <- sourcedM "2:3 proportion" habitual $ naturalProportion 1 2
-        blueColor <- sourced "Blue" govWebsite (sRGB24 0 0 145)
+        blueColor  <- sourced "Blue"  govWebsite (sRGB24 0 0 145)
         whiteColor <- sourced "White" govWebsite (sRGB24 255 255 255)
-        redColor <- sourced "Red" govWebsite (sRGB24 255 0 14)
-        let stripe c = rect w h # fc c # lw none
-        pure $ hcat $ map stripe [blueColor, whiteColor, redColor]
+        redColor   <- sourced "Red"   govWebsite (sRGB24 255 0 14)
+        _ <- sourced "2:3 proportion" habitual ()
+        pure $ proc (a, b) -> do
+            c <- naturalMult 2 -< (a, b)
+            d <- naturalMult 2 -< (b, c)
 
-japan :: (Construction :> es, Sourced :> es) => Flag es
-japan = CountryFlag
-  { flagIsoCode = "JPN"
-  , flagName = "Japan"
-  , flagDescription = sourced "Description" flagLaw "A white rectangular flag with a red disc at the center."
-  , flagDesign = design
-  }
+            d1 <- fillBox blueColor  1 2 -< (a, b)
+            d2 <- fillBox whiteColor 1 2 -< (b, c)
+            d3 <- fillBox redColor   1 2 -< (c, d)
 
-  where
-    flagLaw = SourceLaw
-        "Act on National Flag and Anthem (Law #127 of 1999)"
-        "https://elaws.e-gov.go.jp/document?lawid=411AC0000000127"
-        -- Exact colors not specified in text, but an example flag is given and these colors are used.
+            returnA -< d1 <> d2 <> d3
 
-    design :: (Construction :> es, Sourced :> es) => Eff es (Diagram B)
-    design = do
-        -- 2:3 proportion (height:width)
-        (h, w) <- sourcedM "2:3 proportion" flagLaw $ naturalProportion 2 3
-
-        (cx, cy) <- boxCenter (w, h)
-
-        discRadius <- sourcedM "Disc Height" flagLaw $ rational 3 5
-
-        whiteColor <- sourced "White" flagLaw (sRGB24 255 255 255)
-        redColor <- sourced "Red" flagLaw (sRGB24 245 0 0)
-
-        let background = rect w h # alignBL # fc whiteColor # lw none
-        let disc = circle discRadius # fc redColor # lw none # moveTo (p2 (cx, cy))
-
-        pure $ disc <> background
-
-allCountryFlags :: [Flag (Sourced : Construction : '[])]
+allCountryFlags :: [Flag (Sourced : '[])]
 allCountryFlags =
     [ france
-    , japan
     ]

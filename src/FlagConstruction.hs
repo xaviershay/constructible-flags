@@ -24,6 +24,7 @@ module FlagConstruction
     , naturalMult
     , quad
     , fillRectangle
+    , fillBox
 
       -- * Interpreters
     , Step(..)
