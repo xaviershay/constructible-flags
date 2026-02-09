@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Flag
+      Flag.Construction.Debug
       Flag.Construction.Geometry
       Flag.Construction.Interpreter
       Flag.Construction.Layers

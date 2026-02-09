@@ -1,0 +1,55 @@
+{-# LANGUAGE GADTs #-}
+
+-- | Tracing interpreter for FlagA constructions.
+-- Prints each geometric step with its inputs and outputs,
+-- making it easy to spot where a construction goes wrong.
+module Flag.Construction.Debug
+    ( trace
+    ) where
+
+import Flag.Construction.Types
+import Flag.Construction.Geometry
+
+-- | Evaluate a construction arrow, printing every geometric step
+-- with labeled inputs and outputs.
+trace :: Show a => Show b => FlagA a b -> a -> IO b
+trace fa input = do
+    putStrLn $ "Input: " ++ show input
+    result <- go 0 fa input
+    putStrLn $ "Output: " ++ show result
+    pure result
+  where
+    indent n = replicate (n * 2) ' '
+
+    go :: Int -> FlagA a b -> a -> IO b
+    go _ (Arr _ f) a =
+        pure (f a)
+    go n (Compose f g) a = do
+        b <- go n f a
+        go n g b
+    go n (First f) (a, c) = do
+        b <- go n f a
+        pure (b, c)
+    go n (Par f g) (a, c) = do
+        b <- go n f a
+        d <- go n g c
+        pure (b, d)
+    go n IntersectLL input' = do
+        let result = evalIntersectLL' input'
+        putStrLn $ indent n ++ "IntersectLL " ++ show input' ++ " => " ++ show result
+        pure result
+    go n IntersectLC input' = do
+        let result = evalIntersectLC' input'
+        putStrLn $ indent n ++ "IntersectLC " ++ show input' ++ " => " ++ show result
+        pure result
+    go n IntersectCC input' = do
+        let result = evalIntersectCC' input'
+        putStrLn $ indent n ++ "IntersectCC " ++ show input' ++ " => " ++ show result
+        pure result
+    go _ (FillTriangle c) (p1, p2, p3) =
+        pure $ DrawTriangle c p1 p2 p3
+    go _ (FillCircle c) (center, edge) =
+        pure $ DrawCircle c center (dist center edge)
+    go n (Group label f) a = do
+        putStrLn $ indent n ++ ">> " ++ label
+        go (n + 1) f a

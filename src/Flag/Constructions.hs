@@ -77,12 +77,17 @@ perpendicular = group "Perpendicular points" $ proc (a, b) -> do
 
 -- | Given a line (two points) and a point, return a line parallel to the
 -- given line passing through the point.  The construction forms a
--- parallelogram: circle centred at @p@ through @a@, circle centred at @b@
--- with radius @dist(b, a)@, and one of the intersections gives the fourth
--- vertex @q@ such that @(p, q)@ is parallel to @(a, b)@.
+-- parallelogram @a-b-q-p@ where @p→q@ is parallel to @a→b@.
+--
+-- Method: the diagonals of a parallelogram bisect each other, so
+-- @midpoint(b, p) = midpoint(a, q)@.  We find @M = midpoint(b, p)@,
+-- then reflect @a@ through @M@ to obtain @q = 2M − a = p + (b − a)@.
 parallel :: FlagA ((Point, Point), Point) (Point, Point)
 parallel = group "Parallel line" $ proc ((a, b), p) -> do
-    (q, _) <- intersectCC -< ((p, a), (b, a))
+    m <- midpoint -< (b, p)
+    -- Reflect a through m: intersect line (a, m) with circle at m
+    -- through a; the far intersection is the reflection.
+    (_, q) <- intersectLC -< ((a, m), (m, a))
     returnA -< (p, q)
 
 -- | Given three points @(a, b, c)@, return the fourth point @d@ at the
