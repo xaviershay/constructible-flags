@@ -1,10 +1,13 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Main (main) where
 
 import Lib
-import Diagrams.Prelude hiding (trace)
+import FlagConstruction hiding (Point)
+import qualified FlagConstruction as FC
+import Diagrams.Prelude hiding (trace, Line, Circle, radius)
 import Diagrams.Backend.SVG
 import Effectful
 import System.Directory (createDirectoryIfMissing)
@@ -14,6 +17,104 @@ import Data.Function (on)
 
 main :: IO ()
 main = do
+  createDirectoryIfMissing True "out/debug"
+
+  let input = ((0, 0), (1, 0)) :: (FC.Point, FC.Point)
+      (result, layers) = evalLayers exampleDesign input
+      stepNames = steps exampleDesign
+
+  putStrLn $ "Construction has " ++ show (length layers) ++ " steps:"
+  mapM_ (\(i, s) -> putStrLn $ "  " ++ show i ++ ". " ++ show s) (zip [1::Int ..] stepNames)
+
+  -- Render cumulative SVGs: step 0 is the initial points, then one per layer
+  let initialDia = renderInitialPoints input
+      cumulativeDias = scanl (\acc layer -> acc <> renderLayer layer) initialDia layers
+
+  mapM_ (\(i, dia) -> do
+      let path = "out/debug/step-" ++ padNum i ++ ".svg"
+      renderSVG path (mkWidth 400) (dia # pad 1.3)
+      putStrLn $ "  Wrote " ++ path
+    ) (zip [0::Int ..] cumulativeDias)
+
+  -- Generate index.html
+  let numSteps = length cumulativeDias
+      indexHtml = unlines
+        [ "<!DOCTYPE html>"
+        , "<html><head><title>Construction Steps</title>"
+        , "<style>"
+        , "  body { font-family: sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }"
+        , "  .step { display: inline-block; margin: 10px; text-align: center; }"
+        , "  .step img { border: 1px solid #ccc; }"
+        , "  .step p { margin: 4px 0; font-size: 14px; color: #666; }"
+        , "</style></head><body>"
+        , "<h1>Construction Steps</h1>"
+        , unlines [ "<div class=\"step\"><img src=\"step-" ++ padNum i ++ ".svg\" width=\"300\"><p>"
+                    ++ stepLabel i ++ "</p></div>"
+                  | i <- [0 .. numSteps - 1] ]
+        , "</body></html>"
+        ]
+      stepLabel 0 = "Initial points"
+      stepLabel i = show i ++ ". " ++ show (stepNames !! (i - 1))
+  writeFile "out/debug/index.html" indexHtml
+  putStrLn "  Wrote out/debug/index.html"
+
+  putStrLn $ "\nResult: " ++ show result
+
+-- | Zero-pad a step number to 2 digits
+padNum :: Int -> String
+padNum n
+  | n < 10    = "0" ++ show n
+  | otherwise = show n
+
+-- | Render the two initial points as labeled black dots
+renderInitialPoints :: (FC.Point, FC.Point) -> Diagram B
+renderInitialPoints ((ax, ay), (bx, by)) =
+    dot "a" (ax, ay) <> dot "b" (bx, by)
+  where
+    dot label (x, y) =
+      (  circle 0.04 # fc black # lw none
+      <> text label # fontSizeL 0.12 # fc black # translate (r2 (0, -0.12))
+      ) # moveTo (p2 (x, y))
+
+-- | Render a single construction layer as a diagram
+renderLayer :: ConstructionLayer -> Diagram B
+renderLayer (LayerLine (x1, y1) (x2, y2)) =
+    let dx = x2 - x1
+        dy = y2 - y1
+        -- Extend the line beyond the defining points for visibility
+        ext = 0.5
+        xa = x1 - ext * dx
+        ya = y1 - ext * dy
+        xb = x2 + ext * dx
+        yb = y2 + ext * dy
+    in fromVertices [p2 (xa, ya), p2 (xb, yb)]
+         # dashingG [0.05, 0.05] 0
+         # lc grey
+         # lwG 0.02
+
+renderLayer (LayerCircle (cx, cy) r) =
+    circle r
+      # moveTo (p2 (cx, cy))
+      # dashingG [0.08, 0.05] 0
+      # lc grey
+      # lwG 0.02
+      # fillColor transparent
+
+renderLayer (LayerIntersections pts) =
+    mconcat [ circle 0.04 # fc black # lw none # moveTo (p2 (x, y))
+            | (x, y) <- pts
+            ]
+
+renderLayer (LayerTriangle col (x1, y1) (x2, y2) (x3, y3)) =
+    let offsets = [ r2 (x2-x1, y2-y1), r2 (x3-x2, y3-y2) ]
+        tri = closeLine (fromOffsets offsets)
+    in  strokeLoop tri
+          # fcA (col `withOpacity` 0.6)
+          # lc col
+          # lwG 0.02
+          # moveTo (p2 (x1, y1))
+  
+buildHtml = do
   createDirectoryIfMissing True "out"
   
   -- Generate SVG for each flag and collect metadata for index

@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      FlagConstruction
       Lib
   other-modules:
       Paths_constructible_flags
@@ -35,6 +36,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , colour
     , diagrams-lib
     , diagrams-svg
     , effectful-core
@@ -51,6 +53,7 @@ executable constructible-flags-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , colour
     , constructible-flags
     , diagrams-lib
     , diagrams-svg
@@ -70,6 +73,7 @@ test-suite constructible-flags-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , colour
     , constructible-flags
     , diagrams-lib
     , diagrams-svg
