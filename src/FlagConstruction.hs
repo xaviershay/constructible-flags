@@ -334,6 +334,7 @@ perpendicular = group "Perpendicular points" $ proc (a, b) -> do
 
 exampleDesign :: FlagA (Point, Point) Drawing
 exampleDesign = proc (a, b) -> do
-    (_, p) <- perpendicular -< (a, b)
+    (c, _) <- perpendicular -< (a, b)
+    (d, _) <- perpendicular -< (c, a)
 
-    fillRectangle red -< (a, b, p, a)
+    fillRectangle red -< (a, b, d, c)
