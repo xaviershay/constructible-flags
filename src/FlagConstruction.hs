@@ -15,14 +15,19 @@ module FlagConstruction
 
       -- * Drawing primitives
     , fillTriangle
+    , fillCircle
 
       -- * Grouping
     , group
 
       -- * Composite constructors
+    , perpendicular
     , parallel
     , naturalMult
+    , rationalMult
+    , midpoint
     , quad
+    , boxNatural
     , fillRectangle
     , fillBox
 
@@ -60,6 +65,7 @@ type Point = (Double, Double)
 data Drawing
   = DrawTriangle (Colour Double) Point Point Point
   | DrawPath (Colour Double) [Point]  -- ^ A closed polygon as an ordered list of vertices
+  | DrawCircle (Colour Double) Point Double  -- ^ A filled circle: colour, center, radius
   | Overlay Drawing Drawing
   | EmptyDrawing
   deriving (Show)
@@ -102,6 +108,7 @@ data FlagA a b where
 
   -- Drawing primitives
   FillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
+  FillCircle   :: Colour Double -> FlagA (Point, Point) Drawing  -- ^ (center, edgePoint)
 
   -- Grouping (label a sub-computation for documentation / debugging)
   Group :: String -> FlagA a b -> FlagA a b
@@ -130,6 +137,7 @@ showFlagA n fa = indent n ++ case fa of
   IntersectLC     -> "IntersectLC"
   IntersectCC     -> "IntersectCC"
   FillTriangle _  -> "FillTriangle"
+  FillCircle _    -> "FillCircle"
   Group label f   -> "Group " ++ show label ++ "\n" ++ showFlagA (n+2) f
   where
     indent i = replicate i ' '
@@ -153,6 +161,10 @@ intersectCC = IntersectCC
 fillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
 fillTriangle = FillTriangle
 
+-- | Fill a circle defined by its center and an edge point
+fillCircle :: Colour Double -> FlagA (Point, Point) Drawing
+fillCircle = FillCircle
+
 -- | Group a sub-computation under a label for documentation / debugging
 group :: String -> FlagA a b -> FlagA a b
 group = Group
@@ -167,6 +179,7 @@ data Step
   | StepIntersectLC
   | StepIntersectCC
   | StepFillTriangle
+  | StepFillCircle
   deriving (Show, Eq)
 
 -- | Extract the flat list of geometric construction steps, in order.
@@ -181,6 +194,7 @@ steps IntersectLL      = [StepIntersectLL]
 steps IntersectLC      = [StepIntersectLC]
 steps IntersectCC      = [StepIntersectCC]
 steps (FillTriangle _) = [StepFillTriangle]
+steps (FillCircle _)   = [StepFillCircle]
 steps (Group _ f)      = steps f
 
 -- | Evaluate a construction arrow to produce a concrete function.
@@ -195,6 +209,7 @@ eval IntersectLL      = evalIntersectLL'
 eval IntersectLC      = evalIntersectLC'
 eval IntersectCC      = evalIntersectCC'
 eval (FillTriangle c) = \(p1, p2, p3) -> DrawTriangle c p1 p2 p3
+eval (FillCircle c)   = \(center, edge) -> DrawCircle c center (dist center edge)
 eval (Group _ f)      = eval f
 
 -- | Line-line intersection from defining points
@@ -266,6 +281,7 @@ data ConstructionLayer
       Point Point       -- ^ Second circle (center, edge)
       [Point]           -- ^ Result points
   | LayerTriangle (Colour Double) Point Point Point  -- ^ A filled triangle
+  | LayerCircle (Colour Double) Point Point  -- ^ A filled circle (center, edge)
   deriving (Show)
 
 -- | The points consumed as inputs by a construction layer.
@@ -274,6 +290,7 @@ layerInputPoints (LayerIntersectLL lp1 lp2 lp3 lp4 _) = [lp1, lp2, lp3, lp4]
 layerInputPoints (LayerIntersectLC lp1 lp2 cc ce _) = [lp1, lp2, cc, ce]
 layerInputPoints (LayerIntersectCC c1 e1 c2 e2 _)   = [c1, e1, c2, e2]
 layerInputPoints (LayerTriangle _ p1 p2 p3)          = [p1, p2, p3]
+layerInputPoints (LayerCircle _ center edge)         = [center, edge]
 
 -- | The points produced as outputs by a construction layer.
 layerOutputPoints :: ConstructionLayer -> [Point]
@@ -281,6 +298,7 @@ layerOutputPoints (LayerIntersectLL _ _ _ _ pts) = pts
 layerOutputPoints (LayerIntersectLC _ _ _ _ pts) = pts
 layerOutputPoints (LayerIntersectCC _ _ _ _ pts) = pts
 layerOutputPoints (LayerTriangle _ _ _ _)        = []
+layerOutputPoints (LayerCircle _ _ _)            = []
 
 -- | Euclidean distance (exported for rendering code that derives radii).
 pointDist :: Point -> Point -> Double
@@ -309,6 +327,8 @@ evalLayers IntersectCC      inp@((c1, e1), (c2, e2)) =
     in  ((p1, p2), [LayerIntersectCC c1 e1 c2 e2 [p1, p2]])
 evalLayers (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
+evalLayers (FillCircle col) (center, edge) =
+    (DrawCircle col center (dist center edge), [LayerCircle col center edge])
 evalLayers (Group _ f)        x = evalLayers f x
 
 -- | A tree of construction output that preserves group structure.
@@ -340,6 +360,8 @@ evalTree IntersectCC      inp@((c1, e1), (c2, e2)) =
     in  ((p1, p2), [TreeLayer (LayerIntersectCC c1 e1 c2 e2 [p1, p2])])
 evalTree (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [TreeLayer (LayerTriangle col p1 p2 p3)])
+evalTree (FillCircle col) (center, edge) =
+    (DrawCircle col center (dist center edge), [TreeLayer (LayerCircle col center edge)])
 evalTree (Group label f) x =
     let (res, children) = evalTree f x
     in  (res, [TreeGroup label children])
@@ -396,7 +418,7 @@ optimize = buildDrawing . mergeAll . flatten
     toVertices :: Drawing -> Maybe (Colour Double, [Point])
     toVertices (DrawTriangle c p1 p2 p3) = Just (c, [p1, p2, p3])
     toVertices (DrawPath c pts)          = Just (c, pts)
-    toVertices _                         = Nothing
+    toVertices _                         = Nothing  -- DrawCircle etc. cannot merge
 
     -- Compare colours by their sRGB channel values
     colourEq :: Colour Double -> Colour Double -> Bool
@@ -540,6 +562,40 @@ naturalMult n
     markOff k = proc (a, b, cur, prev) -> do
         (_, next) <- intersectLC -< ((a, b), (cur, prev))
         markOff (k - 1) -< (a, b, next, cur)
+
+-- | Construct the midpoint of a segment @(a, b)@ using compass and
+-- straightedge.  Uses circle-circle intersection on circles of equal
+-- radius centred at each endpoint, then intersects that perpendicular
+-- bisector with the original line.
+midpoint :: FlagA (Point, Point) Point
+midpoint = group "Midpoint" $ proc (a, b) -> do
+    -- Two circles of equal radius (|ab|) centered at a and b
+    (p, q) <- intersectCC -< ((a, b), (b, a))
+    -- The line (p, q) is the perpendicular bisector; intersect with (a, b)
+    m <- intersectLL -< ((p, q), (a, b))
+    returnA -< m
+
+-- | Given a segment @(a, b)@ representing one unit, return the point
+-- @p/q@ units from @a@ in the direction of @b@, using the classic
+-- Thales' theorem construction.  Marks @q@ units on an auxiliary line,
+-- connects the @q@th mark to @b@, then constructs a parallel through
+-- the @p@th mark to find the desired point on @(a, b)@.
+rationalMult :: Int -> Int -> FlagA (Point, Point) Point
+rationalMult p q
+  | p == q    = group (show p ++ "/" ++ show q) $ Arr "snd" snd
+  | otherwise = group (show p ++ "/" ++ show q) $ proc (a, b) -> do
+      -- Get a perpendicular direction for the auxiliary line
+      (c, _) <- perpendicular -< (a, b)
+      -- Mark q units along auxiliary line (a, c)
+      qPt <- naturalMult q -< (a, c)
+      -- Mark p units along auxiliary line (a, c)
+      pPt <- naturalMult p -< (a, c)
+      -- Connect qPt to b
+      -- Construct a parallel to (qPt, b) through pPt
+      (_, target) <- parallel -< ((qPt, b), pPt)
+      -- Intersect that parallel with the original line (a, b)
+      result <- intersectLL -< ((pPt, target), (a, b))
+      returnA -< result
 
 boxNatural :: Int -> Int -> FlagA (Point, Point) (Point, Point, Point, Point)
 boxNatural w h = proc (tl, b) -> do

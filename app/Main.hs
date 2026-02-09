@@ -40,6 +40,11 @@ drawingToDiagram (DrawPath col pts@((x0, y0):_)) =
           # lwG 0
           # moveTo (p2 (x0, y0))
 drawingToDiagram (DrawPath _ []) = mempty
+drawingToDiagram (DrawCircle col (cx, cy) r) =
+    circle r
+      # fcA (col `withOpacity` 1.0)
+      # lwG 0
+      # moveTo (p2 (cx, cy))
 
 -- ---------------------------------------------------------------------------
 -- Tree-aware step numbering
@@ -73,13 +78,14 @@ numberedLeaves (NLeaf i _ l : rest) = (i, l) : numberedLeaves rest
 numberedLeaves (NGroup _ cs : rest) = numberedLeaves cs ++ numberedLeaves rest
 
 main :: IO ()
-main = buildHtml
+--main = buildHtml
+main = buildDebug
   
   
 buildDebug = do
   createDirectoryIfMissing True "out/debug"
 
-  let flagArrow = runPureEff $ runSourcedPure $ flagDesign france
+  let flagArrow = runPureEff $ runSourcedPure $ flagDesign japan
       input = ((0, 0), (1, 0)) :: (FC.Point, FC.Point)
       (result, tree) = evalTree flagArrow input
       (_, numbered)  = numberTree 1 tree
@@ -212,6 +218,7 @@ layerLabel LayerIntersectLL {}    = "Intersect line–line"
 layerLabel LayerIntersectLC {}    = "Intersect line–circle"
 layerLabel LayerIntersectCC {}    = "Intersect circle–circle"
 layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
+layerLabel (LayerCircle _ _ _)     = "Fill circle"
 
 -- | Render a complete layer (used only by non-debug code paths)
 renderLayer :: ConstructionLayer -> Diagram B
@@ -236,6 +243,9 @@ renderConstructionGeom (LayerIntersectCC c1 e1 c2 e2 pts) =
     <> renderDots pts
 
 renderConstructionGeom (LayerTriangle _ _ _ _) = mempty
+renderConstructionGeom (LayerCircle _ center edge) =
+    renderCircle center (pointDist center edge)
+    <> renderDots [center, edge]
 
 -- | Render the persistent fill for a layer (only triangles produce fills)
 renderFill :: ConstructionLayer -> Diagram B
@@ -247,6 +257,13 @@ renderFill (LayerTriangle col (x1, y1) (x2, y2) (x3, y3)) =
           # lc col
           # lwG 0.02
           # moveTo (p2 (x1, y1))
+renderFill (LayerCircle col (cx, cy) (ex, ey)) =
+    let r = pointDist (cx, cy) (ex, ey)
+    in  circle r
+          # fcA (col `withOpacity` 0.6)
+          # lc col
+          # lwG 0.02
+          # moveTo (p2 (cx, cy))
 renderFill _ = mempty
 
 -- | Render a dotted construction line connecting two points
@@ -385,11 +402,13 @@ generateIndex flags = unlines
           lcCount = length [() | StepIntersectLC <- ss]
           ccCount = length [() | StepIntersectCC <- ss]
           ftCount = length [() | StepFillTriangle <- ss]
+          fcCount = length [() | StepFillCircle <- ss]
           items = concat
             [ if llCount > 0 then ["<li>Intersect line\8211line \215" ++ show llCount ++ "</li>"] else []
             , if lcCount > 0 then ["<li>Intersect line\8211circle \215" ++ show lcCount ++ "</li>"] else []
             , if ccCount > 0 then ["<li>Intersect circle\8211circle \215" ++ show ccCount ++ "</li>"] else []
             , if ftCount > 0 then ["<li>Fill triangle \215" ++ show ftCount ++ "</li>"] else []
+            , if fcCount > 0 then ["<li>Fill circle \215" ++ show fcCount ++ "</li>"] else []
             ]
       in if null items
          then "<em>None</em>"
