@@ -15,6 +15,12 @@ module FlagConstruction
       -- * Drawing primitives
     , fillTriangle
 
+      -- * Grouping
+    , group
+
+      -- * Composite constructors
+    , fillRectangle
+
       -- * Interpreters
     , Step(..)
     , steps
@@ -81,6 +87,9 @@ data FlagA a b where
   -- Drawing primitives
   FillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
 
+  -- Grouping (label a sub-computation for documentation / debugging)
+  Group :: String -> FlagA a b -> FlagA a b
+
 instance Category FlagA where
   id  = Arr "id" Prelude.id
   (.) = flip Compose
@@ -104,6 +113,7 @@ showFlagA n fa = indent n ++ case fa of
   IntersectLC     -> "IntersectLC"
   IntersectCC     -> "IntersectCC"
   FillTriangle _  -> "FillTriangle"
+  Group label f   -> "Group " ++ show label ++ "\n" ++ showFlagA (n+2) f
   where
     indent i = replicate i ' '
 
@@ -121,6 +131,10 @@ intersectCC = IntersectCC
 
 fillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
 fillTriangle = FillTriangle
+
+-- | Group a sub-computation under a label for documentation / debugging
+group :: String -> FlagA a b -> FlagA a b
+group = Group
 
 -- ---------------------------------------------------------------------------
 -- Interpreters
@@ -144,6 +158,7 @@ steps (Par f g)        = steps f ++ steps g
 steps IntersectLC      = [StepIntersectLC]
 steps IntersectCC      = [StepIntersectCC]
 steps (FillTriangle _) = [StepFillTriangle]
+steps (Group _ f)      = steps f
 
 -- | Evaluate a construction arrow to produce a concrete function.
 -- This is one possible interpreter; others could generate SVG, trace
@@ -156,6 +171,7 @@ eval (Par f g)        = \(a, c) -> (eval f a, eval g c)
 eval IntersectLC      = evalIntersectLC'
 eval IntersectCC      = evalIntersectCC'
 eval (FillTriangle c) = \(p1, p2, p3) -> DrawTriangle c p1 p2 p3
+eval (Group _ f)      = eval f
 
 -- | Line-circle intersection from defining points
 evalIntersectLC' :: ((Point, Point), (Point, Point)) -> (Point, Point)
@@ -236,6 +252,7 @@ evalLayers IntersectCC      inp@((c1, e1), (c2, e2)) =
     in  ((p1, p2), [LayerIntersectCC c1 r1 c2 r2 [p1, p2]])
 evalLayers (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
+evalLayers (Group _ f)        x = evalLayers f x
 
 -- ---------------------------------------------------------------------------
 -- Example: the design from the highlighted pseudocode
@@ -247,26 +264,22 @@ red = sRGB24 255 0 0
 blue :: Colour Double
 blue = sRGB24 0 0 255
 
--- | The highlighted example, translated to proc notation.
---
--- Given two initial points (a, b):
---   1. Intersect line(a,b) with circle(a,b) to get point c (discard second)
---   2. Intersect circle(c,b) with circle(b,c) to get points d and e
---   3. Fill two triangles: (d, b, e) in red and (d, c, e) in blue
---
--- Original pseudocode:
--- @
--- design a b = do
---     (c, _) <- intersectLineCircle (a, b) (a, b)
---     (d, e) <- intersectCircleCircle (c, b) (b, c)
---     fillTriangle red d b e <> fillTriangle blue d c e
--- @
-exampleDesign :: FlagA (Point, Point) Drawing
-exampleDesign = proc (a, b) -> do
+fillRectangle :: Colour Double -> FlagA (Point, Point, Point, Point) Drawing
+fillRectangle c = group "Fill rectangle" $ proc (v1, v2, v3, v4) -> do
+    t1 <- fillTriangle c -< (v1, v2, v3)
+    t2 <- fillTriangle c -< (v3, v4, v1)
+    returnA -< t1 <> t2
+
+perpendicular :: FlagA (Point, Point) (Point, Point)
+perpendicular = group "Perpendicular points" $ proc (a, b) -> do
     (c, _) <- intersectLC -< ((a, b), (a, b))
     (d, e) <- intersectCC -< ((c, b), (b, c))
+    (p, p') <- intersectLC -< ((d, e), (a, b))
 
-    t1 <- fillTriangle red  -< (d, b, e)
-    t2 <- fillTriangle red -< (d, c, e)
+    returnA -< (p, p')
 
-    returnA -< t1 <> t2
+exampleDesign :: FlagA (Point, Point) Drawing
+exampleDesign = proc (a, b) -> do
+    (_, p) <- perpendicular -< (a, b)
+
+    fillRectangle red -< (a, b, p, a)
