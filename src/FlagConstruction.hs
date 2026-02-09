@@ -354,6 +354,9 @@ red = sRGB24 255 0 0
 blue :: Colour Double
 blue = sRGB24 0 0 255
 
+white :: Colour Double
+white = sRGB24 255 255 255
+
 fillRectangle :: Colour Double -> FlagA (Point, Point, Point, Point) Drawing
 fillRectangle c = group "Fill rectangle" $ proc (v1, v2, v3, v4) -> do
     t1 <- fillTriangle c -< (v1, v2, v3)
@@ -436,7 +439,16 @@ boxNatural w h = proc (tl, b) -> do
     returnA -< (tl, tr, br, bl)
 
 exampleDesign :: FlagA (Point, Point) Drawing
-exampleDesign = proc (tl, b) -> do
-    (tl, tr, br, bl) <- boxNatural 3 2 -< (tl, b)
+exampleDesign = proc (a, b) -> do
+    c <- naturalMult 2 -< (a, b)
+    d <- naturalMult 2 -< (b, c)
 
-    fillRectangle red -< (tl, tr, br, bl)
+    fillBox blue 1 2 -< (a, b)
+    fillBox white 1 2 -< (b, c)
+    fillBox red 1 2 -< (c, d)
+
+fillBox :: Colour Double -> Int -> Int -> FlagA (Point, Point) Drawing
+fillBox c w h = proc (tl, b) -> do
+    (tl, tr, br, bl) <- boxNatural w h -< (tl, b)
+
+    fillRectangle c -< (tl, tr, br, bl)
