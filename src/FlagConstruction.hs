@@ -443,9 +443,11 @@ exampleDesign = proc (a, b) -> do
     c <- naturalMult 2 -< (a, b)
     d <- naturalMult 2 -< (b, c)
 
-    fillBox blue 1 2 -< (a, b)
-    fillBox white 1 2 -< (b, c)
-    fillBox red 1 2 -< (c, d)
+    d1 <- fillBox blue 1 2 -< (a, b)
+    d2 <- fillBox white 1 2 -< (b, c)
+    d3 <- fillBox red 1 2 -< (c, d)
+
+    returnA -< d1 <> d2 <> d3
 
 fillBox :: Colour Double -> Int -> Int -> FlagA (Point, Point) Drawing
 fillBox c w h = proc (tl, b) -> do

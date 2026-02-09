@@ -16,6 +16,23 @@ import Data.List (nub, sortOn, groupBy, intercalate)
 import Data.Function (on)
 
 -- ---------------------------------------------------------------------------
+-- Drawing → Diagram B
+-- ---------------------------------------------------------------------------
+
+-- | Convert a 'FlagConstruction.Drawing' to a renderable 'Diagram B'.
+drawingToDiagram :: Drawing -> Diagram B
+drawingToDiagram EmptyDrawing = mempty
+drawingToDiagram (Overlay a b) = drawingToDiagram a <> drawingToDiagram b
+drawingToDiagram (DrawTriangle col (x1, y1) (x2, y2) (x3, y3)) =
+    let offsets = [ r2 (x2 - x1, y2 - y1), r2 (x3 - x2, y3 - y2) ]
+        tri = closeLine (fromOffsets offsets)
+    in  strokeLoop tri
+          # fcA (col `withOpacity` 1.0)
+          # lc col
+          # lwG 0.02
+          # moveTo (p2 (x1, y1))
+
+-- ---------------------------------------------------------------------------
 -- Tree-aware step numbering
 -- ---------------------------------------------------------------------------
 
@@ -102,6 +119,11 @@ main = do
       putStrLn $ "  Wrote " ++ path
     ) (zip [0::Int ..] allDias)
 
+  -- Render the final flag using drawingToDiagram
+  let finalDia = drawingToDiagram result
+  renderSVG "out/debug/final.svg" (mkWidth 400) (finalDia)
+  putStrLn "  Wrote out/debug/final.svg"
+
   -- Generate index.html reflecting the tree structure
   let indexHtml = generateDebugIndex numbered (length allDias)
   writeFile "out/debug/index.html" indexHtml
@@ -124,7 +146,9 @@ printNumberedTree depth (NGroup g cs : rest) = do
 generateDebugIndex :: [NumberedEntry] -> Int -> String
 generateDebugIndex entries _ = unlines
   [ "<!DOCTYPE html>"
-  , "<html><head><title>Construction Steps</title>"
+  , "<html><head>"
+  , "<meta charset=\"UTF-8\">"
+  , "<title>Construction Steps</title>"
   , "<style>"
   , "  body { font-family: sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }"
   , "  .step { display: inline-block; margin: 10px; text-align: center; vertical-align: top; }"
@@ -136,6 +160,11 @@ generateDebugIndex entries _ = unlines
   , "  .group .group > h3 { color: #7ab648; }"
   , "</style></head><body>"
   , "<h1>Construction Steps</h1>"
+  , "<div style='text-align: center; margin-bottom: 24px;'>"
+  , "  <h2>Final Result</h2>"
+  , "  <img src=\"final.svg\" width=\"400\" style=\"border: 1px solid #ccc;\">"
+  , "</div>"
+  , "<hr style='margin-bottom: 24px;'>"
   , renderEntries entries
   , "</body></html>"
   ]
