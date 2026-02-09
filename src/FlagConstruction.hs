@@ -46,9 +46,6 @@ module FlagConstruction
 
       -- * Optimization
     , optimize
-
-      -- * Example
-    , exampleDesign
     ) where
 
 import Prelude hiding (id, (.))
@@ -605,17 +602,6 @@ boxNatural w h = proc (tl, b) -> do
     br <- quad -< (tl, tr, bl)
 
     returnA -< (tl, tr, br, bl)
-
-exampleDesign :: FlagA (Point, Point) Drawing
-exampleDesign = proc (a, b) -> do
-    c <- naturalMult 2 -< (a, b)
-    d <- naturalMult 2 -< (b, c)
-
-    d1 <- fillBox blue 1 2 -< (a, b)
-    d2 <- fillBox white 1 2 -< (b, c)
-    d3 <- fillBox red 1 2 -< (c, d)
-
-    returnA -< d1 <> d2 <> d3
 
 fillBox :: Colour Double -> Int -> Int -> FlagA (Point, Point) Drawing
 fillBox c w h = proc (tl, b) -> do
