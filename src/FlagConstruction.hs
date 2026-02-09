@@ -9,6 +9,7 @@ module FlagConstruction
     , Drawing(..)
 
       -- * Geometric primitives
+    , intersectLL
     , intersectLC
     , intersectCC
 
@@ -19,6 +20,9 @@ module FlagConstruction
     , group
 
       -- * Composite constructors
+    , parallel
+    , naturalMult
+    , quad
     , fillRectangle
 
       -- * Interpreters
@@ -87,6 +91,7 @@ data FlagA a b where
   Par     :: FlagA a b -> FlagA c d -> FlagA (a, c) (b, d)
 
   -- Geometric primitives (take defining points directly)
+  IntersectLL  :: FlagA ((Point, Point), (Point, Point)) Point
   IntersectLC  :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
   IntersectCC  :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
 
@@ -116,6 +121,7 @@ showFlagA n fa = indent n ++ case fa of
   Compose f g     -> ">>>\n" ++ showFlagA (n+2) f ++ "\n" ++ showFlagA (n+2) g
   First f         -> "First\n" ++ showFlagA (n+2) f
   Par f g         -> "***\n" ++ showFlagA (n+2) f ++ "\n" ++ showFlagA (n+2) g
+  IntersectLL     -> "IntersectLL"
   IntersectLC     -> "IntersectLC"
   IntersectCC     -> "IntersectCC"
   FillTriangle _  -> "FillTriangle"
@@ -126,6 +132,10 @@ showFlagA n fa = indent n ++ case fa of
 -- ---------------------------------------------------------------------------
 -- Smart constructors (for use in proc blocks)
 -- ---------------------------------------------------------------------------
+
+-- | Intersect two lines, each defined by two points
+intersectLL :: FlagA ((Point, Point), (Point, Point)) Point
+intersectLL = IntersectLL
 
 -- | Intersect a line (defined by two points) with a circle (center, edge point)
 intersectLC :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
@@ -148,7 +158,8 @@ group = Group
 
 -- | A labeled construction step for introspection
 data Step
-  = StepIntersectLC
+  = StepIntersectLL
+  | StepIntersectLC
   | StepIntersectCC
   | StepFillTriangle
   deriving (Show, Eq)
@@ -161,6 +172,7 @@ steps (Arr _ _)        = []
 steps (Compose f g)    = steps f ++ steps g
 steps (First f)        = steps f
 steps (Par f g)        = steps f ++ steps g
+steps IntersectLL      = [StepIntersectLL]
 steps IntersectLC      = [StepIntersectLC]
 steps IntersectCC      = [StepIntersectCC]
 steps (FillTriangle _) = [StepFillTriangle]
@@ -174,10 +186,22 @@ eval (Arr _ f)        = f
 eval (Compose f g)    = eval g . eval f
 eval (First f)        = \(a, c) -> (eval f a, c)
 eval (Par f g)        = \(a, c) -> (eval f a, eval g c)
+eval IntersectLL      = evalIntersectLL'
 eval IntersectLC      = evalIntersectLC'
 eval IntersectCC      = evalIntersectCC'
 eval (FillTriangle c) = \(p1, p2, p3) -> DrawTriangle c p1 p2 p3
 eval (Group _ f)      = eval f
+
+-- | Line-line intersection from defining points
+evalIntersectLL' :: ((Point, Point), (Point, Point)) -> Point
+evalIntersectLL' ((p1, p2), (p3, p4)) =
+  let (x1, y1) = p1
+      (x2, y2) = p2
+      (x3, y3) = p3
+      (x4, y4) = p4
+      denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+      t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+  in (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
 
 -- | Line-circle intersection from defining points
 evalIntersectLC' :: ((Point, Point), (Point, Point)) -> (Point, Point)
@@ -224,7 +248,11 @@ dist (x1, y1) (x2, y2) = sqrt ((x2 - x1)^(2::Int) + (y2 - y1)^(2::Int))
 -- This is decoupled from any rendering backend. Each intersection step stores
 -- its defining points (so data dependencies can be traced) and result points.
 data ConstructionLayer
-  = LayerIntersectLC
+  = LayerIntersectLL
+      Point Point       -- ^ First line defining points
+      Point Point       -- ^ Second line defining points
+      [Point]           -- ^ Result point
+  | LayerIntersectLC
       Point Point       -- ^ Line defining points
       Point Point       -- ^ Circle defining points (center, edge)
       [Point]           -- ^ Result points
@@ -237,12 +265,14 @@ data ConstructionLayer
 
 -- | The points consumed as inputs by a construction layer.
 layerInputPoints :: ConstructionLayer -> [Point]
+layerInputPoints (LayerIntersectLL lp1 lp2 lp3 lp4 _) = [lp1, lp2, lp3, lp4]
 layerInputPoints (LayerIntersectLC lp1 lp2 cc ce _) = [lp1, lp2, cc, ce]
 layerInputPoints (LayerIntersectCC c1 e1 c2 e2 _)   = [c1, e1, c2, e2]
 layerInputPoints (LayerTriangle _ p1 p2 p3)          = [p1, p2, p3]
 
 -- | The points produced as outputs by a construction layer.
 layerOutputPoints :: ConstructionLayer -> [Point]
+layerOutputPoints (LayerIntersectLL _ _ _ _ pts) = pts
 layerOutputPoints (LayerIntersectLC _ _ _ _ pts) = pts
 layerOutputPoints (LayerIntersectCC _ _ _ _ pts) = pts
 layerOutputPoints (LayerTriangle _ _ _ _)        = []
@@ -263,6 +293,9 @@ evalLayers (First f)        (a,c) = let (b, ls) = evalLayers f a
 evalLayers (Par f g)        (a,c) = let (b, l1) = evalLayers f a
                                         (d, l2) = evalLayers g c
                                     in  ((b, d), l1 ++ l2)
+evalLayers IntersectLL      inp@((lp1, lp2), (lp3, lp4)) =
+    let p = evalIntersectLL' inp
+    in  (p, [LayerIntersectLL lp1 lp2 lp3 lp4 [p]])
 evalLayers IntersectLC      inp@((lp1, lp2), (cc, ce)) =
     let (p1, p2) = evalIntersectLC' inp
     in  ((p1, p2), [LayerIntersectLC lp1 lp2 cc ce [p1, p2]])
@@ -291,6 +324,9 @@ evalTree (First f)        (a,c) = let (b, ts) = evalTree f a
 evalTree (Par f g)        (a,c) = let (b, t1) = evalTree f a
                                       (d, t2) = evalTree g c
                                   in  ((b, d), t1 ++ t2)
+evalTree IntersectLL      inp@((lp1, lp2), (lp3, lp4)) =
+    let p = evalIntersectLL' inp
+    in  (p, [TreeLayer (LayerIntersectLL lp1 lp2 lp3 lp4 [p])])
 evalTree IntersectLC      inp@((lp1, lp2), (cc, ce)) =
     let (p1, p2) = evalIntersectLC' inp
     in  ((p1, p2), [TreeLayer (LayerIntersectLC lp1 lp2 cc ce [p1, p2])])
@@ -332,9 +368,69 @@ perpendicular = group "Perpendicular points" $ proc (a, b) -> do
 
     returnA -< (p, p')
 
-exampleDesign :: FlagA (Point, Point) Drawing
-exampleDesign = proc (a, b) -> do
-    (c, _) <- perpendicular -< (a, b)
-    (d, _) <- perpendicular -< (c, a)
+-- | Given a line (two points) and a point, return a line parallel to the
+-- given line passing through the point.  The construction forms a
+-- parallelogram: circle centred at @p@ through @a@, circle centred at @b@
+-- with radius @dist(b, a)@, and one of the intersections gives the fourth
+-- vertex @q@ such that @(p, q)@ is parallel to @(a, b)@.
+parallel :: FlagA ((Point, Point), Point) (Point, Point)
+parallel = group "Parallel line" $ proc ((a, b), p) -> do
+    (q, _) <- intersectCC -< ((p, a), (b, a))
+    returnA -< (p, q)
 
-    fillRectangle red -< (a, b, d, c)
+-- | Given three points @(a, b, c)@, return the fourth point @d@ at the
+-- intersection of the line perpendicular to @(a, b)@ through @b@ and the
+-- line perpendicular to @(a, c)@ through @c@.
+--
+-- Construction: for each endpoint, reflect the opposite point through it
+-- (circle-line intersection) to get a symmetric pair, then use
+-- circle-circle intersection on that pair to obtain two points on the
+-- perpendicular.  Finally intersect the two perpendicular lines.
+quad :: FlagA (Point, Point, Point) Point
+quad = group "Quad" $ proc (a, b, c) -> do
+    -- Perpendicular to (a,b) through b:
+    -- reflect a through b → a'
+    (_, a') <- intersectLC -< ((a, b), (b, a))
+    -- perpendicular bisector of (a, a') passes through b
+    (e, f)  <- intersectCC -< ((a, a'), (a', a))
+
+    -- Perpendicular to (a,c) through c:
+    -- reflect a through c → a''
+    (_, a'') <- intersectLC -< ((a, c), (c, a))
+    -- perpendicular bisector of (a, a'') passes through c
+    (g, h)   <- intersectCC -< ((a, a''), (a'', a))
+
+    -- Intersect the two perpendicular lines
+    d <- intersectLL -< ((e, f), (g, h))
+    returnA -< d
+
+-- | Given a segment @(a, b)@ representing one unit, return the point @n@
+-- units from @a@ in the direction of @b@, using the classic straightedge-
+-- and-compass method of stepping off unit distances along the line.
+naturalMult :: Int -> FlagA (Point, Point) Point
+naturalMult n
+  | n <= 0    = group ("×" ++ show n) $ Arr "fst" fst
+  | n == 1    = group "×1" $ Arr "snd" snd
+  | otherwise = group ("×" ++ show n) $ proc (a, b) -> do
+      (_, p) <- intersectLC -< ((a, b), (b, a))
+      markOff (n - 2) -< (a, b, p, b)
+
+  where
+    -- | Mark off additional unit distances along line @(a, b)@.
+    -- Takes @(a, b, current, previous)@ where @current@ and @previous@ are
+    -- consecutive points one unit apart on the line.  Marks off @remaining@
+    -- more units and returns the final point.
+    markOff :: Int -> FlagA (Point, Point, Point, Point) Point
+    markOff 0 = Arr "result" (\(_, _, cur, _) -> cur)
+    markOff k = proc (a, b, cur, prev) -> do
+        (_, next) <- intersectLC -< ((a, b), (cur, prev))
+        markOff (k - 1) -< (a, b, next, cur)
+
+exampleDesign :: FlagA (Point, Point) Drawing
+exampleDesign = proc (tl, b) -> do
+    tr <- naturalMult 3 -< (tl, b)
+    (c, _) <- perpendicular -< (tl, b)
+    bl <- naturalMult 2 -< (tl, c)
+    br <- quad -< (tl, tr, bl)
+
+    fillRectangle red -< (tl, tr, br, bl)

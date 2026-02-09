@@ -166,6 +166,7 @@ padNum n
 
 -- | Human-readable label for a construction layer
 layerLabel :: ConstructionLayer -> String
+layerLabel LayerIntersectLL {}    = "Intersect line–line"
 layerLabel LayerIntersectLC {}    = "Intersect line–circle"
 layerLabel LayerIntersectCC {}    = "Intersect circle–circle"
 layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
@@ -177,6 +178,11 @@ renderLayer l = renderConstructionGeom l <> renderFill l
 -- | Render the ephemeral construction geometry (dotted lines/circles)
 -- and result-point dots for a single step
 renderConstructionGeom :: ConstructionLayer -> Diagram B
+renderConstructionGeom (LayerIntersectLL (x1, y1) (x2, y2) (x3, y3) (x4, y4) pts) =
+    renderLine (x1, y1) (x2, y2)
+    <> renderLine (x3, y3) (x4, y4)
+    <> renderDots pts
+
 renderConstructionGeom (LayerIntersectLC (x1, y1) (x2, y2) cc ce pts) =
     renderLine (x1, y1) (x2, y2)
     <> renderCircle cc (pointDist cc ce)
