@@ -32,21 +32,18 @@ japan = CountryFlag
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        whiteColor <- sourced "White" flagLaw (sRGB24 255 2 255)
+        whiteColor <- sourced "White" flagLaw (sRGB24 255 255 255)
         redColor   <- sourced "Crimson" flagLaw (sRGB24 188 0 45)
         (h, w) <- sourced "2:3 proportion" flagLaw (2, 3)
         (n, d) <- sourced "Disc diameter 3/5 of height" flagLaw (3, 5)
-        pure $ proc (a, b) -> do
-            (tl, tr, br, bl) <- boxNatural w h -< (a, b)
+        pure $ proc origin -> do
+            (tl, tr, br, bl) <- boxNatural w h -< origin
 
-            -- White background
-            bg <- fillRectangle whiteColor -< (tl, tr, br, bl)
-
-            ---- Center: intersection of diagonals
             center <- intersectLL -< ((tl, br), (tr, bl))
+            top <- midpoint -< (tl, tr)
+            edge <- rationalMult n d -< (center, top)
 
-            edge <- rationalMult n d -< (center, tl)
-
+            bg <- fillRectangle whiteColor -< (tl, tr, br, bl)
             disc <- fillCircle redColor -< (center, edge)
 
             returnA -< bg <> disc

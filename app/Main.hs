@@ -22,7 +22,9 @@ import Flag.Render.Debug (buildDebug)
 
 main :: IO ()
 --main = buildHtml
-main = buildDebug japan
+main = do
+  buildHtml
+  buildDebug japan
 
 -- ---------------------------------------------------------------------------
 -- HTML index build

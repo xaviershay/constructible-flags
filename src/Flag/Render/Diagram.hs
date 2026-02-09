@@ -21,7 +21,7 @@ import Flag.Construction.Layers (ConstructionLayer(..), pointDist)
 -- | Convert a 'Drawing' to a renderable 'Diagram B'.
 drawingToDiagram :: Drawing -> Diagram B
 drawingToDiagram EmptyDrawing = mempty
-drawingToDiagram (Overlay a b) = drawingToDiagram a <> drawingToDiagram b
+drawingToDiagram (Overlay a b) = drawingToDiagram b <> drawingToDiagram a
 drawingToDiagram (DrawTriangle col (x1, y1) (x2, y2) (x3, y3)) =
     let offsets = [ r2 (x2 - x1, y2 - y1), r2 (x3 - x2, y3 - y2) ]
         tri = closeLine (fromOffsets offsets)
