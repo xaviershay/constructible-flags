@@ -15,20 +15,52 @@ import Data.Char (toLower)
 import Data.List (nub, sortOn, groupBy, intercalate)
 import Data.Function (on)
 
+-- ---------------------------------------------------------------------------
+-- Tree-aware step numbering
+-- ---------------------------------------------------------------------------
+
+-- | A numbered entry in the construction tree.
+-- Each leaf gets a sequential step number; groups carry their label and children.
+data NumberedEntry
+  = NLeaf Int String ConstructionLayer   -- ^ step number, leaf label, layer
+  | NGroup String [NumberedEntry]        -- ^ group label, sub-entries
+  deriving (Show)
+
+-- | Assign sequential step numbers to the leaves of a 'ConstructionTree',
+-- starting from the given counter. Returns the updated counter and the
+-- numbered entries.
+numberTree :: Int -> [ConstructionTree] -> (Int, [NumberedEntry])
+numberTree n [] = (n, [])
+numberTree n (TreeLayer l : rest) =
+    let label = layerLabel l
+        (n', rest') = numberTree (n + 1) rest
+    in  (n', NLeaf n label l : rest')
+numberTree n (TreeGroup g children : rest) =
+    let (n',  numbered)  = numberTree n  children
+        (n'', rest')     = numberTree n' rest
+    in  (n'', NGroup g numbered : rest')
+
+-- | Collect the leaves of a numbered tree in order.
+numberedLeaves :: [NumberedEntry] -> [(Int, ConstructionLayer)]
+numberedLeaves [] = []
+numberedLeaves (NLeaf i _ l : rest) = (i, l) : numberedLeaves rest
+numberedLeaves (NGroup _ cs : rest) = numberedLeaves cs ++ numberedLeaves rest
+
 main :: IO ()
 main = do
   createDirectoryIfMissing True "out/debug"
 
   let input = ((0, 0), (1, 0)) :: (FC.Point, FC.Point)
-      (result, layers) = evalLayers exampleDesign input
-      stepNames = steps exampleDesign
+      (result, tree) = evalTree exampleDesign input
+      (_, numbered)  = numberTree 1 tree
+      leaves         = numberedLeaves numbered
 
-  putStrLn $ "Construction has " ++ show (length stepNames) ++ " steps, " ++ show (length layers) ++ " layers:"
-  mapM_ (\(i, s) -> putStrLn $ "  " ++ show i ++ ". " ++ show s) (zip [1::Int ..] stepNames)
+  putStrLn $ "Construction has " ++ show (length leaves) ++ " steps:"
+  printNumberedTree 0 numbered
 
-  -- Render cumulative SVGs: step 0 is the initial points, then one per layer
+  -- Render cumulative SVGs: step 0 is the initial points, then one per leaf
   let initialDia = renderInitialPoints input
-      cumulativeDias = scanl (\acc layer -> acc <> renderLayer layer) initialDia layers
+      cumulativeDias = scanl (\acc (_, layer) -> acc <> renderLayer layer) initialDia leaves
 
   mapM_ (\(i, dia) -> do
       let path = "out/debug/step-" ++ padNum i ++ ".svg"
@@ -36,30 +68,62 @@ main = do
       putStrLn $ "  Wrote " ++ path
     ) (zip [0::Int ..] cumulativeDias)
 
-  -- Generate index.html
-  let numSteps = length cumulativeDias
-      layerLabels = map layerLabel layers
-      indexHtml = unlines
-        [ "<!DOCTYPE html>"
-        , "<html><head><title>Construction Steps</title>"
-        , "<style>"
-        , "  body { font-family: sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }"
-        , "  .step { display: inline-block; margin: 10px; text-align: center; }"
-        , "  .step img { border: 1px solid #ccc; }"
-        , "  .step p { margin: 4px 0; font-size: 14px; color: #666; }"
-        , "</style></head><body>"
-        , "<h1>Construction Steps</h1>"
-        , unlines [ "<div class=\"step\"><img src=\"step-" ++ padNum i ++ ".svg\" width=\"300\"><p>"
-                    ++ caption i ++ "</p></div>"
-                  | i <- [0 .. numSteps - 1] ]
-        , "</body></html>"
-        ]
-      caption 0 = "Initial points"
-      caption i = show i ++ ". " ++ (layerLabels !! (i - 1))
+  -- Generate index.html reflecting the tree structure
+  let indexHtml = generateDebugIndex numbered (length cumulativeDias)
   writeFile "out/debug/index.html" indexHtml
   putStrLn "  Wrote out/debug/index.html"
 
   putStrLn $ "\nResult: " ++ show result
+
+-- | Print the numbered tree to stdout with indentation
+printNumberedTree :: Int -> [NumberedEntry] -> IO ()
+printNumberedTree _ [] = return ()
+printNumberedTree depth (NLeaf i label _ : rest) = do
+  putStrLn $ replicate (depth * 2) ' ' ++ show i ++ ". " ++ label
+  printNumberedTree depth rest
+printNumberedTree depth (NGroup g cs : rest) = do
+  putStrLn $ replicate (depth * 2) ' ' ++ "[" ++ g ++ "]"
+  printNumberedTree (depth + 1) cs
+  printNumberedTree depth rest
+
+-- | Generate index.html with group headings and nested step images
+generateDebugIndex :: [NumberedEntry] -> Int -> String
+generateDebugIndex entries _ = unlines
+  [ "<!DOCTYPE html>"
+  , "<html><head><title>Construction Steps</title>"
+  , "<style>"
+  , "  body { font-family: sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }"
+  , "  .step { display: inline-block; margin: 10px; text-align: center; vertical-align: top; }"
+  , "  .step img { border: 1px solid #ccc; }"
+  , "  .step p { margin: 4px 0; font-size: 14px; color: #666; }"
+  , "  .group { margin: 16px 0 8px 0; padding: 12px; border-left: 3px solid #4a90d9; background: #f7f9fc; }"
+  , "  .group > h3 { margin: 0 0 8px 0; color: #4a90d9; font-size: 16px; }"
+  , "  .group .group { border-left-color: #7ab648; }"
+  , "  .group .group > h3 { color: #7ab648; }"
+  , "</style></head><body>"
+  , "<h1>Construction Steps</h1>"
+  , "<div class=\"step\"><img src=\"step-00.svg\" width=\"300\"><p>Initial points</p></div>"
+  , renderEntries entries
+  , "</body></html>"
+  ]
+
+-- | Render the numbered tree entries as HTML
+renderEntries :: [NumberedEntry] -> String
+renderEntries = concatMap renderEntry
+
+renderEntry :: NumberedEntry -> String
+renderEntry (NLeaf i label _) = unlines
+  [ "<div class=\"step\">"
+  , "  <img src=\"step-" ++ padNum i ++ ".svg\" width=\"300\">"
+  , "  <p>" ++ show i ++ ". " ++ escapeHtml label ++ "</p>"
+  , "</div>"
+  ]
+renderEntry (NGroup g cs) = unlines
+  [ "<div class=\"group\">"
+  , "  <h3>" ++ escapeHtml g ++ "</h3>"
+  , renderEntries cs
+  , "</div>"
+  ]
 
 -- | Zero-pad a step number to 2 digits
 padNum :: Int -> String
@@ -69,8 +133,8 @@ padNum n
 
 -- | Human-readable label for a construction layer
 layerLabel :: ConstructionLayer -> String
-layerLabel LayerIntersectLC {}    = "Intersect line-circle"
-layerLabel LayerIntersectCC {}    = "Intersect circle-circle"
+layerLabel LayerIntersectLC {}    = "Intersect line–circle"
+layerLabel LayerIntersectCC {}    = "Intersect circle–circle"
 layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
 
 -- | Render the two initial points as labeled black dots
@@ -135,7 +199,17 @@ renderDots pts =
     mconcat [ circle 0.04 # fc black # lw none # moveTo (p2 (x, y))
             | (x, y) <- pts
             ]
-  
+
+-- | Escape special HTML characters
+escapeHtml :: String -> String
+escapeHtml = concatMap escapeChar
+  where
+    escapeChar '<' = "&lt;"
+    escapeChar '>' = "&gt;"
+    escapeChar '&' = "&amp;"
+    escapeChar '"' = "&quot;"
+    escapeChar c   = [c]
+
 buildHtml = do
   createDirectoryIfMissing True "out"
   
@@ -295,12 +369,3 @@ generateIndex flags = unlines
       "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Law) " ++ elems ++ "</li>"
     formatSourceWithElements (SourcePublication title url) elems = 
       "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Publication) " ++ elems ++ "</li>"
-    
-    escapeHtml :: String -> String
-    escapeHtml = concatMap escapeChar
-      where
-        escapeChar '<' = "&lt;"
-        escapeChar '>' = "&gt;"
-        escapeChar '&' = "&amp;"
-        escapeChar '"' = "&quot;"
-        escapeChar c   = [c]

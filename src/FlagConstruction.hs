@@ -27,6 +27,9 @@ module FlagConstruction
     , eval
     , ConstructionLayer(..)
     , evalLayers
+    , ConstructionTree(..)
+    , evalTree
+    , flattenTree
 
       -- * Example
     , exampleDesign
@@ -253,6 +256,44 @@ evalLayers IntersectCC      inp@((c1, e1), (c2, e2)) =
 evalLayers (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
 evalLayers (Group _ f)        x = evalLayers f x
+
+-- | A tree of construction output that preserves group structure.
+-- Groups form interior nodes; leaves are individual construction layers.
+data ConstructionTree
+  = TreeLayer ConstructionLayer       -- ^ A single construction step
+  | TreeGroup String [ConstructionTree]  -- ^ A named group of sub-steps
+  deriving (Show)
+
+-- | Evaluate a construction arrow into a tree that preserves group labels.
+evalTree :: FlagA a b -> a -> (b, [ConstructionTree])
+evalTree (Arr _ f)        x     = (f x, [])
+evalTree (Compose f g)    x     = let (mid, t1) = evalTree f x
+                                      (res, t2) = evalTree g mid
+                                  in  (res, t1 ++ t2)
+evalTree (First f)        (a,c) = let (b, ts) = evalTree f a
+                                  in  ((b, c), ts)
+evalTree (Par f g)        (a,c) = let (b, t1) = evalTree f a
+                                      (d, t2) = evalTree g c
+                                  in  ((b, d), t1 ++ t2)
+evalTree IntersectLC      inp@((lp1, lp2), (cc, ce)) =
+    let (p1, p2) = evalIntersectLC' inp
+        r = dist cc ce
+    in  ((p1, p2), [TreeLayer (LayerIntersectLC lp1 lp2 cc r [p1, p2])])
+evalTree IntersectCC      inp@((c1, e1), (c2, e2)) =
+    let (p1, p2) = evalIntersectCC' inp
+        r1 = dist c1 e1
+        r2 = dist c2 e2
+    in  ((p1, p2), [TreeLayer (LayerIntersectCC c1 r1 c2 r2 [p1, p2])])
+evalTree (FillTriangle col) (p1, p2, p3) =
+    (DrawTriangle col p1 p2 p3, [TreeLayer (LayerTriangle col p1 p2 p3)])
+evalTree (Group label f) x =
+    let (res, children) = evalTree f x
+    in  (res, [TreeGroup label children])
+
+-- | Flatten a construction tree back to a list of layers (for rendering).
+flattenTree :: ConstructionTree -> [ConstructionLayer]
+flattenTree (TreeLayer l)       = [l]
+flattenTree (TreeGroup _ children) = concatMap flattenTree children
 
 -- ---------------------------------------------------------------------------
 -- Example: the design from the highlighted pseudocode
