@@ -26,6 +26,9 @@ module FlagConstruction
     , steps
     , eval
     , ConstructionLayer(..)
+    , layerInputPoints
+    , layerOutputPoints
+    , pointDist
     , evalLayers
     , ConstructionTree(..)
     , evalTree
@@ -218,19 +221,35 @@ dist :: Point -> Point -> Double
 dist (x1, y1) (x2, y2) = sqrt ((x2 - x1)^(2::Int) + (y2 - y1)^(2::Int))
 
 -- | A single layer of construction output, capturing what was built at each step.
--- This is decoupled from any rendering backend. Each intersection step produces
--- a single layer containing both the defining geometry and the result points.
+-- This is decoupled from any rendering backend. Each intersection step stores
+-- its defining points (so data dependencies can be traced) and result points.
 data ConstructionLayer
   = LayerIntersectLC
       Point Point       -- ^ Line defining points
-      Point Double      -- ^ Circle center and radius
+      Point Point       -- ^ Circle defining points (center, edge)
       [Point]           -- ^ Result points
   | LayerIntersectCC
-      Point Double      -- ^ First circle center and radius
-      Point Double      -- ^ Second circle center and radius
+      Point Point       -- ^ First circle (center, edge)
+      Point Point       -- ^ Second circle (center, edge)
       [Point]           -- ^ Result points
   | LayerTriangle (Colour Double) Point Point Point  -- ^ A filled triangle
   deriving (Show)
+
+-- | The points consumed as inputs by a construction layer.
+layerInputPoints :: ConstructionLayer -> [Point]
+layerInputPoints (LayerIntersectLC lp1 lp2 cc ce _) = [lp1, lp2, cc, ce]
+layerInputPoints (LayerIntersectCC c1 e1 c2 e2 _)   = [c1, e1, c2, e2]
+layerInputPoints (LayerTriangle _ p1 p2 p3)          = [p1, p2, p3]
+
+-- | The points produced as outputs by a construction layer.
+layerOutputPoints :: ConstructionLayer -> [Point]
+layerOutputPoints (LayerIntersectLC _ _ _ _ pts) = pts
+layerOutputPoints (LayerIntersectCC _ _ _ _ pts) = pts
+layerOutputPoints (LayerTriangle _ _ _ _)        = []
+
+-- | Euclidean distance (exported for rendering code that derives radii).
+pointDist :: Point -> Point -> Double
+pointDist = dist
 
 -- | Evaluate a construction arrow, producing the result and a list of
 -- construction layers (one per construction step).
@@ -246,13 +265,10 @@ evalLayers (Par f g)        (a,c) = let (b, l1) = evalLayers f a
                                     in  ((b, d), l1 ++ l2)
 evalLayers IntersectLC      inp@((lp1, lp2), (cc, ce)) =
     let (p1, p2) = evalIntersectLC' inp
-        r = dist cc ce
-    in  ((p1, p2), [LayerIntersectLC lp1 lp2 cc r [p1, p2]])
+    in  ((p1, p2), [LayerIntersectLC lp1 lp2 cc ce [p1, p2]])
 evalLayers IntersectCC      inp@((c1, e1), (c2, e2)) =
     let (p1, p2) = evalIntersectCC' inp
-        r1 = dist c1 e1
-        r2 = dist c2 e2
-    in  ((p1, p2), [LayerIntersectCC c1 r1 c2 r2 [p1, p2]])
+    in  ((p1, p2), [LayerIntersectCC c1 e1 c2 e2 [p1, p2]])
 evalLayers (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
 evalLayers (Group _ f)        x = evalLayers f x
@@ -277,13 +293,10 @@ evalTree (Par f g)        (a,c) = let (b, t1) = evalTree f a
                                   in  ((b, d), t1 ++ t2)
 evalTree IntersectLC      inp@((lp1, lp2), (cc, ce)) =
     let (p1, p2) = evalIntersectLC' inp
-        r = dist cc ce
-    in  ((p1, p2), [TreeLayer (LayerIntersectLC lp1 lp2 cc r [p1, p2])])
+    in  ((p1, p2), [TreeLayer (LayerIntersectLC lp1 lp2 cc ce [p1, p2])])
 evalTree IntersectCC      inp@((c1, e1), (c2, e2)) =
     let (p1, p2) = evalIntersectCC' inp
-        r1 = dist c1 e1
-        r2 = dist c2 e2
-    in  ((p1, p2), [TreeLayer (LayerIntersectCC c1 r1 c2 r2 [p1, p2])])
+    in  ((p1, p2), [TreeLayer (LayerIntersectCC c1 e1 c2 e2 [p1, p2])])
 evalTree (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [TreeLayer (LayerTriangle col p1 p2 p3)])
 evalTree (Group label f) x =

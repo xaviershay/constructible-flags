@@ -54,22 +54,51 @@ main = do
       (result, tree) = evalTree exampleDesign input
       (_, numbered)  = numberTree 1 tree
       leaves         = numberedLeaves numbered
+      allLayers      = map snd leaves
+      initialPts     = [fst input, snd input]
 
   putStrLn $ "Construction has " ++ show (length leaves) ++ " steps:"
   printNumberedTree 0 numbered
 
-  -- Render cumulative SVGs: step 0 is the initial points, then one per leaf
-  let initialDia = renderInitialPoints input
-      cumulativeDias = scanl (\acc (_, layer) -> acc <> renderLayer layer) initialDia leaves
+  -- Compute the set of points that are consumed by step i or later.
+  -- liveAfter !! i  =  inputs of steps i .. n-1
+  let n = length allLayers
+      liveAfter = [ nub $ concatMap layerInputPoints (drop i allLayers)
+                  | i <- [0 .. n] ]
+      -- liveAfter has n+1 entries: index 0 = all inputs, index n = empty
+
+  -- Render step 0: initial points, but only those that are live
+  let livePts0 = filter (`elem` (liveAfter !! 0)) initialPts
+      step0Dia = renderLabelledDots (zip ["a","b"] initialPts) livePts0
+
+  -- Render steps 1..n
+  let stepDias = [ let layerIdx    = i - 1
+                       layer       = allLayers !! layerIdx
+                       live        = liveAfter !! i  -- points consumed from step i onwards
+                       -- All points known so far: initial + outputs of steps 0..layerIdx
+                       prevOutputs = concatMap layerOutputPoints (take layerIdx allLayers)
+                       curOutputs  = layerOutputPoints layer
+                       allKnown    = initialPts ++ prevOutputs ++ curOutputs
+                       -- Show dots for known points that are still live
+                       liveDots    = renderDots (filter (`elem` live) allKnown)
+                       -- Construction geometry: only for this step
+                       geom        = renderConstructionGeom layer
+                       -- Fills are cumulative
+                       fills       = mconcat [ renderFill l | l <- take i allLayers ]
+                   in  liveDots <> geom <> fills
+                 | i <- [1 .. n]
+                 ]
+
+  let allDias = step0Dia : stepDias
 
   mapM_ (\(i, dia) -> do
       let path = "out/debug/step-" ++ padNum i ++ ".svg"
       renderSVG path (mkWidth 400) (dia # pad 1.3)
       putStrLn $ "  Wrote " ++ path
-    ) (zip [0::Int ..] cumulativeDias)
+    ) (zip [0::Int ..] allDias)
 
   -- Generate index.html reflecting the tree structure
-  let indexHtml = generateDebugIndex numbered (length cumulativeDias)
+  let indexHtml = generateDebugIndex numbered (length allDias)
   writeFile "out/debug/index.html" indexHtml
   putStrLn "  Wrote out/debug/index.html"
 
@@ -140,26 +169,40 @@ layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
 -- | Render the two initial points as labeled black dots
 renderInitialPoints :: (FC.Point, FC.Point) -> Diagram B
 renderInitialPoints ((ax, ay), (bx, by)) =
-    renderDot "a" (ax, ay) <> renderDot "b" (bx, by)
+    renderLabelledDots [("a", (ax, ay)), ("b", (bx, by))] [(ax, ay), (bx, by)]
+
+-- | Render labelled dots, but only for points in the live set
+renderLabelledDots :: [(String, FC.Point)] -> [FC.Point] -> Diagram B
+renderLabelledDots labelled live =
+    mconcat [ renderDot label pt | (label, pt) <- labelled, pt `elem` live ]
   where
     renderDot label (x, y) =
       (  circle 0.04 # fc black # lw none
       <> text label # fontSizeL 0.12 # fc black # translate (r2 (0, -0.12))
       ) # moveTo (p2 (x, y))
 
--- | Render a single construction layer as a diagram
+-- | Render a complete layer (used only by non-debug code paths)
 renderLayer :: ConstructionLayer -> Diagram B
-renderLayer (LayerIntersectLC (x1, y1) (x2, y2) (cx, cy) r pts) =
+renderLayer l = renderConstructionGeom l <> renderFill l
+
+-- | Render the ephemeral construction geometry (dotted lines/circles)
+-- and result-point dots for a single step
+renderConstructionGeom :: ConstructionLayer -> Diagram B
+renderConstructionGeom (LayerIntersectLC (x1, y1) (x2, y2) cc ce pts) =
     renderLine (x1, y1) (x2, y2)
-    <> renderCircle (cx, cy) r
+    <> renderCircle cc (pointDist cc ce)
     <> renderDots pts
 
-renderLayer (LayerIntersectCC (c1x, c1y) r1 (c2x, c2y) r2 pts) =
-    renderCircle (c1x, c1y) r1
-    <> renderCircle (c2x, c2y) r2
+renderConstructionGeom (LayerIntersectCC c1 e1 c2 e2 pts) =
+    renderCircle c1 (pointDist c1 e1)
+    <> renderCircle c2 (pointDist c2 e2)
     <> renderDots pts
 
-renderLayer (LayerTriangle col (x1, y1) (x2, y2) (x3, y3)) =
+renderConstructionGeom (LayerTriangle _ _ _ _) = mempty
+
+-- | Render the persistent fill for a layer (only triangles produce fills)
+renderFill :: ConstructionLayer -> Diagram B
+renderFill (LayerTriangle col (x1, y1) (x2, y2) (x3, y3)) =
     let offsets = [ r2 (x2-x1, y2-y1), r2 (x3-x2, y3-y2) ]
         tri = closeLine (fromOffsets offsets)
     in  strokeLoop tri
@@ -167,6 +210,7 @@ renderLayer (LayerTriangle col (x1, y1) (x2, y2) (x3, y3)) =
           # lc col
           # lwG 0.02
           # moveTo (p2 (x1, y1))
+renderFill _ = mempty
 
 -- | Render a dotted construction line, extended beyond the defining points
 renderLine :: (Double, Double) -> (Double, Double) -> Diagram B
