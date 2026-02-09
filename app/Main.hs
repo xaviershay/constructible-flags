@@ -31,6 +31,15 @@ drawingToDiagram (DrawTriangle col (x1, y1) (x2, y2) (x3, y3)) =
           # lc col
           # lwG 0.02
           # moveTo (p2 (x1, y1))
+drawingToDiagram (DrawPath col pts@((x0, y0):_)) =
+    let offsets = zipWith (\(ax, ay) (bx, by) -> r2 (bx - ax, by - ay))
+                          pts (tail pts)
+        path = closeLine (fromOffsets offsets)
+    in  strokeLoop path
+          # fcA (col `withOpacity` 1.0)
+          # lwG 0
+          # moveTo (p2 (x0, y0))
+drawingToDiagram (DrawPath _ []) = mempty
 
 -- ---------------------------------------------------------------------------
 -- Tree-aware step numbering
@@ -120,7 +129,7 @@ main = do
     ) (zip [0::Int ..] allDias)
 
   -- Render the final flag using drawingToDiagram
-  let finalDia = drawingToDiagram result
+  let finalDia = drawingToDiagram (optimize result)
   renderSVG "out/debug/final.svg" (mkWidth 400) (finalDia)
   putStrLn "  Wrote out/debug/final.svg"
 
