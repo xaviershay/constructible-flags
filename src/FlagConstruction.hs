@@ -6,13 +6,9 @@ module FlagConstruction
     ( -- * Core types
       FlagA(..)
     , Point
-    , Line(..)
-    , Circle(..)
     , Drawing(..)
 
       -- * Geometric primitives
-    , mkLine
-    , mkCircle
     , intersectLC
     , intersectCC
 
@@ -40,14 +36,6 @@ import qualified Prelude
 -- | A 2D point
 type Point = (Double, Double)
 
--- | A line defined by two points
-data Line = Line Point Point
-  deriving (Show, Eq)
-
--- | A circle defined by center and a point on its circumference
-data Circle = Circle Point Point
-  deriving (Show, Eq)
-
 -- | An abstract drawing instruction
 data Drawing
   = DrawTriangle (Colour Double) Point Point Point
@@ -71,6 +59,11 @@ instance Monoid Drawing where
 -- structure. Each constructor represents either a geometric primitive or
 -- an arrow combinator, so the entire computation can be traversed as a DAG.
 --
+-- Intersection primitives take their defining points directly:
+--
+--   * 'IntersectLC' takes ((line-point1, line-point2), (circle-center, circle-edge))
+--   * 'IntersectCC' takes ((center1, edge1), (center2, edge2))
+--
 -- The 'Arr' constructor contains an opaque function used for tuple wiring
 -- (projections, repackaging) inserted by @proc@ notation desugaring.
 -- All meaningful geometric steps are visible as named constructors.
@@ -81,11 +74,9 @@ data FlagA a b where
   First   :: FlagA a b -> FlagA (a, c) (b, c)
   Par     :: FlagA a b -> FlagA c d -> FlagA (a, c) (b, d)
 
-  -- Geometric primitives
-  MkLine       :: FlagA (Point, Point) Line
-  MkCircle     :: FlagA (Point, Point) Circle
-  IntersectLC  :: FlagA (Line, Circle) (Point, Point)
-  IntersectCC  :: FlagA (Circle, Circle) (Point, Point)
+  -- Geometric primitives (take defining points directly)
+  IntersectLC  :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
+  IntersectCC  :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
 
   -- Drawing primitives
   FillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
@@ -110,8 +101,6 @@ showFlagA n fa = indent n ++ case fa of
   Compose f g     -> ">>>\n" ++ showFlagA (n+2) f ++ "\n" ++ showFlagA (n+2) g
   First f         -> "First\n" ++ showFlagA (n+2) f
   Par f g         -> "***\n" ++ showFlagA (n+2) f ++ "\n" ++ showFlagA (n+2) g
-  MkLine          -> "MkLine"
-  MkCircle        -> "MkCircle"
   IntersectLC     -> "IntersectLC"
   IntersectCC     -> "IntersectCC"
   FillTriangle _  -> "FillTriangle"
@@ -122,16 +111,12 @@ showFlagA n fa = indent n ++ case fa of
 -- Smart constructors (for use in proc blocks)
 -- ---------------------------------------------------------------------------
 
-mkLine :: FlagA (Point, Point) Line
-mkLine = MkLine
-
-mkCircle :: FlagA (Point, Point) Circle
-mkCircle = MkCircle
-
-intersectLC :: FlagA (Line, Circle) (Point, Point)
+-- | Intersect a line (defined by two points) with a circle (center, edge point)
+intersectLC :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
 intersectLC = IntersectLC
 
-intersectCC :: FlagA (Circle, Circle) (Point, Point)
+-- | Intersect two circles, each defined by (center, edge point)
+intersectCC :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
 intersectCC = IntersectCC
 
 fillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
@@ -143,9 +128,7 @@ fillTriangle = FillTriangle
 
 -- | A labeled construction step for introspection
 data Step
-  = StepMkLine
-  | StepMkCircle
-  | StepIntersectLC
+  = StepIntersectLC
   | StepIntersectCC
   | StepFillTriangle
   deriving (Show, Eq)
@@ -158,8 +141,6 @@ steps (Arr _ _)        = []
 steps (Compose f g)    = steps f ++ steps g
 steps (First f)        = steps f
 steps (Par f g)        = steps f ++ steps g
-steps MkLine           = [StepMkLine]
-steps MkCircle         = [StepMkCircle]
 steps IntersectLC      = [StepIntersectLC]
 steps IntersectCC      = [StepIntersectCC]
 steps (FillTriangle _) = [StepFillTriangle]
@@ -172,20 +153,20 @@ eval (Arr _ f)        = f
 eval (Compose f g)    = eval g . eval f
 eval (First f)        = \(a, c) -> (eval f a, c)
 eval (Par f g)        = \(a, c) -> (eval f a, eval g c)
-eval MkLine           = uncurry Line
-eval MkCircle         = uncurry Circle
-eval IntersectLC      = \(l, c) -> evalIntersectLC l c
-eval IntersectCC      = \(c1, c2) -> evalIntersectCC c1 c2
+eval IntersectLC      = evalIntersectLC'
+eval IntersectCC      = evalIntersectCC'
 eval (FillTriangle c) = \(p1, p2, p3) -> DrawTriangle c p1 p2 p3
 
--- | Line-circle intersection (real geometry)
-evalIntersectLC :: Line -> Circle -> (Point, Point)
-evalIntersectLC (Line (x1, y1) (x2, y2)) (Circle (cx, cy) (rx, ry)) =
-  let r  = sqrt ((rx - cx)^(2::Int) + (ry - cy)^(2::Int))
+-- | Line-circle intersection from defining points
+evalIntersectLC' :: ((Point, Point), (Point, Point)) -> (Point, Point)
+evalIntersectLC' ((lp1, lp2), (cc, ce)) =
+  let r  = dist cc ce
+      (x1, y1) = lp1
+      (x2, y2) = lp2
       dx = x2 - x1
       dy = y2 - y1
-      fx = x1 - cx
-      fy = y1 - cy
+      fx = x1 - fst cc
+      fy = y1 - snd cc
       a  = dx*dx + dy*dy
       b  = 2*(fx*dx + fy*dy)
       c  = fx*fx + fy*fy - r*r
@@ -197,33 +178,43 @@ evalIntersectLC (Line (x1, y1) (x2, y2)) (Circle (cx, cy) (rx, ry)) =
      , (x1 + t2*dx, y1 + t2*dy)
      )
 
--- | Circle-circle intersection (real geometry)
-evalIntersectCC :: Circle -> Circle -> (Point, Point)
-evalIntersectCC (Circle (x1, y1) (rx1, ry1)) (Circle (x2, y2) (rx2, ry2)) =
-  let r1 = sqrt ((rx1 - x1)^(2::Int) + (ry1 - y1)^(2::Int))
-      r2 = sqrt ((rx2 - x2)^(2::Int) + (ry2 - y2)^(2::Int))
-      d  = sqrt ((x2 - x1)^(2::Int) + (y2 - y1)^(2::Int))
+-- | Circle-circle intersection from defining points
+evalIntersectCC' :: ((Point, Point), (Point, Point)) -> (Point, Point)
+evalIntersectCC' ((c1, e1), (c2, e2)) =
+  let r1 = dist c1 e1
+      r2 = dist c2 e2
+      d  = dist c1 c2
       a  = (r1*r1 - r2*r2 + d*d) / (2*d)
       h  = sqrt (max 0 (r1*r1 - a*a))
+      (x1, y1) = c1
+      (x2, y2) = c2
       mx = x1 + a*(x2 - x1)/d
       my = y1 + a*(y2 - y1)/d
   in ( (mx + h*(y2 - y1)/d, my - h*(x2 - x1)/d)
      , (mx - h*(y2 - y1)/d, my + h*(x2 - x1)/d)
      )
 
+-- | Euclidean distance between two points
+dist :: Point -> Point -> Double
+dist (x1, y1) (x2, y2) = sqrt ((x2 - x1)^(2::Int) + (y2 - y1)^(2::Int))
+
 -- | A single layer of construction output, capturing what was built at each step.
--- This is decoupled from any rendering backend.
+-- This is decoupled from any rendering backend. Each intersection step produces
+-- a single layer containing both the defining geometry and the result points.
 data ConstructionLayer
-  = LayerLine Point Point           -- ^ A line through two points
-  | LayerCircle Point Double        -- ^ A circle at center with radius
-  | LayerIntersections [Point]      -- ^ Intersection point(s)
+  = LayerIntersectLC
+      Point Point       -- ^ Line defining points
+      Point Double      -- ^ Circle center and radius
+      [Point]           -- ^ Result points
+  | LayerIntersectCC
+      Point Double      -- ^ First circle center and radius
+      Point Double      -- ^ Second circle center and radius
+      [Point]           -- ^ Result points
   | LayerTriangle (Colour Double) Point Point Point  -- ^ A filled triangle
   deriving (Show)
 
 -- | Evaluate a construction arrow, producing the result and a list of
--- construction layers (one per geometric primitive). Each layer represents
--- a single construction step. To render cumulative step-by-step diagrams,
--- take successive prefixes of the layer list.
+-- construction layers (one per construction step).
 evalLayers :: FlagA a b -> a -> (b, [ConstructionLayer])
 evalLayers (Arr _ f)        x     = (f x, [])
 evalLayers (Compose f g)    x     = let (mid, l1) = evalLayers f x
@@ -234,18 +225,15 @@ evalLayers (First f)        (a,c) = let (b, ls) = evalLayers f a
 evalLayers (Par f g)        (a,c) = let (b, l1) = evalLayers f a
                                         (d, l2) = evalLayers g c
                                     in  ((b, d), l1 ++ l2)
-evalLayers MkLine           (p1, p2) =
-    (Line p1 p2, [LayerLine p1 p2])
-evalLayers MkCircle         (center, edge) =
-    let c = Circle center edge
-        r = sqrt ((fst edge - fst center)^(2::Int) + (snd edge - snd center)^(2::Int))
-    in  (c, [LayerCircle center r])
-evalLayers IntersectLC      (l, c) =
-    let pts@(p1, p2) = evalIntersectLC l c
-    in  (pts, [LayerIntersections [p1, p2]])
-evalLayers IntersectCC      (c1, c2) =
-    let pts@(p1, p2) = evalIntersectCC c1 c2
-    in  (pts, [LayerIntersections [p1, p2]])
+evalLayers IntersectLC      inp@((lp1, lp2), (cc, ce)) =
+    let (p1, p2) = evalIntersectLC' inp
+        r = dist cc ce
+    in  ((p1, p2), [LayerIntersectLC lp1 lp2 cc r [p1, p2]])
+evalLayers IntersectCC      inp@((c1, e1), (c2, e2)) =
+    let (p1, p2) = evalIntersectCC' inp
+        r1 = dist c1 e1
+        r2 = dist c2 e2
+    in  ((p1, p2), [LayerIntersectCC c1 r1 c2 r2 [p1, p2]])
 evalLayers (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
 
@@ -262,11 +250,9 @@ blue = sRGB24 0 0 255
 -- | The highlighted example, translated to proc notation.
 --
 -- Given two initial points (a, b):
---   1. Construct the line through a and b, and the circle centered at a through b
---   2. Intersect them to get point c (discard the second intersection)
---   3. Construct two circles: one centered at c through b, one at b through c
---   4. Intersect those circles to get points d and e
---   5. Fill two triangles: (d, b, e) in red and (d, c, e) in blue
+--   1. Intersect line(a,b) with circle(a,b) to get point c (discard second)
+--   2. Intersect circle(c,b) with circle(b,c) to get points d and e
+--   3. Fill two triangles: (d, b, e) in red and (d, c, e) in blue
 --
 -- Original pseudocode:
 -- @
@@ -277,15 +263,10 @@ blue = sRGB24 0 0 255
 -- @
 exampleDesign :: FlagA (Point, Point) Drawing
 exampleDesign = proc (a, b) -> do
-    lab  <- mkLine   -< (a, b)
-    cab  <- mkCircle -< (a, b)
-    (c, _) <- intersectLC -< (lab, cab)
-
-    ccb  <- mkCircle -< (c, b)
-    cbc  <- mkCircle -< (b, c)
-    (d, e) <- intersectCC -< (ccb, cbc)
+    (c, _) <- intersectLC -< ((a, b), (a, b))
+    (d, e) <- intersectCC -< ((c, b), (b, c))
 
     t1 <- fillTriangle red  -< (d, b, e)
-    t2 <- fillTriangle blue -< (d, c, e)
+    t2 <- fillTriangle red -< (d, c, e)
 
     returnA -< t1 <> t2

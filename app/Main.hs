@@ -7,7 +7,7 @@ module Main (main) where
 import Lib
 import FlagConstruction hiding (Point)
 import qualified FlagConstruction as FC
-import Diagrams.Prelude hiding (trace, Line, Circle, radius)
+import Diagrams.Prelude hiding (trace, radius)
 import Diagrams.Backend.SVG
 import Effectful
 import System.Directory (createDirectoryIfMissing)
@@ -23,7 +23,7 @@ main = do
       (result, layers) = evalLayers exampleDesign input
       stepNames = steps exampleDesign
 
-  putStrLn $ "Construction has " ++ show (length layers) ++ " steps:"
+  putStrLn $ "Construction has " ++ show (length stepNames) ++ " steps, " ++ show (length layers) ++ " layers:"
   mapM_ (\(i, s) -> putStrLn $ "  " ++ show i ++ ". " ++ show s) (zip [1::Int ..] stepNames)
 
   -- Render cumulative SVGs: step 0 is the initial points, then one per layer
@@ -38,6 +38,7 @@ main = do
 
   -- Generate index.html
   let numSteps = length cumulativeDias
+      layerLabels = map layerLabel layers
       indexHtml = unlines
         [ "<!DOCTYPE html>"
         , "<html><head><title>Construction Steps</title>"
@@ -49,12 +50,12 @@ main = do
         , "</style></head><body>"
         , "<h1>Construction Steps</h1>"
         , unlines [ "<div class=\"step\"><img src=\"step-" ++ padNum i ++ ".svg\" width=\"300\"><p>"
-                    ++ stepLabel i ++ "</p></div>"
+                    ++ caption i ++ "</p></div>"
                   | i <- [0 .. numSteps - 1] ]
         , "</body></html>"
         ]
-      stepLabel 0 = "Initial points"
-      stepLabel i = show i ++ ". " ++ show (stepNames !! (i - 1))
+      caption 0 = "Initial points"
+      caption i = show i ++ ". " ++ (layerLabels !! (i - 1))
   writeFile "out/debug/index.html" indexHtml
   putStrLn "  Wrote out/debug/index.html"
 
@@ -66,22 +67,48 @@ padNum n
   | n < 10    = "0" ++ show n
   | otherwise = show n
 
+-- | Human-readable label for a construction layer
+layerLabel :: ConstructionLayer -> String
+layerLabel LayerIntersectLC {}    = "Intersect line-circle"
+layerLabel LayerIntersectCC {}    = "Intersect circle-circle"
+layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
+
 -- | Render the two initial points as labeled black dots
 renderInitialPoints :: (FC.Point, FC.Point) -> Diagram B
 renderInitialPoints ((ax, ay), (bx, by)) =
-    dot "a" (ax, ay) <> dot "b" (bx, by)
+    renderDot "a" (ax, ay) <> renderDot "b" (bx, by)
   where
-    dot label (x, y) =
+    renderDot label (x, y) =
       (  circle 0.04 # fc black # lw none
       <> text label # fontSizeL 0.12 # fc black # translate (r2 (0, -0.12))
       ) # moveTo (p2 (x, y))
 
 -- | Render a single construction layer as a diagram
 renderLayer :: ConstructionLayer -> Diagram B
-renderLayer (LayerLine (x1, y1) (x2, y2)) =
+renderLayer (LayerIntersectLC (x1, y1) (x2, y2) (cx, cy) r pts) =
+    renderLine (x1, y1) (x2, y2)
+    <> renderCircle (cx, cy) r
+    <> renderDots pts
+
+renderLayer (LayerIntersectCC (c1x, c1y) r1 (c2x, c2y) r2 pts) =
+    renderCircle (c1x, c1y) r1
+    <> renderCircle (c2x, c2y) r2
+    <> renderDots pts
+
+renderLayer (LayerTriangle col (x1, y1) (x2, y2) (x3, y3)) =
+    let offsets = [ r2 (x2-x1, y2-y1), r2 (x3-x2, y3-y2) ]
+        tri = closeLine (fromOffsets offsets)
+    in  strokeLoop tri
+          # fcA (col `withOpacity` 0.6)
+          # lc col
+          # lwG 0.02
+          # moveTo (p2 (x1, y1))
+
+-- | Render a dotted construction line, extended beyond the defining points
+renderLine :: (Double, Double) -> (Double, Double) -> Diagram B
+renderLine (x1, y1) (x2, y2) =
     let dx = x2 - x1
         dy = y2 - y1
-        -- Extend the line beyond the defining points for visibility
         ext = 0.5
         xa = x1 - ext * dx
         ya = y1 - ext * dy
@@ -92,7 +119,9 @@ renderLayer (LayerLine (x1, y1) (x2, y2)) =
          # lc grey
          # lwG 0.02
 
-renderLayer (LayerCircle (cx, cy) r) =
+-- | Render a dotted construction circle
+renderCircle :: (Double, Double) -> Double -> Diagram B
+renderCircle (cx, cy) r =
     circle r
       # moveTo (p2 (cx, cy))
       # dashingG [0.08, 0.05] 0
@@ -100,19 +129,12 @@ renderLayer (LayerCircle (cx, cy) r) =
       # lwG 0.02
       # fillColor transparent
 
-renderLayer (LayerIntersections pts) =
+-- | Render intersection points as black dots
+renderDots :: [(Double, Double)] -> Diagram B
+renderDots pts =
     mconcat [ circle 0.04 # fc black # lw none # moveTo (p2 (x, y))
             | (x, y) <- pts
             ]
-
-renderLayer (LayerTriangle col (x1, y1) (x2, y2) (x3, y3)) =
-    let offsets = [ r2 (x2-x1, y2-y1), r2 (x3-x2, y3-y2) ]
-        tri = closeLine (fromOffsets offsets)
-    in  strokeLoop tri
-          # fcA (col `withOpacity` 0.6)
-          # lc col
-          # lwG 0.02
-          # moveTo (p2 (x1, y1))
   
 buildHtml = do
   createDirectoryIfMissing True "out"
