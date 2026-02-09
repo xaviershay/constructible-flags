@@ -3,7 +3,7 @@ module Main (main) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Flag.Constructions (naturalMult, perpendicular, parallel, midpoint)
+import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, midpoint)
 import Flag.Construction.Interpreter (eval)
 import Flag.Construction.Types (Point)
 import Flag.Construction.Geometry (dist)
@@ -33,6 +33,9 @@ evalPar = eval parallel
 
 evalMid :: (Point, Point) -> Point
 evalMid = eval midpoint
+
+evalRM :: Int -> Int -> (Point, Point) -> Point
+evalRM p q = eval (rationalMult p q)
 
 tests :: TestTree
 tests = testGroup "Tests"
@@ -153,5 +156,30 @@ tests = testGroup "Tests"
         let (a, b) = ((1, 2), (5, 8))
             m = evalMid (a, b)
         approxEqualD "equidistant" (dist a m) (dist m b)
+    ]
+  , testGroup "rationalMult"
+    [ testCase "p=q returns second point" $
+        evalRM 3 3 ((0, 0), (1, 0)) @?= (1, 0)
+
+    , testCase "1/2 on horizontal unit segment" $
+        approxEqual "1/2" (0.5, 0) (evalRM 1 2 ((0, 0), (1, 0)))
+
+    , testCase "1/3 on horizontal unit segment" $
+        approxEqual "1/3" (1/3, 0) (evalRM 1 3 ((0, 0), (1, 0)))
+
+    , testCase "2/3 on horizontal unit segment" $
+        approxEqual "2/3" (2/3, 0) (evalRM 2 3 ((0, 0), (1, 0)))
+
+    , testCase "3/2 extends past endpoint" $
+        approxEqual "3/2" (1.5, 0) (evalRM 3 2 ((0, 0), (1, 0)))
+
+    , testCase "1/2 on vertical segment" $
+        approxEqual "1/2 vertical" (0, 0.5) (evalRM 1 2 ((0, 0), (0, 1)))
+
+    , testCase "2/5 on diagonal segment" $
+        approxEqual "2/5 diagonal" (0.4, 0.4) (evalRM 2 5 ((0, 0), (1, 1)))
+
+    , testCase "1/2 with non-origin start" $
+        approxEqual "1/2 offset" (2, 0) (evalRM 1 2 ((1, 0), (3, 0)))
     ]
   ]
