@@ -1,1 +1,1 @@
-* Don't try to run or implement tests. We don't have or want a test harness.
+* Tests use the tasty framework. Run with `./bin/test`.

@@ -51,7 +51,6 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - constructible-flags
-
 tests:
   constructible-flags-test:
     main:                Spec.hs
@@ -62,3 +61,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - constructible-flags
+    - tasty
+    - tasty-hunit

@@ -95,4 +95,6 @@ test-suite constructible-flags-test
     , diagrams-svg
     , directory
     , effectful-core
+    , tasty
+    , tasty-hunit
   default-language: Haskell2010
