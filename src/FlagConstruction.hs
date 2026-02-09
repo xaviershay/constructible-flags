@@ -426,11 +426,17 @@ naturalMult n
         (_, next) <- intersectLC -< ((a, b), (cur, prev))
         markOff (k - 1) -< (a, b, next, cur)
 
+boxNatural :: Int -> Int -> FlagA (Point, Point) (Point, Point, Point, Point)
+boxNatural w h = proc (tl, b) -> do
+    tr <- naturalMult w -< (tl, b)
+    (c, _) <- perpendicular -< (tl, b)
+    bl <- naturalMult h -< (tl, c)
+    br <- quad -< (tl, tr, bl)
+
+    returnA -< (tl, tr, br, bl)
+
 exampleDesign :: FlagA (Point, Point) Drawing
 exampleDesign = proc (tl, b) -> do
-    tr <- naturalMult 3 -< (tl, b)
-    (c, _) <- perpendicular -< (tl, b)
-    bl <- naturalMult 2 -< (tl, c)
-    br <- quad -< (tl, tr, bl)
+    (tl, tr, br, bl) <- boxNatural 3 2 -< (tl, b)
 
     fillRectangle red -< (tl, tr, br, bl)
