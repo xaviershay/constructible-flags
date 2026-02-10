@@ -12,6 +12,7 @@ import Effectful (runPureEff)
 import Numeric (showFFloat, showHex)
 import System.Directory (createDirectoryIfMissing, copyFile)
 
+import Flag.Construction.Radical (Radical, toDouble, toKaTeX)
 import Flag.Construction.Types (Point)
 import Flag.Construction.Layers (ConstructionLayer(..), layerInputPoints,
                                  layerOutputPoints, pointDist)
@@ -19,6 +20,14 @@ import Flag.Construction.Tree (evalTree)
 import Flag.Source (Sourced, runSourcedPure)
 import Flag.Definition (Flag(..))
 import Flag.Render.Debug (NumberedEntry(..), numberTree, numberedLeaves)
+
+-- | Convert a Point (Radical, Radical) to (Double, Double) for SVG rendering.
+toDP :: Point -> (Double, Double)
+toDP (x, y) = (toDouble x, toDouble y)
+
+-- | Convert a Radical to Double for SVG rendering.
+toD :: Radical -> Double
+toD = toDouble
 
 -- ---------------------------------------------------------------------------
 -- Build debug V2 output
@@ -37,12 +46,12 @@ buildDebugV2 flag = do
       allLayers = map snd leaves
       initialPts = [fst input, snd input]
 
-  -- Compute bounding box from all points
+  -- Compute bounding box from all points (convert to Double for SVG viewBox)
   let allPoints = initialPts
                   ++ concatMap layerInputPoints allLayers
                   ++ concatMap layerOutputPoints allLayers
-      xs = map fst allPoints
-      ys = map snd allPoints
+      xs = map (toDouble . fst) allPoints
+      ys = map (toDouble . snd) allPoints
       minX = minimum xs
       maxX = maximum xs
       minY = minimum ys
@@ -125,39 +134,47 @@ treeToJson entries allLayers initialPts liveAfter =
 
 -- | Generate the construction geometry SVG for a layer
 layerGeomSvg :: ConstructionLayer -> String
-layerGeomSvg (LayerIntersectLL (x1, y1) (x2, y2) (x3, y3) (x4, y4) _) =
-    svgLine x1 y1 x2 y2 ++ "\n" ++ svgLine x3 y3 x4 y4
+layerGeomSvg (LayerIntersectLL p1 p2 p3 p4 _) =
+    let (x1,y1) = toDP p1; (x2,y2) = toDP p2
+        (x3,y3) = toDP p3; (x4,y4) = toDP p4
+    in  svgLine x1 y1 x2 y2 ++ "\n" ++ svgLine x3 y3 x4 y4
 
-layerGeomSvg (LayerIntersectLC (x1, y1) (x2, y2) (cx, cy) (ex, ey) _) =
-    svgLine x1 y1 x2 y2 ++ "\n" ++ svgCircleOutline cx cy (pointDist (cx, cy) (ex, ey))
+layerGeomSvg (LayerIntersectLC lp1 lp2 cc ce _) =
+    let (x1,y1) = toDP lp1; (x2,y2) = toDP lp2
+        (cx,cy) = toDP cc
+    in  svgLine x1 y1 x2 y2 ++ "\n" ++ svgCircleOutline cx cy (toD (pointDist cc ce))
 
-layerGeomSvg (LayerIntersectCC (c1x, c1y) (e1x, e1y) (c2x, c2y) (e2x, e2y) _) =
-    svgCircleOutline c1x c1y (pointDist (c1x, c1y) (e1x, e1y))
-    ++ "\n"
-    ++ svgCircleOutline c2x c2y (pointDist (c2x, c2y) (e2x, e2y))
+layerGeomSvg (LayerIntersectCC c1 e1 c2 e2 _) =
+    let (c1x,c1y) = toDP c1; (c2x,c2y) = toDP c2
+    in  svgCircleOutline c1x c1y (toD (pointDist c1 e1))
+        ++ "\n"
+        ++ svgCircleOutline c2x c2y (toD (pointDist c2 e2))
 
 layerGeomSvg (LayerTriangle _ _ _ _) = ""
 
-layerGeomSvg (LayerCircle _ (cx, cy) (ex, ey)) =
-    svgCircleOutline cx cy (pointDist (cx, cy) (ex, ey))
+layerGeomSvg (LayerCircle _ cc ce) =
+    let (cx,cy) = toDP cc
+    in  svgCircleOutline cx cy (toD (pointDist cc ce))
 
 -- | Generate the persistent fill SVG for a layer
 layerFillSvg :: ConstructionLayer -> String
-layerFillSvg (LayerTriangle col (x1, y1) (x2, y2) (x3, y3)) =
-    "<polygon points=\"" ++ showF x1 ++ "," ++ showF y1
-    ++ " " ++ showF x2 ++ "," ++ showF y2
-    ++ " " ++ showF x3 ++ "," ++ showF y3
-    ++ "\" fill=\"" ++ colourToHex col
-    ++ "\" fill-opacity=\"0.6\" stroke=\"" ++ colourToHex col
-    ++ "\" stroke-width=\"0.02\"/>"
+layerFillSvg (LayerTriangle col p1 p2 p3) =
+    let (x1,y1) = toDP p1; (x2,y2) = toDP p2; (x3,y3) = toDP p3
+    in  "<polygon points=\"" ++ showF x1 ++ "," ++ showF y1
+        ++ " " ++ showF x2 ++ "," ++ showF y2
+        ++ " " ++ showF x3 ++ "," ++ showF y3
+        ++ "\" fill=\"" ++ colourToHex col
+        ++ "\" fill-opacity=\"0.6\" stroke=\"" ++ colourToHex col
+        ++ "\" stroke-width=\"0.02\"/>"
 
-layerFillSvg (LayerCircle col (cx, cy) (ex, ey)) =
-    let r = pointDist (cx, cy) (ex, ey)
-    in "<circle cx=\"" ++ showF cx ++ "\" cy=\"" ++ showF cy
-       ++ "\" r=\"" ++ showF r
-       ++ "\" fill=\"" ++ colourToHex col
-       ++ "\" fill-opacity=\"0.6\" stroke=\"" ++ colourToHex col
-       ++ "\" stroke-width=\"0.02\"/>"
+layerFillSvg (LayerCircle col cc ce) =
+    let (cx,cy) = toDP cc
+        r = toD (pointDist cc ce)
+    in  "<circle cx=\"" ++ showF cx ++ "\" cy=\"" ++ showF cy
+        ++ "\" r=\"" ++ showF r
+        ++ "\" fill=\"" ++ colourToHex col
+        ++ "\" fill-opacity=\"0.6\" stroke=\"" ++ colourToHex col
+        ++ "\" stroke-width=\"0.02\"/>"
 
 layerFillSvg _ = ""
 
@@ -165,10 +182,11 @@ layerFillSvg _ = ""
 dotsSvg :: [Point] -> String
 dotsSvg pts =
     intercalate "\n"
-      [ "<circle cx=\"" ++ showF x ++ "\" cy=\"" ++ showF y
-        ++ "\" r=\"0.04\" fill=\"black\" class=\"dot\" data-x=\""
-        ++ showF x ++ "\" data-y=\"" ++ showF y ++ "\"/>"
-      | (x, y) <- nub pts
+      [ let (x, y) = toDP p
+        in  "<circle cx=\"" ++ showF x ++ "\" cy=\"" ++ showF y
+            ++ "\" r=\"0.04\" fill=\"black\" class=\"dot\" data-x=\""
+            ++ showF x ++ "\" data-y=\"" ++ showF y ++ "\"/>"
+      | p <- nub pts
       ]
 
 -- ---------------------------------------------------------------------------
@@ -236,8 +254,10 @@ padHex width n =
 
 jsonPoint :: Point -> String -> String
 jsonPoint (x, y) label = jsonObj
-    [ ("x", showF x)
-    , ("y", showF y)
+    [ ("x", showF (toDouble x))
+    , ("y", showF (toDouble y))
+    , ("exactX", jsonStr (toKaTeX x))
+    , ("exactY", jsonStr (toKaTeX y))
     , ("label", jsonStr label)
     ]
 
@@ -257,6 +277,8 @@ generateHtmlShell json name = unlines
   , "<meta charset=\"UTF-8\">"
   , "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
   , "<title>Debug V2 – " ++ escapeHtml name ++ "</title>"
+  , "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css\">"
+  , "<script defer src=\"https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js\"></script>"
   , "<style>"
   , "  * { box-sizing: border-box; margin: 0; padding: 0; }"
   , "  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;"

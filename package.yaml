@@ -55,6 +55,8 @@ tests:
   constructible-flags-test:
     main:                Spec.hs
     source-dirs:         test
+    other-modules:
+    - RadicalSpec
     ghc-options:
     - -threaded
     - -rtsopts

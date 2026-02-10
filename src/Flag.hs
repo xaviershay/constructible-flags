@@ -7,7 +7,8 @@
 -- flag definitions, rendering, and source-attribution machinery.
 module Flag
     ( -- * Re-exports
-      module Flag.Construction.Types
+      module Flag.Construction.Radical
+    , module Flag.Construction.Types
     , module Flag.Construction.Geometry
     , module Flag.Construction.Interpreter
     , module Flag.Construction.Layers
@@ -20,6 +21,7 @@ module Flag
     , module Flag.Registry
     ) where
 
+import Flag.Construction.Radical
 import Flag.Construction.Types
 import Flag.Construction.Geometry
 import Flag.Construction.Interpreter

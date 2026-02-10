@@ -1,4 +1,4 @@
-module Main (main) where
+module Main (main, tests) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -7,20 +7,28 @@ import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, m
 import Flag.Construction.Interpreter (eval)
 import Flag.Construction.Types (Point)
 import Flag.Construction.Geometry (dist)
+import Flag.Construction.Radical (Radical, toDouble)
+import qualified RadicalSpec
 
 main :: IO ()
-main = defaultMain tests
+main = defaultMain $ testGroup "All Tests"
+  [ tests
+  , RadicalSpec.radicalTests
+  ]
 
--- | Approximate equality for points, to handle floating-point imprecision.
+-- | Approximate equality for points, converting Radical to Double.
 approxEqual :: String -> Point -> Point -> Assertion
 approxEqual msg (x1, y1) (x2, y2) = do
-  assertBool (msg ++ " x: expected " ++ show x1 ++ " got " ++ show x2) (abs (x1 - x2) < 1e-9)
-  assertBool (msg ++ " y: expected " ++ show y1 ++ " got " ++ show y2) (abs (y1 - y2) < 1e-9)
+  assertBool (msg ++ " x: expected " ++ show x1 ++ " got " ++ show x2)
+    (abs (toDouble x1 - toDouble x2) < 1e-9)
+  assertBool (msg ++ " y: expected " ++ show y1 ++ " got " ++ show y2)
+    (abs (toDouble y1 - toDouble y2) < 1e-9)
 
--- | Assert two doubles are approximately equal.
-approxEqualD :: String -> Double -> Double -> Assertion
+-- | Assert two Radicals are approximately equal (via Double conversion).
+approxEqualD :: String -> Radical -> Radical -> Assertion
 approxEqualD msg expected actual =
-  assertBool (msg ++ ": expected " ++ show expected ++ " got " ++ show actual) (abs (expected - actual) < 1e-9)
+  assertBool (msg ++ ": expected " ++ show expected ++ " got " ++ show actual)
+    (abs (toDouble expected - toDouble actual) < 1e-9)
 
 evalNM :: Int -> (Point, Point) -> Point
 evalNM n = eval (naturalMult n)

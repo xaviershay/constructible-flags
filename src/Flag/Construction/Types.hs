@@ -14,14 +14,16 @@ import Control.Arrow
 import Data.Colour
 import qualified Prelude
 
--- | A 2D point
-type Point = (Double, Double)
+import Flag.Construction.Radical (Radical)
+
+-- | A 2D point with exact radical coordinates
+type Point = (Radical, Radical)
 
 -- | An abstract drawing instruction
 data Drawing
   = DrawTriangle (Colour Double) Point Point Point
   | DrawPath (Colour Double) [Point]  -- ^ A closed polygon as an ordered list of vertices
-  | DrawCircle (Colour Double) Point Double  -- ^ A filled circle: colour, center, radius
+  | DrawCircle (Colour Double) Point Radical  -- ^ A filled circle: colour, center, radius
   | Overlay Drawing Drawing
   | EmptyDrawing
   deriving (Show)

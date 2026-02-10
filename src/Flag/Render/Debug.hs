@@ -21,9 +21,14 @@ import Flag.Construction.Types (Point)
 import Flag.Construction.Layers (ConstructionLayer(..), layerInputPoints, layerOutputPoints)
 import Flag.Construction.Tree (ConstructionTree(..), evalTree)
 import Flag.Construction.Optimize (optimize)
+import Flag.Construction.Radical (toDouble)
 import Flag.Source (Sourced, runSourcedPure)
 import Flag.Definition (Flag(..))
 import Flag.Render.Diagram (drawingToDiagram, renderConstructionGeom, renderFill, renderDots)
+
+-- | Convert a Point (Radical, Radical) to (Double, Double) for diagrams.
+toDP :: Point -> (Double, Double)
+toDP (x, y) = (toDouble x, toDouble y)
 
 -- ---------------------------------------------------------------------------
 -- Tree-aware step numbering
@@ -109,7 +114,7 @@ buildDebug flag = do
 
   -- Render step 0: initial points, but only those that are live
   let livePts0 = filter (`elem` (liveAfter !! 0)) initialPts
-      step0Dia = renderDots livePts0
+      step0Dia = renderDots (map toDP livePts0)
 
   -- Render steps 1..n
   let stepDias = [ let layerIdx    = i - 1
@@ -118,7 +123,7 @@ buildDebug flag = do
                        prevOutputs = concatMap layerOutputPoints (take layerIdx allLayers)
                        curOutputs  = layerOutputPoints layer
                        allKnown    = initialPts ++ prevOutputs ++ curOutputs
-                       liveDots    = renderDots (filter (`elem` live) allKnown)
+                       liveDots    = renderDots (map toDP (filter (`elem` live) allKnown))
                        geom        = renderConstructionGeom layer
                        fills       = mconcat [ renderFill l | l <- take i allLayers ]
                    in  liveDots <> geom <> fills

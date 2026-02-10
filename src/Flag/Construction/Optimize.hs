@@ -93,7 +93,7 @@ optimize = buildDrawing . mergeAll . flatten
             []    -> Nothing
 
     ptEq :: Point -> Point -> Bool
-    ptEq (x1, y1) (x2, y2) = abs (x1 - x2) < 1e-10 && abs (y1 - y2) < 1e-10
+    ptEq (x1, y1) (x2, y2) = x1 == x2 && y1 == y2
 
     -- Splice two polygons along a shared edge.
     -- Edge i..(i+1) in A is shared with edge j..(j+1) in B (reversed).
