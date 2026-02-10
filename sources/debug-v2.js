@@ -321,12 +321,18 @@ function StepNode({ node, visibleSet, midpointIndex, expandedGroups, onToggleGro
 
 function CoordTooltip({ point }) {
   if (!point) return null;
-  const x = Number(point.x).toFixed(4);
-  const y = Number(point.y).toFixed(4);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!ref.current || typeof katex === 'undefined') return;
+    const exactX = point.exactX || String(Number(point.x).toFixed(4));
+    const exactY = point.exactY || String(Number(point.y).toFixed(4));
+    const tex = `\\left(\\, ${exactX} \\,,\\; ${exactY} \\,\\right)`;
+    katex.render(tex, ref.current, { throwOnError: false, displayMode: false });
+  }, [point]);
+
   return html`
-    <div class="coord-tooltip">
-      (${x}, ${y})
-    </div>
+    <div class="coord-tooltip" ref=${ref} />
   `;
 }
 
