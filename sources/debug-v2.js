@@ -89,19 +89,124 @@ function leafToVirtual(virtualLayers, leafIndex) {
 function SvgViewer({ leaves, visibleSet, hoveredPoint, setHoveredPoint }) {
   const svgRef = useRef(null);
 
-  // Build cumulative fills: for each visible leaf, show its fill
-  // and all fills from leaves with lower indices that are also visible or earlier
-  const allLeaves = leaves;
+  // Parse the original viewBox once
+  const originalVB = useMemo(() => {
+    const [x, y, w, h] = DATA.viewBox.split(' ').map(Number);
+    return { x, y, w, h };
+  }, []);
 
-  // We want: for a leaf to show its fill, all leaves with index <= that leaf's index
-  // should show their fill (cumulative). Construction geom only for leaves in visibleSet.
+  // Pan/zoom state: store the current viewBox
+  const [vb, setVb] = useState(originalVB);
+  const panRef = useRef({ isPanning: false, startX: 0, startY: 0, startVb: null });
+
+  // Convert a screen-space point to SVG viewBox coordinates
+  const screenToSvg = useCallback((clientX, clientY) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    const inv = ctm.inverse();
+    return {
+      x: inv.a * clientX + inv.c * clientY + inv.e,
+      y: inv.b * clientX + inv.d * clientY + inv.f
+    };
+  }, []);
+
+  // Zoom with mouse wheel
+  const onWheel = useCallback((e) => {
+    e.preventDefault();
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    // Get the SVG-space point under the cursor
+    const pt = screenToSvg(e.clientX, e.clientY);
+    const zoomFactor = e.deltaY > 0 ? 1.1 : 1 / 1.1;
+
+    setVb(prev => {
+      const newW = prev.w * zoomFactor;
+      const newH = prev.h * zoomFactor;
+      // Keep the point under the cursor fixed
+      const fx = (pt.x - prev.x) / prev.w;
+      const fy = (pt.y - prev.y) / prev.h;
+      const newX = pt.x - fx * newW;
+      const newY = pt.y - fy * newH;
+      return { x: newX, y: newY, w: newW, h: newH };
+    });
+  }, [screenToSvg]);
+
+  // Pan with middle-click or left-click drag
+  const onPointerDown = useCallback((e) => {
+    // Pan on middle button, or left button with no target dot
+    if (e.button === 1 || (e.button === 0 && !e.target.classList.contains('dot'))) {
+      e.preventDefault();
+      const svg = svgRef.current;
+      if (!svg) return;
+      svg.setPointerCapture(e.pointerId);
+      // Capture the CTM scale at drag start so it stays fixed during the drag
+      const ctm = svg.getScreenCTM();
+      panRef.current = {
+        isPanning: true,
+        startX: e.clientX,
+        startY: e.clientY,
+        startVb: { ...vb },
+        scaleX: ctm ? ctm.a : 1,
+        scaleY: ctm ? ctm.d : 1
+      };
+    }
+  }, [vb]);
+
+  const onPointerMove = useCallback((e) => {
+    const pan = panRef.current;
+    if (!pan.isPanning) return;
+
+    // Convert pixel delta to viewBox units using the fixed scale from drag start
+    const dx = (e.clientX - pan.startX) / pan.scaleX;
+    const dy = (e.clientY - pan.startY) / pan.scaleY;
+
+    setVb({
+      x: pan.startVb.x - dx,
+      y: pan.startVb.y - dy,
+      w: pan.startVb.w,
+      h: pan.startVb.h
+    });
+  }, []);
+
+  const onPointerUp = useCallback((e) => {
+    if (panRef.current.isPanning) {
+      panRef.current.isPanning = false;
+      const svg = svgRef.current;
+      if (svg) svg.releasePointerCapture(e.pointerId);
+    }
+  }, []);
+
+  // Reset view on double-click
+  const onDblClick = useCallback((e) => {
+    if (!e.target.classList.contains('dot')) {
+      setVb(originalVB);
+    }
+  }, [originalVB]);
+
+  // Attach wheel listener with { passive: false } so preventDefault works
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, [onWheel]);
+
+  const allLeaves = leaves;
   const maxVisibleIndex = Math.max(0, ...visibleSet);
+  const viewBoxStr = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
 
   return html`
     <svg ref=${svgRef}
-         viewBox=${DATA.viewBox}
+         viewBox=${viewBoxStr}
          class="construction-svg"
-         xmlns="http://www.w3.org/2000/svg">
+         xmlns="http://www.w3.org/2000/svg"
+         onPointerDown=${onPointerDown}
+         onPointerMove=${onPointerMove}
+         onPointerUp=${onPointerUp}
+         onDblClick=${onDblClick}>
       <g transform="scale(1,-1) translate(0, ${-getSvgTranslateY()})">
         ${allLeaves.map(leaf => {
           const isVisible = visibleSet.has(leaf.index);
@@ -482,6 +587,12 @@ const styles = `
     background: white;
     border: 1px solid #ddd;
     border-radius: 4px;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .construction-svg:active {
+    cursor: grabbing;
   }
 
   .tree-panel {
