@@ -86,7 +86,7 @@ function leafToVirtual(virtualLayers, leafIndex) {
 // SVG Viewer Component
 // ---------------------------------------------------------------------------
 
-function SvgViewer({ leaves, visibleSet, hoveredPoint, setHoveredPoint }) {
+function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, setHoveredPoint }) {
   const svgRef = useRef(null);
 
   // Parse the original viewBox once
@@ -198,6 +198,33 @@ function SvgViewer({ leaves, visibleSet, hoveredPoint, setHoveredPoint }) {
   const maxVisibleIndex = Math.max(0, ...visibleSet);
   const viewBoxStr = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
 
+  // Compute per-leaf opacity: newer layers (near hi) are opaque, older (near lo) fade out
+  const leafOpacity = useMemo(() => {
+    const opMap = new Map();
+    const MIN_OPACITY = 0.15;
+    const windowSize = hi - lo;
+    for (let vi = 0; vi < virtualLayers.length; vi++) {
+      for (const leafIdx of virtualLayers[vi]) {
+        if (vi > hi || vi < lo) {
+          // Outside the window: fills below get min opacity
+          opMap.set(leafIdx, MIN_OPACITY);
+        } else if (windowSize <= 1) {
+          opMap.set(leafIdx, 1.0);
+        } else {
+          // Linear fade: hi → 1.0, lo → MIN_OPACITY
+          const t = (vi - lo) / windowSize;
+          opMap.set(leafIdx, MIN_OPACITY + t * (1.0 - MIN_OPACITY));
+        }
+      }
+    }
+    return opMap;
+  }, [lo, hi, virtualLayers]);
+
+  // Fixed screen-size hitbox: ~10px worth of viewBox units
+  const svgEl = svgRef.current;
+  const svgScreenW = svgEl ? svgEl.clientWidth || 600 : 600;
+  const hitRadius = (vb.w / svgScreenW) * 30;
+
   return html`
     <svg ref=${svgRef}
          viewBox=${viewBoxStr}
@@ -211,8 +238,9 @@ function SvgViewer({ leaves, visibleSet, hoveredPoint, setHoveredPoint }) {
         ${allLeaves.map(leaf => {
           const isVisible = visibleSet.has(leaf.index);
           const showFill = leaf.index <= maxVisibleIndex;
+          const opacity = leafOpacity.get(leaf.index) ?? 1.0;
           return html`
-            <g key=${leaf.index}>
+            <g key=${leaf.index} style=${{ opacity }}>
               ${showFill && leaf.fillSvg && html`
                 <g dangerouslySetInnerHTML=${{ __html: leaf.fillSvg }} />
               `}
@@ -222,18 +250,26 @@ function SvgViewer({ leaves, visibleSet, hoveredPoint, setHoveredPoint }) {
               ${isVisible && html`
                 <g class="dots-layer">
                   ${(leaf.points || []).map((pt, i) => html`
+                    <circle key=${'hit' + i}
+                            cx=${pt.x} cy=${pt.y} r=${hitRadius}
+                            fill="transparent" class="dot-hitbox"
+                            onMouseEnter=${() => setHoveredPoint(pt)}
+                            onMouseLeave=${() => setHoveredPoint(null)} />
                     <circle key=${i}
                             cx=${pt.x} cy=${pt.y} r="0.04"
                             fill="black" class="dot"
-                            onMouseEnter=${() => setHoveredPoint(pt)}
-                            onMouseLeave=${() => setHoveredPoint(null)} />
+                            pointer-events="none" />
                   `)}
                   ${(leaf.inputPoints || []).map((pt, i) => html`
+                    <circle key=${'inhit' + i}
+                            cx=${pt.x} cy=${pt.y} r=${hitRadius}
+                            fill="transparent" class="dot-hitbox"
+                            onMouseEnter=${() => setHoveredPoint(pt)}
+                            onMouseLeave=${() => setHoveredPoint(null)} />
                     <circle key=${'in' + i}
                             cx=${pt.x} cy=${pt.y} r="0.03"
                             fill="#666" class="dot"
-                            onMouseEnter=${() => setHoveredPoint(pt)}
-                            onMouseLeave=${() => setHoveredPoint(null)} />
+                            pointer-events="none" />
                   `)}
                 </g>
               `}
@@ -242,11 +278,15 @@ function SvgViewer({ leaves, visibleSet, hoveredPoint, setHoveredPoint }) {
         })}
         ${/* Initial points always visible */ ''}
         ${DATA.initialPoints.map((pt, i) => html`
+          <circle key=${'inithit' + i}
+                  cx=${pt.x} cy=${pt.y} r=${hitRadius}
+                  fill="transparent" class="dot-hitbox"
+                  onMouseEnter=${() => setHoveredPoint(pt)}
+                  onMouseLeave=${() => setHoveredPoint(null)} />
           <circle key=${'init' + i}
                   cx=${pt.x} cy=${pt.y} r="0.04"
                   fill="blue" class="dot"
-                  onMouseEnter=${() => setHoveredPoint(pt)}
-                  onMouseLeave=${() => setHoveredPoint(null)} />
+                  pointer-events="none" />
         `)}
       </g>
     </svg>
@@ -519,6 +559,9 @@ function App() {
           <${SvgViewer}
             leaves=${allLeaves}
             visibleSet=${visibleSet}
+            lo=${lo}
+            hi=${hi}
+            virtualLayers=${virtualLayers}
             hoveredPoint=${hoveredPoint}
             setHoveredPoint=${setHoveredPoint} />
           <${CoordTooltip} point=${hoveredPoint} />
