@@ -65,7 +65,7 @@ generateIndex flags = unlines
       [ "      <tr>"
       , "        <td><a href=\"" ++ svgFile ++ "\"><img src=\"" ++ svgFile ++ "\" alt=\"" ++ escapeHtml name ++ " flag\"></a></td>"
       , "        <td>" ++ escapeHtml name ++ "</td>"
-      , "        <td>" ++ escapeHtml desc ++ "</td>"
+      , "        <td>" ++ nlToBr (escapeHtml desc) ++ "</td>"
       , "        <td>" ++ formatSteps constructionSteps ++ "</td>"
       , "        <td>" ++ formatSources sources ++ "</td>"
       , "      </tr>"
@@ -128,6 +128,12 @@ generateIndex flags = unlines
 -- ---------------------------------------------------------------------------
 -- Utilities
 -- ---------------------------------------------------------------------------
+
+-- | Convert newlines to @\<br\>@ tags
+nlToBr :: String -> String
+nlToBr [] = []
+nlToBr ('\n':cs) = "<br>" ++ nlToBr cs
+nlToBr (c:cs) = c : nlToBr cs
 
 -- | Escape special HTML characters
 escapeHtml :: String -> String
