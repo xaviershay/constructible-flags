@@ -15,6 +15,7 @@ module Flag.Constructions
 
       -- * Composite constructors
     , perpendicular
+    , translate
     , parallel
     , naturalMult
     , rationalMult
@@ -76,20 +77,24 @@ perpendicular = group "Perpendicular points" $ proc (a, b) -> do
 
     returnA -< (p, p')
 
--- | Given a line (two points) and a point, return a line parallel to the
--- given line passing through the point.  The construction forms a
--- parallelogram @a-b-q-p@ where @p→q@ is parallel to @a→b@.
+-- | Translate a vector defined by @(a, b)@ so that its origin is at point
+-- @p@. Returns the pair @(p, q)@ where @q = p + (b - a)@.
 --
--- Method: the diagonals of a parallelogram bisect each other, so
--- @midpoint(b, p) = midpoint(a, q)@.  We find @M = midpoint(b, p)@,
--- then reflect @a@ through @M@ to obtain @q = 2M − a = p + (b − a)@.
+-- The construction forms a parallelogram @a-b-q-p@ where @p→q@ is
+-- parallel to @a→b@. Method: the diagonals of a parallelogram bisect
+-- each other, so @midpoint(b, p) = midpoint(a, q)@. We find
+-- @M = midpoint(b, p)@, then reflect @a@ through @M@ to obtain
+-- @q = 2M − a = p + (b − a)@.
+translate :: FlagA ((Point, Point), Point) (Point, Point)
+translate = group "Translate vector" $ proc ((a, b), p) -> do
+  m <- midpoint -< (b, p)
+  (_, q) <- intersectLC -< ((a, m), (m, a))
+  returnA -< (p, q)
+
+-- | Given a line (two points) and a point, return a line parallel to the
+-- given line passing through the point.
 parallel :: FlagA ((Point, Point), Point) (Point, Point)
-parallel = group "Parallel line" $ proc ((a, b), p) -> do
-    m <- midpoint -< (b, p)
-    -- Reflect a through m: intersect line (a, m) with circle at m
-    -- through a; the far intersection is the reflection.
-    (_, q) <- intersectLC -< ((a, m), (m, a))
-    returnA -< (p, q)
+parallel = group "Parallel line" translate
 
 -- | Given three points @(a, b, c)@, return the fourth point @d@ at the
 -- intersection of the line perpendicular to @(a, b)@ through @b@ and the
@@ -167,8 +172,8 @@ rationalMult p q
       -- Mark p units along auxiliary line (a, c)
       pPt <- naturalMult p -< (a, c)
       -- Connect qPt to b
-      -- Construct a parallel to (qPt, b) through pPt
-      (_, target) <- parallel -< ((qPt, b), pPt)
+      -- Construct a translated vector (parallel) to (qPt, b) through pPt
+      (_, target) <- translate -< ((qPt, b), pPt)
       -- Intersect that parallel with the original line (a, b)
       result <- intersectLL -< ((pPt, target), (a, b))
       returnA -< result
@@ -217,6 +222,6 @@ horizontalStripes width specs = group "Horizontal stripes" $ proc (tl, b) -> do
         bl             <- naturalMult h -< (tl, down)
         br             <- quad -< (tl, tr, bl)
         stripe         <- fillRectangle col -< (tl, tr, br, bl)
-        (_, newUnitRef) <- parallel -< ((tl, unitRef), bl)
+        (_, newUnitRef) <- translate -< ((tl, unitRef), bl)
         restD          <- drawStripes rest -< (bl, br, newUnitRef)
         returnA -< stripe <> restD

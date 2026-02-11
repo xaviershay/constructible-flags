@@ -35,6 +35,7 @@ library
       Flag.Construction.Tree
       Flag.Construction.Types
       Flag.Constructions
+      Flag.Country.Bangladesh
       Flag.Country.Botswana
       Flag.Country.France
       Flag.Country.Japan

@@ -40,15 +40,14 @@ bangladesh = CountryFlag
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
         (w, h) <- sourced "Proportion" flagLaw (10, 6)
-
+        (pr, qr) <- sourced "Disc/Length Ratio" flagLaw (1, 5)
         _ <- sourced "Procion Colors" flagLaw ("Procion Brilliant Green H-2RS 50/1000", "Procion Brilliant Orange H-2RS 60/1000")
-        discRadius <- sourced "Disc width" flagLaw (1, 5)
-
         (greenPms, redPms) <- sourced "Pantone Colors" SourceHabitual (PMS342C, PMS485C)
 
         -- Third: convert Pantone to RGB using the Pantone module
         greenColor <- pmsToRGB greenPms
         redColor   <- pmsToRGB redPms
+
 
         pure $ proc origin -> do
             (tl, tr, br, bl) <- boxNatural w h -< origin
@@ -56,17 +55,14 @@ bangladesh = CountryFlag
             leftMid  <- midpoint -< (tl, bl)
             rightMid <- midpoint -< (tr, br)
 
-            -- point on top edge at 9/20 of the length from the hoist
             topNineTwentieth <- rationalMult 9 20 -< (tl, tr)
 
-            (p, p') <- perpendicular -< (topNineTwentieth, tr)
-
-            center <- intersectLL -< ((p, p'), (leftMid, rightMid))
-
-            -- edge point for circle chosen so that distance from center is 1/5 of full length
-            edge <- rationalMult 13 20 -< (leftMid, rightMid)
+            p <- perpendicular -< (topNineTwentieth, tr)
+            discCenter <- intersectLL -< (p, (leftMid, rightMid))
+            radiusPoint <- rationalMult pr qr -< (leftMid, rightMid)
+            (_, edgePoint) <- translate -< ((leftMid, radiusPoint), discCenter)
 
             bg   <- fillRectangle greenColor -< (tl, tr, br, bl)
-            disc <- fillCircle redColor -< (center, edge)
+            disc <- fillCircle redColor -< (discCenter, edgePoint)
 
             returnA -< bg <> disc

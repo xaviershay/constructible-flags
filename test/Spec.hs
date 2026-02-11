@@ -3,7 +3,7 @@ module Main (main, tests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, midpoint)
+import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, midpoint, translate)
 import Flag.Construction.Interpreter (eval)
 import Flag.Construction.Types (Point)
 import Flag.Construction.Geometry (dist)
@@ -38,6 +38,9 @@ evalPerp = eval perpendicular
 
 evalPar :: ((Point, Point), Point) -> (Point, Point)
 evalPar = eval parallel
+
+evalTrans :: ((Point, Point), Point) -> (Point, Point)
+evalTrans = eval translate
 
 evalMid :: (Point, Point) -> Point
 evalMid = eval midpoint
@@ -189,5 +192,24 @@ tests = testGroup "Tests"
 
     , testCase "1/2 with non-origin start" $
         approxEqual "1/2 offset" (2, 0) (evalRM 1 2 ((1, 0), (3, 0)))
+    ]
+  , testGroup "translate"
+    [ testCase "result is translated vector" $ do
+        let ((a, b), p) = (((0, 0), (1, 0)), (0, 1))
+            (_, q) = evalTrans ((a, b), p)
+            (dx1, dy1) = (fst b - fst a, snd b - snd a)
+            (dx2, dy2) = (fst q - fst p, snd q - snd p)
+            cross = dx1 * dy2 - dy1 * dx2
+        approxEqualD "cross product should be 0" 0 cross
+
+    , testCase "result preserves segment length" $ do
+        let ((a, b), p) = (((0, 0), (1, 0)), (0, 1))
+            (_, q) = evalTrans ((a, b), p)
+        approxEqualD "length" (dist a b) (dist p q)
+
+    , testCase "result passes through the given point" $ do
+        let ((a, b), p) = (((0, 0), (1, 0)), (0, 1))
+            (r, _) = evalTrans ((a, b), p)
+        approxEqual "passes through p" p r
     ]
   ]
