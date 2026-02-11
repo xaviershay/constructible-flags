@@ -17,6 +17,7 @@ import Flag.Source
 data PantoneId =
     PMSRed032C
   | PMSReflexBlueC
+  | PMS154225TCX
   deriving (Show, Eq)
 
 pantone :: Source
@@ -26,3 +27,4 @@ pantone = SourceAuthoritativeWebsite "Pantone" "https://www.pantone.com/"
 pmsToRGB :: Sourced :> es => PantoneId -> Eff es (Colour Double)
 pmsToRGB PMSRed032C = sourced "RGB Conversion" pantone (sRGB24 230 49 62)
 pmsToRGB PMSReflexBlueC = sourced "RGB Conversion" pantone (sRGB24 16 11 136)
+pmsToRGB PMS154225TCX = sourced "RGB Conversion" pantone (sRGB24 117 168 210)

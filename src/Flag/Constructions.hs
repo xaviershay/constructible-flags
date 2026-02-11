@@ -23,6 +23,7 @@ module Flag.Constructions
     , boxNatural
     , fillRectangle
     , fillBox
+    , horizontalStripes
     ) where
 
 import Control.Arrow (returnA)
@@ -186,3 +187,23 @@ fillBox c w h = proc (tl, b) -> do
     (tl', tr, br, bl) <- boxNatural w h -< (tl, b)
 
     fillRectangle c -< (tl', tr, br, bl)
+
+
+-- | Create horizontal stripes across the flag area. The first
+-- parameter is the horizontal width in units, and the list contains
+-- pairs of @(height, colour)@ where each height is in the same unit.
+-- The total flag height is the sum of all stripe heights.
+horizontalStripes :: Int -> [(Int, Colour Double)] -> FlagA (Point, Point) Drawing
+horizontalStripes width specs = group "Horizontal stripes" $
+    drawStripes specs
+  where
+    drawStripes :: [(Int, Colour Double)] -> FlagA (Point, Point) Drawing
+    drawStripes [] = Arr "empty" (const mempty)
+    drawStripes [(h, col)] = fillBox col width h
+    drawStripes ((h, col):rest) = proc (topleft, topright) -> do
+        (down, _)  <- perpendicular -< (topleft, topright)
+        stripe     <- fillBox col width h -< (topleft, topright)
+        newTL      <- naturalMult h -< (topleft, down)
+        (_, newTR) <- parallel -< ((topleft, topright), newTL)
+        restD      <- drawStripes rest -< (newTL, newTR)
+        returnA -< stripe <> restD

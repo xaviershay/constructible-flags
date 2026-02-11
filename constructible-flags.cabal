@@ -35,6 +35,7 @@ library
       Flag.Construction.Tree
       Flag.Construction.Types
       Flag.Constructions
+      Flag.Country.Botswana
       Flag.Country.France
       Flag.Country.Japan
       Flag.Definition
@@ -69,6 +70,25 @@ executable constructible-flags-exe
       Paths_constructible_flags
   hs-source-dirs:
       app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , colour
+    , constructible-flags
+    , diagrams-lib
+    , diagrams-svg
+    , directory
+    , effectful-core
+  default-language: Haskell2010
+
+executable debug-flag
+  main-is: DebugFlag.hs
+  other-modules:
+      Paths_constructible_flags
+  autogen-modules:
+      Paths_constructible_flags
+  hs-source-dirs:
+      app-debug
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
