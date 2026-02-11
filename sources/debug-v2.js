@@ -8,10 +8,10 @@ import htm from 'https://esm.sh/htm@3.1.1';
 const html = htm.bind(h);
 
 // ---------------------------------------------------------------------------
-// Data loading
+// Data loading (fetched from URL param ?flag=<iso>)
 // ---------------------------------------------------------------------------
 
-const DATA = window.__DEBUG_DATA__;
+let DATA = null;
 
 // ---------------------------------------------------------------------------
 // Utility: collect all leaf indices from a tree node
@@ -820,7 +820,29 @@ styleEl.textContent = styles;
 document.head.appendChild(styleEl);
 
 // ---------------------------------------------------------------------------
-// Mount
+// Mount (async: fetch JSON then render)
 // ---------------------------------------------------------------------------
 
-render(html`<${App} />`, document.getElementById('app'));
+async function main() {
+  const params = new URLSearchParams(window.location.search);
+  const flagCode = params.get('flag');
+  const app = document.getElementById('app');
+
+  if (!flagCode) {
+    app.textContent = 'No ?flag= parameter provided.';
+    return;
+  }
+
+  try {
+    const resp = await fetch(`../construction/${flagCode}.json`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    DATA = await resp.json();
+  } catch (e) {
+    app.textContent = `Failed to load ${flagCode}: ${e.message}`;
+    return;
+  }
+
+  render(html`<${App} />`, app);
+}
+
+main();

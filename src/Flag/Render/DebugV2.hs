@@ -2,9 +2,11 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Flag.Render.DebugV2
-    ( buildDebugV2
+    ( writeDebugViewer
+    , writeConstructionJson
     ) where
 
+import Data.Char (toLower)
 import Data.List (nub, intercalate)
 import Data.Colour (Colour)
 import Data.Colour.SRGB (toSRGB, channelRed, channelGreen, channelBlue)
@@ -33,10 +35,19 @@ toD = toDouble
 -- Build debug V2 output
 -- ---------------------------------------------------------------------------
 
--- | Build the interactive debug V2 visualisation for a single flag.
-buildDebugV2 :: Flag (Sourced : '[]) -> IO ()
-buildDebugV2 flag = do
+-- | Write the debug-v2 viewer HTML shell and JS (once, not per flag).
+writeDebugViewer :: IO ()
+writeDebugViewer = do
   createDirectoryIfMissing True "out/debug-v2"
+  writeFile "out/debug-v2/index.html" generateHtmlShell
+  copyFile "sources/debug-v2.js" "out/debug-v2/debug-v2.js"
+  putStrLn "  Wrote out/debug-v2/index.html"
+  putStrLn "  Wrote out/debug-v2/debug-v2.js"
+
+-- | Write the construction JSON for a single flag.
+writeConstructionJson :: Flag (Sourced : '[]) -> IO ()
+writeConstructionJson flag = do
+  createDirectoryIfMissing True "out/construction"
 
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       input = ((0, 0), (1, 0)) :: (Point, Point)
@@ -82,15 +93,10 @@ buildDebugV2 flag = do
         , ("tree", treeToJson numbered allLayers initialPts liveAfter)
         ]
 
-  -- Write HTML shell
-  let html = generateHtmlShell json (flagName flag)
-  writeFile "out/debug-v2/index.html" html
-
-  -- Copy JS file
-  copyFile "sources/debug-v2.js" "out/debug-v2/debug-v2.js"
-
-  putStrLn "  Wrote out/debug-v2/index.html"
-  putStrLn "  Wrote out/debug-v2/debug-v2.js"
+  let isoLower = map toLower (flagIsoCode flag)
+      path = "out/construction/" ++ isoLower ++ ".json"
+  writeFile path json
+  putStrLn $ "  Wrote " ++ path
 
 -- ---------------------------------------------------------------------------
 -- Tree → JSON
@@ -269,14 +275,14 @@ showF x = showFFloat (Just 6) x ""
 -- HTML shell
 -- ---------------------------------------------------------------------------
 
-generateHtmlShell :: String -> String -> String
-generateHtmlShell json name = unlines
+generateHtmlShell :: String
+generateHtmlShell = unlines
   [ "<!DOCTYPE html>"
   , "<html lang=\"en\">"
   , "<head>"
   , "<meta charset=\"UTF-8\">"
   , "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-  , "<title>Debug V2 – " ++ escapeHtml name ++ "</title>"
+  , "<title>Construction Debug</title>"
   , "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css\">"
   , "<script defer src=\"https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js\"></script>"
   , "<style>"
@@ -287,17 +293,7 @@ generateHtmlShell json name = unlines
   , "</head>"
   , "<body>"
   , "<div id=\"app\"></div>"
-  , "<script>window.__DEBUG_DATA__ = " ++ json ++ ";</script>"
   , "<script type=\"module\" src=\"debug-v2.js\"></script>"
   , "</body>"
   , "</html>"
   ]
-  where
-    escapeHtml :: String -> String
-    escapeHtml = concatMap esc
-      where
-        esc '<' = "&lt;"
-        esc '>' = "&gt;"
-        esc '&' = "&amp;"
-        esc '"' = "&quot;"
-        esc c   = [c]

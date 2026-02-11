@@ -15,18 +15,16 @@ import Flag.Construction.Interpreter (Step, steps, eval)
 import Flag.Construction.Optimize (optimize)
 import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
 import Flag.Definition (Flag(..))
-import Flag.Registry (allCountryFlags, japan, botswana)
+import Flag.Registry (allCountryFlags)
 import Flag.Render.Diagram (drawingToDiagram)
 import Flag.Render.Html (generateIndex)
-import Flag.Render.Debug (buildDebug)
-import Flag.Render.DebugV2 (buildDebugV2)
+import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
 
 main :: IO ()
---main = buildHtml
 main = do
   buildHtml
-  --buildDebug japan
-  buildDebugV2 botswana
+  writeDebugViewer
+  mapM_ writeConstructionJson allCountryFlags
 
 -- ---------------------------------------------------------------------------
 -- HTML index build

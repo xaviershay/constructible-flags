@@ -8,6 +8,7 @@ module Flag.Render.Html
     , escapeHtml
     ) where
 
+import Data.Char (toLower)
 import Data.List (sortOn, groupBy, intercalate)
 import Data.Function (on)
 
@@ -61,12 +62,13 @@ generateIndex flags = unlines
   , "</html>"
   ]
   where
-    flagRow (svgFile, name, desc, _, sources, constructionSteps) = unlines
+    flagRow (svgFile, name, desc, isoCode, sources, constructionSteps) = unlines
       [ "      <tr>"
       , "        <td><a href=\"" ++ svgFile ++ "\"><img src=\"" ++ svgFile ++ "\" alt=\"" ++ escapeHtml name ++ " flag\"></a></td>"
       , "        <td>" ++ escapeHtml name ++ "</td>"
       , "        <td>" ++ nlToBr (escapeHtml desc) ++ "</td>"
-      , "        <td>" ++ formatSteps constructionSteps ++ "</td>"
+      , "        <td>" ++ formatSteps constructionSteps
+          ++ " <a href=\"debug-v2/?flag=" ++ map toLower isoCode ++ "\">view</a></td>"
       , "        <td>" ++ formatSources sources ++ "</td>"
       , "      </tr>"
       ]
