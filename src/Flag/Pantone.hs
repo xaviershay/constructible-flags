@@ -18,6 +18,8 @@ data PantoneId =
     PMSRed032C
   | PMSReflexBlueC
   | PMS154225TCX
+  | PMS342C
+  | PMS485C
   deriving (Show, Eq)
 
 pantone :: Source
@@ -28,3 +30,5 @@ pmsToRGB :: Sourced :> es => PantoneId -> Eff es (Colour Double)
 pmsToRGB PMSRed032C = sourced "RGB Conversion" pantone (sRGB24 230 49 62)
 pmsToRGB PMSReflexBlueC = sourced "RGB Conversion" pantone (sRGB24 16 11 136)
 pmsToRGB PMS154225TCX = sourced "RGB Conversion" pantone (sRGB24 117 168 210)
+pmsToRGB PMS342C = sourced "RGB Conversion" pantone (sRGB24 0 102 81)
+pmsToRGB PMS485C = sourced "RGB Conversion" pantone (sRGB24 218 41 28)

@@ -67,8 +67,10 @@ generateIndex flags = unlines
       , "        <td><a href=\"" ++ svgFile ++ "\"><img src=\"" ++ svgFile ++ "\" alt=\"" ++ escapeHtml name ++ " flag\"></a></td>"
       , "        <td>" ++ escapeHtml name ++ "</td>"
       , "        <td>" ++ nlToBr (escapeHtml desc) ++ "</td>"
-      , "        <td>" ++ formatSteps constructionSteps
-          ++ " <a href=\"debug-v2/?flag=" ++ map toLower isoCode ++ "\">view</a></td>"
+      , "        <td>"
+          ++ " <div style=\"text-align:center\"><a href=\"debug-v2/?flag=" ++ map toLower isoCode ++ "\">" ++ show (length constructionSteps) ++ " cost</a></div>"
+          ++ formatSteps constructionSteps
+          ++ "</td>"
       , "        <td>" ++ formatSources sources ++ "</td>"
       , "      </tr>"
       ]
