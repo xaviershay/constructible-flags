@@ -189,21 +189,34 @@ fillBox c w h = proc (tl, b) -> do
     fillRectangle c -< (tl', tr, br, bl)
 
 
--- | Create horizontal stripes across the flag area. The first
+-- | Create horizontal stripes across the flag area.  The first
 -- parameter is the horizontal width in units, and the list contains
 -- pairs of @(height, colour)@ where each height is in the same unit.
 -- The total flag height is the sum of all stripe heights.
+--
+-- Computes the full-width top-right once, then threads @(tl, tr, unitRef)@
+-- through the iteration so that each stripe reuses @bl@ and @br@ from
+-- 'quad' as the next row's @tl@ and @tr@, avoiding a redundant
+-- @naturalMult width@ per stripe.
 horizontalStripes :: Int -> [(Int, Colour Double)] -> FlagA (Point, Point) Drawing
-horizontalStripes width specs = group "Horizontal stripes" $
-    drawStripes specs
+horizontalStripes width specs = group "Horizontal stripes" $ proc (tl, b) -> do
+    tr <- naturalMult width -< (tl, b)
+    drawStripes specs -< (tl, tr, b)
   where
-    drawStripes :: [(Int, Colour Double)] -> FlagA (Point, Point) Drawing
-    drawStripes [] = Arr "empty" (const mempty)
-    drawStripes [(h, col)] = fillBox col width h
-    drawStripes ((h, col):rest) = proc (topleft, topright) -> do
-        (down, _)  <- perpendicular -< (topleft, topright)
-        stripe     <- fillBox col width h -< (topleft, topright)
-        newTL      <- naturalMult h -< (topleft, down)
-        (_, newTR) <- parallel -< ((topleft, topright), newTL)
-        restD      <- drawStripes rest -< (newTL, newTR)
+    drawStripes :: [(Int, Colour Double)] -> FlagA (Point, Point, Point) Drawing
+    drawStripes [] = Arr "empty" (\_ -> mempty)
+    -- Special case to optimise final row. Not necessary for correctness, but
+    -- avoids calculating newUnitRef.
+    drawStripes [(h, col)] = proc (tl, tr, unitRef) -> do
+        (down, _) <- perpendicular -< (tl, unitRef)
+        bl        <- naturalMult h -< (tl, down)
+        br        <- quad -< (tl, tr, bl)
+        fillRectangle col -< (tl, tr, br, bl)
+    drawStripes ((h, col):rest) = proc (tl, tr, unitRef) -> do
+        (down, _)      <- perpendicular -< (tl, unitRef)
+        bl             <- naturalMult h -< (tl, down)
+        br             <- quad -< (tl, tr, bl)
+        stripe         <- fillRectangle col -< (tl, tr, br, bl)
+        (_, newUnitRef) <- parallel -< ((tl, unitRef), bl)
+        restD          <- drawStripes rest -< (bl, br, newUnitRef)
         returnA -< stripe <> restD
