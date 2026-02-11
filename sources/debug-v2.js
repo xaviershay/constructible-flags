@@ -40,6 +40,18 @@ function collectLeaves(tree) {
   return result;
 }
 
+// Collect all group labels (for initial all-expanded state)
+function collectGroupLabels(tree) {
+  const labels = new Set();
+  for (const node of tree) {
+    if (node.type === 'group') {
+      labels.add(node.label);
+      collectGroupLabels(node.children).forEach(l => labels.add(l));
+    }
+  }
+  return labels;
+}
+
 // ---------------------------------------------------------------------------
 // Virtual layer mapping
 // ---------------------------------------------------------------------------
@@ -240,39 +252,41 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
           const showFill = leaf.index <= maxVisibleIndex;
           const opacity = leafOpacity.get(leaf.index) ?? 1.0;
           return html`
-            <g key=${leaf.index} style=${{ opacity }}>
+            <g key=${leaf.index}>
               ${showFill && leaf.fillSvg && html`
                 <g dangerouslySetInnerHTML=${{ __html: leaf.fillSvg }} />
               `}
-              ${isVisible && leaf.geomSvg && html`
-                <g class="geom-layer" dangerouslySetInnerHTML=${{ __html: leaf.geomSvg }} />
-              `}
-              ${isVisible && html`
-                <g class="dots-layer">
-                  ${(leaf.points || []).map((pt, i) => html`
-                    <circle key=${'hit' + i}
-                            cx=${pt.x} cy=${pt.y} r=${hitRadius}
-                            fill="transparent" class="dot-hitbox"
-                            onMouseEnter=${() => setHoveredPoint(pt)}
-                            onMouseLeave=${() => setHoveredPoint(null)} />
-                    <circle key=${i}
-                            cx=${pt.x} cy=${pt.y} r="0.04"
-                            fill="black" class="dot"
-                            pointer-events="none" />
-                  `)}
-                  ${(leaf.inputPoints || []).map((pt, i) => html`
-                    <circle key=${'inhit' + i}
-                            cx=${pt.x} cy=${pt.y} r=${hitRadius}
-                            fill="transparent" class="dot-hitbox"
-                            onMouseEnter=${() => setHoveredPoint(pt)}
-                            onMouseLeave=${() => setHoveredPoint(null)} />
-                    <circle key=${'in' + i}
-                            cx=${pt.x} cy=${pt.y} r="0.03"
-                            fill="#666" class="dot"
-                            pointer-events="none" />
-                  `)}
-                </g>
-              `}
+              <g style=${{ opacity }}>
+                ${isVisible && leaf.geomSvg && html`
+                  <g class="geom-layer" dangerouslySetInnerHTML=${{ __html: leaf.geomSvg }} />
+                `}
+                ${isVisible && html`
+                  <g class="dots-layer">
+                    ${(leaf.points || []).map((pt, i) => html`
+                      <circle key=${'hit' + i}
+                              cx=${pt.x} cy=${pt.y} r=${hitRadius}
+                              fill="transparent" class="dot-hitbox"
+                              onMouseEnter=${() => setHoveredPoint(pt)}
+                              onMouseLeave=${() => setHoveredPoint(null)} />
+                      <circle key=${i}
+                              cx=${pt.x} cy=${pt.y} r="0.04"
+                              fill="black" class="dot"
+                              pointer-events="none" />
+                    `)}
+                    ${(leaf.inputPoints || []).map((pt, i) => html`
+                      <circle key=${'inhit' + i}
+                              cx=${pt.x} cy=${pt.y} r=${hitRadius}
+                              fill="transparent" class="dot-hitbox"
+                              onMouseEnter=${() => setHoveredPoint(pt)}
+                              onMouseLeave=${() => setHoveredPoint(null)} />
+                      <circle key=${'in' + i}
+                              cx=${pt.x} cy=${pt.y} r="0.03"
+                              fill="#666" class="dot"
+                              pointer-events="none" />
+                    `)}
+                  </g>
+                `}
+              </g>
             </g>
           `;
         })}
@@ -490,7 +504,7 @@ function App() {
   const allLeaves = useMemo(() => collectLeaves(DATA.tree), []);
   const totalLeaves = allLeaves.length;
 
-  const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [expandedGroups, setExpandedGroups] = useState(() => collectGroupLabels(DATA.tree));
   const [lo, setLo] = useState(0);
   const [hi, setHi] = useState(totalLeaves);
   const [hoveredPoint, setHoveredPoint] = useState(null);

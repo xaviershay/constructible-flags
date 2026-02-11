@@ -170,7 +170,7 @@ layerFillSvg (LayerTriangle col p1 p2 p3) =
         ++ " " ++ showF x2 ++ "," ++ showF y2
         ++ " " ++ showF x3 ++ "," ++ showF y3
         ++ "\" fill=\"" ++ colourToHex col
-        ++ "\" fill-opacity=\"0.6\" stroke=\"" ++ colourToHex col
+        ++ "\" fill-opacity=\"0.7\" stroke=\"" ++ colourToHex col
         ++ "\" stroke-width=\"0.02\"/>"
 
 layerFillSvg (LayerCircle col cc ce) =
@@ -179,7 +179,7 @@ layerFillSvg (LayerCircle col cc ce) =
     in  "<circle cx=\"" ++ showF cx ++ "\" cy=\"" ++ showF cy
         ++ "\" r=\"" ++ showF r
         ++ "\" fill=\"" ++ colourToHex col
-        ++ "\" fill-opacity=\"0.6\" stroke=\"" ++ colourToHex col
+        ++ "\" fill-opacity=\"0.7\" stroke=\"" ++ colourToHex col
         ++ "\" stroke-width=\"0.02\"/>"
 
 layerFillSvg _ = ""
