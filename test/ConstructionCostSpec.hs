@@ -18,10 +18,10 @@ import Flag.Construction.Types (Point)
 -- of geometric construction layers.
 expectedCosts :: [(String, Int)]
 expectedCosts =
-  [ ("BGD", 81)
-  , ("BWA", 116)
+  [ ("BGD", 55)
+  , ("BWA", 78)
   , ("FRA", 35)
-  , ("JPN", 30)
+  , ("JPN", 29)
   ]
 
 -- Tests to prevent performance regressions in construction.

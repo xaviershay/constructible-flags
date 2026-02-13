@@ -123,26 +123,40 @@ quad = group "Quad" $ proc (a, b, c) -> do
     returnA -< d
 
 -- | Given a segment @(a, b)@ representing one unit, return the point @n@
--- units from @a@ in the direction of @b@, using the classic straightedge-
--- and-compass method of stepping off unit distances along the line.
+-- units from @a@ in the direction of @b@.
+--
+-- Ref: https://blog.xaviershay.com/articles/optimal-construction-of-integers-with-straightedge-and-compass.html
 naturalMult :: Int -> FlagA (Point, Point) Point
 naturalMult n
-  | n <= 0    = group ("×" ++ show n) $ Arr "fst" fst
-  | n == 1    = group "×1" $ Arr "snd" snd
+  | n <= 0    = Arr "fst" fst
+  | n == 1    = Arr "snd" snd
   | otherwise = group ("×" ++ show n) $ proc (a, b) -> do
-      (_, p) <- intersectLC -< ((a, b), (b, a))
-      markOff (n - 2) -< (a, b, p, b)
+      applySteps (computeSteps n) -< (a, b, b)
 
   where
-    -- | Mark off additional unit distances along line @(a, b)@.
-    -- Takes @(a, b, current, previous)@ where @current@ and @previous@ are
-    -- consecutive points one unit apart on the line.  Marks off @remaining@
-    -- more units and returns the final point.
-    markOff :: Int -> FlagA (Point, Point, Point, Point) Point
-    markOff 0 = Arr "result" (\(_, _, cur, _) -> cur)
-    markOff k = proc (a, b, cur, prev) -> do
-        (_, next) <- intersectLC -< ((a, b), (cur, prev))
-        markOff (k - 1) -< (a, b, next, cur)
+    -- | Compute the reconstruction step sequence for @k@.
+    -- Reduces @k@ to 1 by halving, accumulating @False@ (exact halve, i.e.
+    -- @k@ was even) or @True@ (rounded-up halve, i.e. @k@ was odd) at each
+    -- stage.  The list is ordered so that applying the steps left-to-right
+    -- starting from @b@ (= position 1) reconstructs position @k@.
+    computeSteps :: Int -> [Bool]
+    computeSteps 1 = []
+    computeSteps k
+      | even k    = computeSteps (k `div` 2) ++ [False]
+      | otherwise = computeSteps ((k + 1) `div` 2) ++ [True]
+
+    -- | Apply reconstruction steps to the current point @p@, threading
+    -- the origin @a@ and unit point @b@ through unchanged.
+    applySteps :: [Bool] -> FlagA (Point, Point, Point) Point
+    applySteps []           = Arr "result" (\(_, _, p) -> p)
+    applySteps (False:rest) = proc (a, b, p) -> do
+        -- Double: construct 2p − a
+        (_, next) <- intersectLC -< ((a, p), (p, a))
+        applySteps rest -< (a, b, next)
+    applySteps (True:rest)  = proc (a, b, p) -> do
+        -- Double-minus-one: construct 2p − b
+        (_, next) <- intersectLC -< ((b, p), (p, b))
+        applySteps rest -< (a, b, next)
 
 -- | Construct the midpoint of a segment @(a, b)@ using compass and
 -- straightedge.  Uses circle-circle intersection on circles of equal
