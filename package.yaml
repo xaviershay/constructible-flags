@@ -26,6 +26,8 @@ dependencies:
 - diagrams-svg
 - directory
 - effectful-core
+- diagrams-rasterific
+- JuicyPixels
 
 ghc-options:
 - -Wall

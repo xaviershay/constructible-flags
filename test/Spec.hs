@@ -9,10 +9,12 @@ import Flag.Construction.Types (Point)
 import Flag.Construction.Geometry (dist)
 import Flag.Construction.Radical (Radical, toDouble)
 import qualified RadicalSpec
+import ImageGoldenSpec (imageGoldenTests)
 
 main :: IO ()
 main = defaultMain $ testGroup "All Tests"
   [ tests
+    , imageGoldenTests
   , RadicalSpec.radicalTests
   ]
 
