@@ -52,8 +52,8 @@ library
       Flag.Render.Debug
       Flag.Render.DebugV2
       Flag.Render.Diagram
-      Flag.Render.Raster
       Flag.Render.Html
+      Flag.Render.Raster
       Flag.Source
   other-modules:
       Paths_constructible_flags
@@ -63,14 +63,14 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
+      JuicyPixels
+    , base >=4.7 && <5
     , colour
     , diagrams-lib
+    , diagrams-rasterific
     , diagrams-svg
     , directory
     , effectful-core
-    , diagrams-rasterific
-    , JuicyPixels
   default-language: Haskell2010
 
 executable constructible-flags-exe
@@ -83,10 +83,12 @@ executable constructible-flags-exe
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      JuicyPixels
+    , base >=4.7 && <5
     , colour
     , constructible-flags
     , diagrams-lib
+    , diagrams-rasterific
     , diagrams-svg
     , directory
     , effectful-core
@@ -102,10 +104,12 @@ executable debug-flag
       app-debug
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      JuicyPixels
+    , base >=4.7 && <5
     , colour
     , constructible-flags
     , diagrams-lib
+    , diagrams-rasterific
     , diagrams-svg
     , directory
     , effectful-core
@@ -117,21 +121,21 @@ test-suite constructible-flags-test
   other-modules:
       RadicalSpec
       ImageGoldenSpec
+      ConstructionCostSpec
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      JuicyPixels
+    , base >=4.7 && <5
     , colour
     , constructible-flags
     , diagrams-lib
+    , diagrams-rasterific
     , diagrams-svg
     , directory
     , effectful-core
     , tasty
     , tasty-hunit
     , tasty-quickcheck
-    , filepath
-    , JuicyPixels
-    , diagrams-rasterific
   default-language: Haskell2010
