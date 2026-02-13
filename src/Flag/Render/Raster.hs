@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 
+-- TODO: Clean this up and DRY with other render files.
+
 module Flag.Render.Raster
   ( renderDiagramPNG
   , renderDrawingPNG
