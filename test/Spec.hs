@@ -10,12 +10,14 @@ import Flag.Construction.Geometry (dist)
 import Flag.Construction.Radical (Radical, toDouble)
 import qualified RadicalSpec
 import ImageGoldenSpec (imageGoldenTests)
+import ConstructionCostSpec (constructionCostTests)
 
 main :: IO ()
 main = defaultMain $ testGroup "All Tests"
   [ tests
-    , imageGoldenTests
-  , RadicalSpec.radicalTests
+        , imageGoldenTests
+    , constructionCostTests
+    , RadicalSpec.radicalTests
   ]
 
 -- | Approximate equality for points, converting Radical to Double.
