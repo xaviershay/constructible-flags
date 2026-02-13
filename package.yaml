@@ -85,6 +85,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - constructible-flags
+    - filepath
     - tasty
     - tasty-hunit
     - tasty-quickcheck

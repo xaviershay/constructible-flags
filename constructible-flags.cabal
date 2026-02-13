@@ -135,6 +135,7 @@ test-suite constructible-flags-test
     , diagrams-svg
     , directory
     , effectful-core
+    , filepath
     , tasty
     , tasty-hunit
     , tasty-quickcheck
