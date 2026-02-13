@@ -68,6 +68,8 @@ tests:
     source-dirs:         test
     other-modules:
     - RadicalSpec
+    - ImageGoldenSpec
+    - ConstructionCostSpec
     ghc-options:
     - -threaded
     - -rtsopts
@@ -76,3 +78,4 @@ tests:
     - constructible-flags
     - tasty
     - tasty-hunit
+    - tasty-quickcheck

@@ -123,6 +123,7 @@ test-suite constructible-flags-test
     , effectful-core
     , tasty
     , tasty-hunit
+    , tasty-quickcheck
     , filepath
     , JuicyPixels
     , diagrams-rasterific

@@ -1,7 +1,9 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Main (main, tests) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck
 
 import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, midpoint, translate)
 import Flag.Construction.Interpreter (eval)
@@ -74,6 +76,14 @@ tests = testGroup "Tests"
       , testCase "n=2 with non-origin start" $
           approxEqual "2× offset" (5, 0) (evalNM 2 ((1, 0), (3, 0)))
       ]
+    , testProperty "dist(a, result) = n * dist(a, b)" $
+        \n' (ax :: Int) (ay :: Int) (bx :: Int) (by :: Int) ->
+          (ax, ay) /= (bx, by) ==>
+          let n = abs n' `mod` 51
+              a = (fromIntegral ax, fromIntegral ay) :: Point
+              b = (fromIntegral bx, fromIntegral by) :: Point
+              result = evalNM n (a, b)
+          in abs (toDouble (dist a result) - fromIntegral n * toDouble (dist a b)) < 1e-6
     ]
   , testGroup "perpendicular"
     [ testCase "result is perpendicular to input" $ do
