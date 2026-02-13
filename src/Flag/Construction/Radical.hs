@@ -20,8 +20,12 @@ module Flag.Construction.Radical
     , isRational
     , toRational'
     , radical
+    , radicands
+    , isInteger
+    , isNatural
     ) where
 
+import Data.List (nub)
 import Data.Ratio (numerator, denominator, (%))
 
 -- ---------------------------------------------------------------------------
@@ -63,6 +67,26 @@ isRational _ = False
 toRational' :: Radical -> Maybe Rational
 toRational' (Rational r) = Just r
 toRational' _ = Nothing
+
+-- | Is this a (non-negative) integer?
+isNatural :: Radical -> Bool
+isNatural (Rational r) = denominator r == 1 && numerator r >= 0
+isNatural _ = False
+
+-- | Is this an integer?
+isInteger :: Radical -> Bool
+isInteger (Rational r) = denominator r == 1
+isInteger _ = False
+
+-- | Collect all unique rational radicands with their root indices.
+-- For example, @1 + 2√3@ yields @[(3, 2)]@.
+radicands :: Radical -> [(Rational, Int)]
+radicands = nub . go
+  where
+    go (Rational _) = []
+    go (Ext a b r n) = go a ++ go b ++ case r of
+      Rational q -> [(q, n)]
+      _          -> go r
 
 -- ---------------------------------------------------------------------------
 -- Normalisation

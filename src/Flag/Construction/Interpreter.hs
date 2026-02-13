@@ -4,10 +4,12 @@ module Flag.Construction.Interpreter
     ( Step(..)
     , steps
     , eval
+    , evalCollectRadicals
     ) where
 
 import Flag.Construction.Types
 import Flag.Construction.Geometry
+import Flag.Construction.Radical (Radical)
 
 -- | A labeled construction step for introspection
 data Step
@@ -47,3 +49,33 @@ eval IntersectCC      = evalIntersectCC'
 eval (FillTriangle c) = \(p1, p2, p3) -> DrawTriangle c p1 p2 p3
 eval (FillCircle c)   = \(center, edge) -> DrawCircle c center (dist center edge)
 eval (Group _ f)      = eval f
+
+-- | Evaluate a construction arrow, collecting all 'Radical' values
+-- produced by intersection operations (intermediate construction points).
+evalCollectRadicals :: FlagA a b -> a -> (b, [Radical])
+evalCollectRadicals (Arr _ f) a = (f a, [])
+evalCollectRadicals (Compose f g) a =
+  let (b, r1) = evalCollectRadicals f a
+      (c, r2) = evalCollectRadicals g b
+  in (c, r1 ++ r2)
+evalCollectRadicals (First f) (a, c) =
+  let (b, rs) = evalCollectRadicals f a
+  in ((b, c), rs)
+evalCollectRadicals (Par f g) (a, c) =
+  let (b, r1) = evalCollectRadicals f a
+      (d, r2) = evalCollectRadicals g c
+  in ((b, d), r1 ++ r2)
+evalCollectRadicals IntersectLL input =
+  let p@(x, y) = evalIntersectLL' input
+  in (p, [x, y])
+evalCollectRadicals IntersectLC input =
+  let ps@((x1,y1),(x2,y2)) = evalIntersectLC' input
+  in (ps, [x1, y1, x2, y2])
+evalCollectRadicals IntersectCC input =
+  let ps@((x1,y1),(x2,y2)) = evalIntersectCC' input
+  in (ps, [x1, y1, x2, y2])
+evalCollectRadicals (FillTriangle c) (p1, p2, p3) =
+  (DrawTriangle c p1 p2 p3, [])
+evalCollectRadicals (FillCircle c) (center, edge) =
+  (DrawCircle c center (dist center edge), [])
+evalCollectRadicals (Group _ f) a = evalCollectRadicals f a

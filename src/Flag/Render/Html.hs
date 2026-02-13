@@ -20,7 +20,7 @@ import Flag.Construction.Interpreter (Step(..))
 -- ---------------------------------------------------------------------------
 
 -- | Generate the index.html content
-generateIndex :: [(String, String, String, String, [SourcedElement], [Step])] -> String
+generateIndex :: [(String, String, String, String, [SourcedElement], [Step], String)] -> String
 generateIndex flags = unlines
   [ "<!DOCTYPE html>"
   , "<html lang=\"en\">"
@@ -62,7 +62,7 @@ generateIndex flags = unlines
   , "</html>"
   ]
   where
-    flagRow (svgFile, name, desc, isoCode, sources, constructionSteps) = unlines
+    flagRow (svgFile, name, desc, isoCode, sources, constructionSteps, field) = unlines
       [ "      <tr>"
       , "        <td><a href=\"" ++ svgFile ++ "\"><img src=\"" ++ svgFile ++ "\" alt=\"" ++ escapeHtml name ++ " flag\"></a></td>"
       , "        <td>" ++ escapeHtml name ++ "</td>"
@@ -70,6 +70,7 @@ generateIndex flags = unlines
       , "        <td>"
           ++ " <div style=\"text-align:center\"><a href=\"debug-v2/?flag=" ++ map toLower isoCode ++ "\">" ++ show (length constructionSteps) ++ " cost</a></div>"
           ++ formatSteps constructionSteps
+          ++ "<div style=\"text-align:center\">$" ++ field ++ "$</div>"
           ++ "</td>"
       , "        <td>" ++ formatSources sources ++ "</td>"
       , "      </tr>"

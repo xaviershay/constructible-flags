@@ -6,6 +6,7 @@ module Flag.Construction.Types
     , Drawing(..)
     , FlagA(..)
     , showFlagA
+    , drawingRadicals
     ) where
 
 import Prelude hiding (id, (.))
@@ -99,3 +100,19 @@ showFlagA n fa = indent n ++ case fa of
   Group label f   -> "Group " ++ show label ++ "\n" ++ showFlagA (n+2) f
   where
     indent i = replicate i ' '
+
+-- ---------------------------------------------------------------------------
+-- Radical extraction
+-- ---------------------------------------------------------------------------
+
+-- | Collect all 'Radical' values from a 'Drawing' (coordinates and radii).
+drawingRadicals :: Drawing -> [Radical]
+drawingRadicals EmptyDrawing = []
+drawingRadicals (DrawTriangle _ (x1,y1) (x2,y2) (x3,y3)) =
+  [x1, y1, x2, y2, x3, y3]
+drawingRadicals (DrawPath _ pts) =
+  concatMap (\(x, y) -> [x, y]) pts
+drawingRadicals (DrawCircle _ (cx, cy) r) =
+  [cx, cy, r]
+drawingRadicals (Overlay a b) =
+  drawingRadicals a ++ drawingRadicals b

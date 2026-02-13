@@ -4,15 +4,17 @@
 module Main (main) where
 
 import Data.Char (toLower)
-import Data.List (nub)
+import Data.List (intercalate, nub, sort)
+import Data.Ratio (numerator, denominator)
 import Diagrams.Backend.SVG (renderSVG)
 import Diagrams.Prelude (mkWidth)
 import Effectful (runPureEff)
 import System.Directory (createDirectoryIfMissing)
 
 import Flag.Construction.Types (Point)
-import Flag.Construction.Interpreter (Step, steps, eval)
+import Flag.Construction.Interpreter (Step, steps, evalCollectRadicals)
 import Flag.Construction.Optimize (optimize)
+import Flag.Construction.Radical (Radical, isNatural, isInteger, radicands)
 import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
 import Flag.Definition (Flag(..))
 import Flag.Registry (allCountryFlags)
@@ -44,32 +46,55 @@ buildHtml = do
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
 
 -- | Process a single flag: render SVG and extract metadata
-processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, [SourcedElement], [Step])
+processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, [SourcedElement], [Step], String)
 processFlag flag = do
   let isoLower = map toLower (flagIsoCode flag)
       svgFile = isoLower ++ ".svg"
       svgPath = "out/" ++ svgFile
-      
+
   -- Resolve the FlagA arrow (sources colours etc.)
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
-  
+
   -- Evaluate the arrow on a unit input to get the Drawing
   let flagInput = ((0, 0), (1, 0)) :: (Point, Point)
-      drawing = eval flagArrow flagInput
+      (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
       diagram = drawingToDiagram (optimize drawing)
   renderSVG svgPath (mkWidth 300) diagram
-  
+
   -- Get description
   let description = runPureEff $ runSourcedPure $ flagDescription flag
-  
+
   -- Collect sources from design and description
   let (_, designSources) = runPureEff $ runSourcedCollect $ flagDesign flag
   let (_, descSources) = runPureEff $ runSourcedCollect $ flagDescription flag
   let allSources = nub (designSources ++ descSources)
-  
+
   -- Extract construction steps from the FlagA arrow
   let constructionSteps = steps flagArrow
-  
+
+  -- Determine the number field from all intermediate construction points
+  let fieldStr = classifyField intermediateRadicals
+
   putStrLn $ "Generated " ++ svgFile ++ " (" ++ flagName flag ++ ")"
-  
-  pure (svgFile, flagName flag, description, flagIsoCode flag, allSources, constructionSteps)
+
+  pure (svgFile, flagName flag, description, flagIsoCode flag, allSources, constructionSteps, fieldStr)
+
+-- | Classify the number field required by all intermediate construction points.
+classifyField :: [Radical] -> String
+classifyField rads =
+  let allRads = nub $ sort $ concatMap radicands rads
+  in if not (null allRads)
+     then let extensions = map radToKaTeX allRads
+          in "\\mathbb{Q}(" ++ intercalate ", " extensions ++ ")"
+     else if all isNatural rads
+          then "\\mathbb{N}"
+          else if all isInteger rads
+               then "\\mathbb{Z}"
+               else "\\mathbb{Q}"
+  where
+    radToKaTeX (r, 2) = "\\sqrt{" ++ ratToKaTeX r ++ "}"
+    radToKaTeX (r, n) = "\\sqrt[" ++ show n ++ "]{" ++ ratToKaTeX r ++ "}"
+    ratToKaTeX r
+      | denominator r == 1 = show (numerator r)
+      | otherwise = "\\frac{" ++ show (numerator r) ++ "}{" ++ show (denominator r) ++ "}"
+
