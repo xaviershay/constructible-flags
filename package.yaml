@@ -10,6 +10,15 @@ extra-source-files:
 - README.md
 - CHANGELOG.md
 
+build-type: Custom
+
+custom-setup:
+  dependencies:
+  - base
+  - Cabal
+  - directory
+  - filepath
+
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
 # category:            Web

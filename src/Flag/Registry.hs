@@ -3,23 +3,24 @@
 
 module Flag.Registry
     ( allCountryFlags
+    , bangladesh
+    , botswana
     , france
     , japan
-    , botswana
-    , bangladesh
     ) where
 
 import Flag.Source (Sourced)
 import Flag.Definition (Flag)
+
+import Flag.Country.Bangladesh (bangladesh)
+import Flag.Country.Botswana (botswana)
 import Flag.Country.France (france)
 import Flag.Country.Japan (japan)
-import Flag.Country.Botswana (botswana)
-import Flag.Country.Bangladesh (bangladesh)
 
 allCountryFlags :: [Flag (Sourced : '[])]
 allCountryFlags =
-    [ france
-    , japan
+    [ bangladesh
     , botswana
-    , bangladesh
+    , france
+    , japan
     ]

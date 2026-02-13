@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.38.1.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -14,7 +14,7 @@ maintainer:     contact@xaviershay.com
 copyright:      2026 Xavier Shay
 license:        BSD-3-Clause
 license-file:   LICENSE
-build-type:     Simple
+build-type:     Custom
 extra-source-files:
     README.md
     CHANGELOG.md
@@ -22,6 +22,13 @@ extra-source-files:
 source-repository head
   type: git
   location: https://github.com/xaviershay/constructible-flags
+
+custom-setup
+  setup-depends:
+      Cabal
+    , base
+    , directory
+    , filepath
 
 library
   exposed-modules:
