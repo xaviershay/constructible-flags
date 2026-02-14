@@ -20,6 +20,7 @@ import Flag.Definition (Flag(..))
 import Flag.Registry (allCountryFlags)
 import Flag.Render.Diagram (drawingToDiagram)
 import Flag.Render.Html (generateIndex)
+import Flag.Render.Prov (generateProvXml)
 import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
 
 main :: IO ()
@@ -45,7 +46,7 @@ buildHtml = do
   
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
 
--- | Process a single flag: render SVG and extract metadata
+-- | Process a single flag: render SVG, generate PROV XML, and extract metadata
 processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, [SourcedElement], [Step], String)
 processFlag flag = do
   let isoLower = map toLower (flagIsoCode flag)
@@ -68,6 +69,12 @@ processFlag flag = do
   let (_, designSources) = runPureEff $ runSourcedCollect $ flagDesign flag
   let (_, descSources) = runPureEff $ runSourcedCollect $ flagDescription flag
   let allSources = nub (designSources ++ descSources)
+
+  -- Generate PROV XML
+  let provFile = isoLower ++ "-prov.xml"
+      provPath = "out/" ++ provFile
+      provXml = generateProvXml (flagIsoCode flag) (flagName flag) allSources
+  writeFile provPath provXml
 
   -- Extract construction steps from the FlagA arrow
   let constructionSteps = steps flagArrow

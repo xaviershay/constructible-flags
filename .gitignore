@@ -2,3 +2,4 @@
 out
 test/tmp
 .claude
+.DS_Store

@@ -21,7 +21,7 @@ bangladesh :: Sourced :> es => Flag es
 bangladesh = CountryFlag
   { flagIsoCode = "BGD"
   , flagName = "Bangladesh"
-  , flagDescription = sourced "Description" flagLaw
+  , flagDescription = reference "Description" flagRules
       ( "The ‘National Flag’ will be in bottle green and rectangular in size in the "
      ++ "proportion of length to width 10: 6 bearing a red circle on the body of the green. "
      ++ "The red circle will have a radius of one-fifth of the length of the flag. Its center will be "
@@ -32,17 +32,21 @@ bangladesh = CountryFlag
   }
 
   where
-    flagLaw :: Source
-    flagLaw = SourceLaw
+    constructedAt = "2026-02-13"
+    gov = mkAgentOrg "bgd_gov" "Bangladeshi Government"
+
+    flagRules = screenshot constructedAt "bgd/flag-rules.png" $ attributeTo gov $ mkEntity
         "Bangladesh Flag Rules, 1972 (revised 2005)"
         "https://web.archive.org/web/20180619074851/http://lib.pmo.gov.bd/legalms/pdf/national-flag-rules.pdf#page=2"
 
+    references = [] -- TODO
+
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        (w, h) <- sourced "Proportion" flagLaw (10, 6)
-        (pr, qr) <- sourced "Disc/Length Ratio" flagLaw (1, 5)
-        _ <- sourced "Procion Colors" flagLaw ("Procion Brilliant Green H-2RS 50/1000", "Procion Brilliant Orange H-2RS 60/1000")
-        (greenPms, redPms) <- sourced "Pantone Colors" SourceHabitual (PMS342C, PMS485C)
+        (w, h) <- reference "Proportion" flagRules (10, 6)
+        (pr, qr) <- reference "Disc/Length Ratio" flagRules (1, 5)
+        _ <- reference "Procion Colors" flagRules ("Procion Brilliant Green H-2RS 50/1000", "Procion Brilliant Orange H-2RS 60/1000")
+        (greenPms, redPms) <- editorial "Pantone Colors" references (PMS342C, PMS485C)
 
         -- Third: convert Pantone to RGB using the Pantone module
         greenColor <- pmsToRGB greenPms

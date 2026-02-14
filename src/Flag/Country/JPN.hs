@@ -20,23 +20,24 @@ japan :: Sourced :> es => Flag es
 japan = CountryFlag
   { flagIsoCode = "JPN"
   , flagName = "Japan"
-  , flagDescription = sourced "Description" flagLaw "A white rectangular flag with a crimson disc at the center."
+  , flagDescription = reference "Description" flagLaw "A white rectangular flag with a crimson disc at the center."
   , flagDesign = design
   }
 
   where
-    flagLaw :: Source
-    flagLaw = SourceLaw
-        "Act on National Flag and Anthem"
-        "https://elaws.e-gov.go.jp/document?lawid=411AC0000000127"
-        --  (Law #127 of 1999)
+    constructedAt = "2026-02-13"
+    gov = mkAgentOrg "jpn_gov" "Japanese Government"
+
+    flagLaw = screenshot constructedAt "jpn/act.png" $ attributeTo gov $ mkEntity
+                "Act on National Flag and Anthem, Act #127, 1999"
+                "https://elaws.e-gov.go.jp/document?lawid=411AC0000000127"
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        (h, w) <- sourced "2:3 proportion" flagLaw (2, 3)
-        (n, d) <- sourced "Disc height" flagLaw (3, 5)
-        whiteColor <- sourced "White" flagLaw (sRGB24 255 255 255)
-        redColor   <- sourced "Crimson" flagLaw (sRGB24 188 0 45)
+        (h, w) <- reference "2:3 proportion" flagLaw (2, 3)
+        (n, d) <- reference "Disc height" flagLaw (3, 5)
+        whiteColor <- impliedReference "White" flagLaw (sRGB24 255 255 255)
+        redColor   <- impliedReference "Crimson" flagLaw (sRGB24 188 0 45)
         pure $ proc origin -> do
             (tl, tr, br, bl) <- boxNatural w h -< origin
 

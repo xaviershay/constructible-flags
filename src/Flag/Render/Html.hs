@@ -12,7 +12,7 @@ import Data.Char (toLower)
 import Data.List (sortOn, groupBy, intercalate)
 import Data.Function (on)
 
-import Flag.Source (Source(..), SourcedElement)
+import Flag.Source (Source(..), Entity(..), SourcedElement)
 import Flag.Construction.Interpreter (Step(..))
 
 -- ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ generateIndex flags = unlines
           ++ formatSteps constructionSteps
           ++ "<div style=\"text-align:center\">$" ++ field ++ "$</div>"
           ++ "</td>"
-      , "        <td>" ++ formatSources sources ++ "</td>"
+      , "        <td>" ++ formatSources sources ++ "<div style=\"margin-top:8px;font-size:0.85em\"><a href=\"" ++ map toLower isoCode ++ "-prov.xml\">[PROV]</a></div></td>"
       , "      </tr>"
       ]
     
@@ -99,36 +99,41 @@ generateIndex flags = unlines
     -- Group elements by source and format
     formatSources :: [SourcedElement] -> String
     formatSources [] = "<em>None</em>"
-    formatSources elems = 
+    formatSources elems =
       let grouped = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) elems
       in "<ul>" ++ concatMap formatSourceGroup grouped ++ "</ul>"
-    
+
     -- Key for sorting sources (to group same sources together)
     sourceKey :: Source -> String
-    sourceKey SourceHabitual = "0"
-    sourceKey (SourceLaw title _) = "1" ++ title
-    sourceKey (SourceAuthoritativeWebsite title _) = "2" ++ title
-    sourceKey (SourcePublication title _) = "3" ++ title
-    
+    sourceKey (SourceReference e) = "1" ++ entityTitle e
+    sourceKey (SourceImpliedReference e) = "2" ++ entityTitle e
+    sourceKey (SourceUnsightedReference e _) = "3" ++ entityTitle e
+    sourceKey (SourceEditorial _) = "4"
+
     formatSourceGroup :: [SourcedElement] -> String
     formatSourceGroup [] = ""
-    formatSourceGroup grp@((_, src):_) = 
+    formatSourceGroup grp@((_, src):_) =
       let elementNames = map fst grp
           elementsStr = "<span class=\"elements\">(" ++ escapeHtml (joinElements elementNames) ++ ")</span>"
       in formatSourceWithElements src elementsStr
-    
+
     joinElements :: [String] -> String
     joinElements xs = intercalate ", " xs
-    
+
     formatSourceWithElements :: Source -> String -> String
-    formatSourceWithElements SourceHabitual elems = 
-      "<li>Habitual practice " ++ elems ++ "</li>"
-    formatSourceWithElements (SourceAuthoritativeWebsite title url) elems = 
-      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> " ++ elems ++ "</li>"
-    formatSourceWithElements (SourceLaw title url) elems = 
-      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Law) " ++ elems ++ "</li>"
-    formatSourceWithElements (SourcePublication title url) elems = 
-      "<li><a href=\"" ++ escapeHtml url ++ "\">" ++ escapeHtml title ++ "</a> (Publication) " ++ elems ++ "</li>"
+    formatSourceWithElements (SourceReference e) elems =
+      "<li>" ++ formatEntityLink e ++ " " ++ elems ++ "</li>"
+    formatSourceWithElements (SourceImpliedReference e) elems =
+      "<li>" ++ formatEntityLink e ++ " (implied) " ++ elems ++ "</li>"
+    formatSourceWithElements (SourceUnsightedReference e _) elems =
+      "<li>" ++ formatEntityLink e ++ " (unsighted) " ++ elems ++ "</li>"
+    formatSourceWithElements (SourceEditorial _) elems =
+      "<li>Editorial decision " ++ elems ++ "</li>"
+
+    formatEntityLink :: Entity -> String
+    formatEntityLink e
+      | null (entityUrl e) = escapeHtml (entityTitle e)
+      | otherwise = "<a href=\"" ++ escapeHtml (entityUrl e) ++ "\">" ++ escapeHtml (entityTitle e) ++ "</a>"
 
 -- ---------------------------------------------------------------------------
 -- Utilities

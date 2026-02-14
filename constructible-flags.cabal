@@ -53,6 +53,7 @@ library
       Flag.Render.DebugV2
       Flag.Render.Diagram
       Flag.Render.Html
+      Flag.Render.Prov
       Flag.Render.Raster
       Flag.Source
   other-modules:

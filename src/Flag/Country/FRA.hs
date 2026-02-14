@@ -20,27 +20,38 @@ france :: Sourced :> es => Flag es
 france = CountryFlag
   { flagIsoCode = "FRA"
   , flagName = "France"
-  , flagDescription = sourced "Description" constitution "A tricolour flag, blue, white, red."
+  , flagDescription = reference "Description" constitution "A tricolour flag, blue, white, red."
   , flagDesign = design
   }
 
   where
-    govWebsite :: Source
-    govWebsite = SourceAuthoritativeWebsite
-        "Official French Government Color Guidelines"
-        "https://www.info.gouv.fr/marque-de-letat/les-couleurs#les-couleurs-principales"
+    constructedAt = "2026-02-14"
 
-    constitution :: Source
-    constitution = SourceLaw
+    gov = mkAgentOrg "fra_gov" "French Government"
+
+    designGuidelines = screenshot constructedAt "fra/design-guidelines.png" $ attributeTo gov $ mkEntity
+       "Official French Government Color Guidelines"
+       "https://www.info.gouv.fr/marque-de-letat/les-couleurs#les-couleurs-principales"
+
+    constitution = translated constructedAt $ screenshot constructedAt "fra/constitution.png" $ attributeTo gov $ mkEntity
         "French Constitution, Article 2"
         "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000006527453"
 
+    references =
+        [ mkEntity
+            "Flag of France (Wikipedia)"
+            "https://en.wikipedia.org/wiki/Flag_of_France"
+        , mkEntity
+            "France (Flags of the World)"
+            "https://www.crwflags.com/fotw/flags/fr.html"
+        ]
+
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        blueColor  <- sourced "Blue"  govWebsite (sRGB24 0 0 145)
-        whiteColor <- sourced "White" govWebsite (sRGB24 255 255 255)
-        redColor   <- sourced "Red"   govWebsite (sRGB24 255 0 14)
-        _ <- sourced "2:3 proportion" SourceHabitual ()
+        blueColor  <- reference "Blue"  designGuidelines (sRGB24 0 0 145)
+        whiteColor <- reference "White" designGuidelines (sRGB24 255 255 255)
+        redColor   <- reference "Red"   designGuidelines (sRGB24 255 0 14)
+        _ <- editorial "2:3 proportion" references ()
         pure $ proc (a, b) -> do
             c <- naturalMult 2 -< (a, b)
             d <- naturalMult 2 -< (b, c)

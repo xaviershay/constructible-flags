@@ -20,7 +20,7 @@ botswana :: Sourced :> es => Flag es
 botswana = CountryFlag
   { flagIsoCode = "BWA"
   , flagName = "Botswana"
-  , flagDescription = sourced "Description" law
+  , flagDescription = reference "Description" law
       ( "Five horizontal stripes having colour and width as follows, that is to say taken from the top \8212\n"
      ++ "1st Stripe \8212 azure blue having a width equal to 9/24ths of the total depth of the flag.\n"
      ++ "2nd Stripe \8212 white having a width equal to 1/24th of such depth.\n"
@@ -31,27 +31,34 @@ botswana = CountryFlag
   }
 
   where
-    standards :: Source
-    standards = SourceAuthoritativeWebsite
-      "National Flag Specification"
-      ""
-    -- 2015, Botswana Bureau of Standards
+    constructedAt = "2026-02-13"
+    gov = mkAgentOrg "bwa_gov" "Botswanan Government"
 
-    law :: Source
-    law = SourceLaw
-        "Botswana Statute Law, Act 25"
-        "https://sherloc.unodc.org/cld/uploads/res/document/immigration-consolidation-law--1966_html/Botswana_Statute_Law_1966.pdf"
-        -- 1966
+    standards :: Entity
+    standards = attributeTo gov $ mkEntity
+      "National Flag Specification (2015)"
+      ""
+
+    law = screenshot constructedAt "bwa/statute.png" $ attributeTo gov $ mkEntity
+            "Botswana Statute Law, Act 25"
+            "https://sherloc.unodc.org/cld/uploads/res/document/immigration-consolidation-law--1966_html/Botswana_Statute_Law_1966.pdf"
+
+    references =
+      [ screenshot constructedAt "bwa/fotw.png" $ mkEntity
+          "Botswana (Flags of the World)"
+          "https://www.crwflags.com/fotw/flags/bw.html"
+      ]
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        azureP <- sourced "Azure Pantone" standards PMS154225TCX
+        -- azureP <- sourced "Azure Pantone" standards 
+        azureP <- unsightedReference "Azure Pantone" standards references PMS154225TCX
         azureC <- pmsToRGB azureP
-        whiteC <- sourced "White" standards (sRGB24 255 255 255)
-        blackC   <- sourced "Black"  standards (sRGB24 0 0 0)
-        proportions <- sourced "Stripe Heights" standards [9, 1, 4, 1, 9] -- TODO: Verify source
+        whiteC <- unsightedReference "White" standards references (sRGB24 255 255 255)
+        blackC   <- unsightedReference "Black"  standards references (sRGB24 0 0 0)
+        proportions <- reference "Stripe Heights" law [9, 1, 4, 1, 9]
         let colors = [azureC, whiteC, blackC, whiteC, azureC]
 
-        _ <- sourced "2:3 proportion" standards ()
+        _ <- editorial "2:3 proportion" references ()
 
         pure $ horizontalStripes 36 (zip proportions colors)
