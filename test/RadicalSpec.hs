@@ -16,6 +16,9 @@ radicalTests = testGroup "Radical"
   , toDoubleTests
   , toKaTeXTests
   , comparisonTests
+  , isNaturalTests
+  , isIntegerTests
+  , radicandsTests
   ]
 
 -- -----------------------------------------------------------------------
@@ -314,4 +317,75 @@ comparisonTests = testGroup "Comparison"
 
   , testCase "Negative < Positive" $
       assertBool "neg < pos" (rat (-1) < rat 1)
+  ]
+
+-- -----------------------------------------------------------------------
+-- 8. isNatural
+-- -----------------------------------------------------------------------
+
+isNaturalTests :: TestTree
+isNaturalTests = testGroup "isNatural"
+  [ testCase "0 is natural" $
+      assertBool "0" (isNatural (rat 0))
+
+  , testCase "positive integer is natural" $
+      assertBool "42" (isNatural (rat 42))
+
+  , testCase "negative integer is not natural" $
+      assertBool "-1" (not (isNatural (rat (-1))))
+
+  , testCase "rational is not natural" $
+      assertBool "1/2" (not (isNatural (rat (1 % 2))))
+
+  , testCase "extension is not natural" $
+      assertBool "√2" (not (isNatural (ext2 (rat 0) (rat 1) (rat 2))))
+  ]
+
+-- -----------------------------------------------------------------------
+-- 9. isInteger
+-- -----------------------------------------------------------------------
+
+isIntegerTests :: TestTree
+isIntegerTests = testGroup "isInteger"
+  [ testCase "0 is integer" $
+      assertBool "0" (isInteger (rat 0))
+
+  , testCase "positive integer is integer" $
+      assertBool "42" (isInteger (rat 42))
+
+  , testCase "negative integer is integer" $
+      assertBool "-1" (isInteger (rat (-1)))
+
+  , testCase "rational is not integer" $
+      assertBool "1/2" (not (isInteger (rat (1 % 2))))
+
+  , testCase "extension is not integer" $
+      assertBool "√2" (not (isInteger (ext2 (rat 0) (rat 1) (rat 2))))
+  ]
+
+-- -----------------------------------------------------------------------
+-- 10. radicands
+-- -----------------------------------------------------------------------
+
+radicandsTests :: TestTree
+radicandsTests = testGroup "radicands"
+  [ testCase "rational has no radicands" $
+      radicands (rat 5) @?= []
+
+  , testCase "√3 has radicand (3, 2)" $
+      radicands (ext2 (rat 0) (rat 1) (rat 3)) @?= [(3, 2)]
+
+  , testCase "1 + 2√3 has radicand (3, 2)" $
+      radicands (ext2 (rat 1) (rat 2) (rat 3)) @?= [(3, 2)]
+
+  , testCase "cube root: ∛5 has radicand (5, 3)" $
+      radicands (Ext (rat 0) (rat 1) (rat 5) 3) @?= [(5, 3)]
+
+  , testCase "nested: a-part has √2, b-part has √3" $
+      let val = Ext (ext2 (rat 0) (rat 1) (rat 2)) (rat 1) (rat 3) 2
+      in  radicands val @?= [(2, 2), (3, 2)]
+
+  , testCase "duplicates are removed" $
+      let val = Ext (ext2 (rat 1) (rat 1) (rat 2)) (rat 1) (rat 2) 2
+      in  radicands val @?= [(2, 2)]
   ]
