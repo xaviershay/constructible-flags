@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Arrows #-}
 
-module Flag.Country.Bangladesh
+module Flag.Country.BGD
     ( bangladesh
     ) where
 

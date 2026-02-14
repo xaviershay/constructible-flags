@@ -42,10 +42,10 @@ library
       Flag.Construction.Tree
       Flag.Construction.Types
       Flag.Constructions
-      Flag.Country.Bangladesh
-      Flag.Country.Botswana
-      Flag.Country.France
-      Flag.Country.Japan
+      Flag.Country.BGD
+      Flag.Country.BWA
+      Flag.Country.FRA
+      Flag.Country.JPN
       Flag.Definition
       Flag.Pantone
       Flag.Registry

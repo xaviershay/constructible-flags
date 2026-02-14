@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Arrows #-}
 
-module Flag.Country.Botswana
+module Flag.Country.BWA
     ( botswana
     ) where
 

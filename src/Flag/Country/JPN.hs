@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Arrows #-}
 
-module Flag.Country.Japan
+module Flag.Country.JPN
     ( japan
     ) where
 

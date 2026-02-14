@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Arrows #-}
 
-module Flag.Country.France
+module Flag.Country.FRA
     ( france
     ) where
 
