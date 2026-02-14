@@ -9,6 +9,7 @@ module Flag.Constructions
       -- * Drawing primitives
     , fillTriangle
     , fillCircle
+    , fillFiveStar
 
       -- * Grouping
     , group
@@ -50,6 +51,44 @@ intersectCC = IntersectCC
 
 fillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
 fillTriangle = FillTriangle
+
+-- | Inscribe a regular five-pointed star (pentagram) in the given circle
+-- (centre, edge point) and fill it with the given colour.
+fillFiveStar :: Colour Double -> FlagA (Point, Point) Drawing
+fillFiveStar col = group "Fill five star" $ proc (o, a) -> do
+    -- Opposite point on the circle (diametrically opposite a)
+    (_, b)    <- intersectLC -< ((o, a), (o, a))
+    m         <- midpoint -< (o, b)
+
+    -- Circle centred at M through A intersects original
+    -- circle at two helpers w and v
+    (w, v)    <- intersectCC -< ((m, a), (o, a))
+    -- Circles centred at w and v with radius OA give four pentagon vertices
+    (p1, p2)  <- intersectCC -< ((w, a), (o, a))
+    (p3, p4)  <- intersectCC -< ((v, a), (o, a))
+
+    -- Label outer vertices (use the provided A as the fifth)
+    let v0 = a
+        v1 = p1
+        v2 = p3
+        v3 = p4
+        v4 = p2
+
+    -- Inner pentagon vertices: intersections of diagonals
+    i0 <- intersectLL -< ((v0, v2), (v1, v3))
+    i1 <- intersectLL -< ((v1, v3), (v2, v4))
+    i2 <- intersectLL -< ((v2, v4), (v3, v0))
+    i3 <- intersectLL -< ((v3, v0), (v4, v1))
+    i4 <- intersectLL -< ((v4, v1), (v0, v2))
+
+    -- Fill star as five triangles (outer vertex with two adjacent inner points)
+    t0 <- fillTriangle col -< (v0, i4, i0)
+    t1 <- fillTriangle col -< (v1, i0, i1)
+    t2 <- fillTriangle col -< (v2, i1, i2)
+    t3 <- fillTriangle col -< (v3, i2, i3)
+    t4 <- fillTriangle col -< (v4, i3, i4)
+
+    returnA -< t0 <> t1 <> t2 <> t3 <> t4
 
 -- | Fill a circle defined by its center and an edge point
 fillCircle :: Colour Double -> FlagA (Point, Point) Drawing
