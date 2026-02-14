@@ -13,6 +13,7 @@ import Flag.Construction.Radical (Radical, toDouble)
 import qualified RadicalSpec
 import ImageGoldenSpec (imageGoldenTests)
 import ConstructionCostSpec (constructionCostTests)
+import InterpreterSpec (interpreterTests)
 
 main :: IO ()
 main = defaultMain $ testGroup "All Tests"
@@ -20,6 +21,7 @@ main = defaultMain $ testGroup "All Tests"
         , imageGoldenTests
     , constructionCostTests
     , RadicalSpec.radicalTests
+    , interpreterTests
   ]
 
 -- | Approximate equality for points, converting Radical to Double.
