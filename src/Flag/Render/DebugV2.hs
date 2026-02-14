@@ -75,6 +75,21 @@ writeConstructionJson flag = do
       vbW = (maxX - minX) + 2 * padX
       vbH = (maxY - minY) + 2 * padY
 
+  -- Compute fill bounding box from only filled layers (triangles + circles)
+  let fillBounds = concatMap fillBoundingPoints allLayers
+      fxs = map fst fillBounds
+      fys = map snd fillBounds
+      fMinX = minimum fxs
+      fMaxX = maximum fxs
+      fMinY = minimum fys
+      fMaxY = maximum fys
+      fPadX = (fMaxX - fMinX) * 0.30
+      fPadY = (fMaxY - fMinY) * 0.30
+      fvbMinX = fMinX - fPadX
+      fvbMinY = fMinY - fPadY
+      fvbW = (fMaxX - fMinX) + 2 * fPadX
+      fvbH = (fMaxY - fMinY) + 2 * fPadY
+
   -- Compute live-after sets for dot rendering
   let nSteps = length allLayers
       liveAfter = [ nub $ concatMap layerInputPoints (drop i allLayers)
@@ -83,9 +98,12 @@ writeConstructionJson flag = do
   -- Build JSON
   let viewBox = showF vbMinX ++ " " ++ showF vbMinY
                 ++ " " ++ showF vbW ++ " " ++ showF vbH
+      fillViewBox = showF fvbMinX ++ " " ++ showF fvbMinY
+                    ++ " " ++ showF fvbW ++ " " ++ showF fvbH
       json = jsonObj
         [ ("flagName", jsonStr (flagName flag))
         , ("viewBox", jsonStr viewBox)
+        , ("fillViewBox", jsonStr fillViewBox)
         , ("initialPoints", jsonArr
             [ jsonPoint (fst input) "A"
             , jsonPoint (snd input) "B"
@@ -133,6 +151,22 @@ treeToJson entries allLayers initialPts liveAfter =
         , ("label", jsonStr label)
         , ("children", jsonArr (map entryToJson children))
         ]
+
+-- ---------------------------------------------------------------------------
+-- Fill bounding box helpers
+-- ---------------------------------------------------------------------------
+
+-- | Extract bounding points (as Doubles) from fill layers only.
+-- For triangles: the three vertices.
+-- For circles: axis-aligned bounding box corners (center ± radius).
+fillBoundingPoints :: ConstructionLayer -> [(Double, Double)]
+fillBoundingPoints (LayerTriangle _ p1 p2 p3) =
+    [toDP p1, toDP p2, toDP p3]
+fillBoundingPoints (LayerCircle _ cc ce) =
+    let (cx, cy) = toDP cc
+        r = toD (pointDist cc ce)
+    in [(cx - r, cy - r), (cx + r, cy + r)]
+fillBoundingPoints _ = []
 
 -- ---------------------------------------------------------------------------
 -- Layer → SVG fragments (manual SVG generation)

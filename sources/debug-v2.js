@@ -101,10 +101,14 @@ function leafToVirtual(virtualLayers, leafIndex) {
 function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, setHoveredPoint }) {
   const svgRef = useRef(null);
 
-  // Parse the original viewBox once
+  // Parse the fill viewBox for initial centering on the flag's filled area.
+  // The fillViewBox is in original coordinates, but the SVG content is y-flipped
+  // by scale(1,-1) translate(0, -T) where T = getSvgTranslateY(), so we must
+  // transform the y-range to match.
   const originalVB = useMemo(() => {
-    const [x, y, w, h] = DATA.viewBox.split(' ').map(Number);
-    return { x, y, w, h };
+    const [x, y, w, h] = DATA.fillViewBox.split(' ').map(Number);
+    const T = getSvgTranslateY();
+    return { x, y: T - y - h, w, h };
   }, []);
 
   // Pan/zoom state: store the current viewBox
