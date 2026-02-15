@@ -19,7 +19,7 @@ import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
 import Flag.Definition (Flag(..))
 import Flag.Registry (allCountryFlags)
 import Flag.Render.Diagram (drawingToDiagram)
-import Flag.Render.Html (generateIndex)
+import Flag.Render.Html (generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvXml)
 import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
 
@@ -40,6 +40,12 @@ buildHtml = do
   -- Generate SVG for each flag and collect metadata for index
   flagData <- mapM processFlag allCountryFlags
   
+  -- Generate show pages for each flag
+  mapM_ (\fd@(_, _, _, iso, _, _, _) -> do
+    let showHtml = generateShowPage fd
+        showPath = "out/" ++ map toLower iso ++ ".html"
+    writeFile showPath showHtml) flagData
+
   -- Generate index.html
   let html = generateIndex flagData
   writeFile "out/index.html" html
