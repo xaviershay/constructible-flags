@@ -19,6 +19,8 @@ radicalTests = testGroup "Radical"
   , isNaturalTests
   , isIntegerTests
   , radicandsTests
+  , minPolyExtTests
+  , minPolyArithmeticTests
   ]
 
 -- -----------------------------------------------------------------------
@@ -388,4 +390,71 @@ radicandsTests = testGroup "radicands"
   , testCase "duplicates are removed" $
       let val = Ext (ext2 (rat 1) (rat 1) (rat 2)) (rat 1) (rat 2) 2
       in  radicands val @?= [(2, 2)]
+  ]
+
+
+-- -----------------------------------------------------------------------
+-- 11. MinPolyExt / Chebyshev / Heptagon smoke tests
+-- -----------------------------------------------------------------------
+
+minPolyExtTests :: TestTree
+minPolyExtTests = testGroup "MinPolyExt"
+  [ testCase "chebyshev T_2 gives cos(4pi/7)" $ do
+      let mp = cosMinPoly 7
+          x = MinPolyExt mp (chebyshevT mp 2)
+      approxD "P2.x" (cos (4 * pi / 7)) (toDouble x)
+
+  , testCase "heptagon y coordinate uses sqrt(1-c^2)" $ do
+      let mp = cosMinPoly 7
+          oneMinusC2 = MinPolyExt mp [1, 0, -1]
+          yCoeff = MinPolyExt mp (chebyshevU mp 1)
+          y = Ext (Rational 0) yCoeff oneMinusC2 2
+      approxD "P2.y" (sin (4 * pi / 7)) (toDouble y)
+
+  , testCase "sin^2 = 1 - c^2 for heptagon" $ do
+      let mp = cosMinPoly 7
+          oneMinusC2 = MinPolyExt mp [1, 0, -1]
+          sinVal = Ext (Rational 0) (Rational 1) oneMinusC2 2
+          sinSq = sinVal * sinVal
+      approxD "sin^2" (sin (2 * pi / 7) ^ 2) (toDouble sinSq)
+
+  , testCase "fieldLabels picks up MinPolyExt label" $ do
+      let mp = cosMinPoly 7
+      fieldLabels (MinPolyExt mp [0,1,0]) @?= [mpLabel mp]
+  ]
+
+
+-- -----------------------------------------------------------------------
+-- 12. MinPolyExt arithmetic (tests first)
+-- -----------------------------------------------------------------------
+
+minPolyArithmeticTests :: TestTree
+minPolyArithmeticTests = testGroup "MinPolyExtArithmetic"
+  [ testCase "addition of MinPolyExt vectors" $ do
+      let mp = cosMinPoly 7
+          a = MinPolyExt mp [1,0,0]
+          b = MinPolyExt mp [0,1,0]
+          expected = MinPolyExt mp [1,1,0]
+      approxD "add coeffs" (toDouble expected) (toDouble (a + b))
+
+  , testCase "scale MinPolyExt by rational" $ do
+      let mp = cosMinPoly 7
+          a = MinPolyExt mp [1,2,0]
+          res = a * Rational 2
+          expected = MinPolyExt mp [2,4,0]
+      approxD "scale" (toDouble expected) (toDouble res)
+
+  , testCase "division by rational" $ do
+      let mp = cosMinPoly 7
+          a = MinPolyExt mp [1,2,0]
+          res = a / Rational 2
+          expected = MinPolyExt mp [1 % 2,1,0]
+      approxD "div by rat" (toDouble expected) (toDouble res)
+
+  , testCase "division MinPolyExt / MinPolyExt (numeric)" $ do
+      let mp = cosMinPoly 7
+          a = MinPolyExt mp [1,0,0]
+          b = MinPolyExt mp [0,1,0]
+          res = a / b
+      approxD "div fields" (toDouble a / toDouble b) (toDouble res)
   ]

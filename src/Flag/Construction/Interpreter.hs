@@ -18,6 +18,7 @@ data Step
   | StepIntersectCC
   | StepFillTriangle
   | StepFillCircle
+  | StepNGonVertex
   deriving (Show, Eq)
 
 -- | Extract the flat list of geometric construction steps, in order.
@@ -31,6 +32,7 @@ steps (Par f g)        = steps f ++ steps g
 steps IntersectLL      = [StepIntersectLL]
 steps IntersectLC      = [StepIntersectLC]
 steps IntersectCC      = [StepIntersectCC]
+steps (NGonVertex _ _) = [StepNGonVertex]
 steps (FillTriangle _) = [StepFillTriangle]
 steps (FillCircle _)   = [StepFillCircle]
 steps (Group _ f)      = steps f
@@ -46,6 +48,7 @@ eval (Par f g)        = \(a, c) -> (eval f a, eval g c)
 eval IntersectLL      = evalIntersectLL'
 eval IntersectLC      = evalIntersectLC'
 eval IntersectCC      = evalIntersectCC'
+eval (NGonVertex n k) = evalNGonVertex n k
 eval (FillTriangle c) = \(p1, p2, p3) -> DrawTriangle c p1 p2 p3
 eval (FillCircle c)   = \(center, edge) -> DrawCircle c center (dist center edge)
 eval (Group _ f)      = eval f
@@ -74,6 +77,9 @@ evalCollectRadicals IntersectLC input =
 evalCollectRadicals IntersectCC input =
   let ps@((x1,y1),(x2,y2)) = evalIntersectCC' input
   in (ps, [x1, y1, x2, y2])
+evalCollectRadicals (NGonVertex n k) input =
+  let p@(x, y) = evalNGonVertex n k input
+  in (p, [x, y])
 evalCollectRadicals (FillTriangle c) (p1, p2, p3) =
   (DrawTriangle c p1 p2 p3, [])
 evalCollectRadicals (FillCircle c) (center, edge) =

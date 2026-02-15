@@ -64,6 +64,10 @@ data FlagA a b where
   IntersectLL  :: FlagA ((Point, Point), (Point, Point)) Point
   IntersectLC  :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
   IntersectCC  :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
+  
+  -- | The k-th vertex of a regular n-gon inscribed in the given circle.
+  -- Input: (center, firstVertex). Output: the k-th vertex (0-indexed).
+  NGonVertex   :: !Int -> !Int -> FlagA (Point, Point) Point
 
   -- Drawing primitives
   FillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
@@ -95,6 +99,7 @@ showFlagA n fa = indent n ++ case fa of
   IntersectLL     -> "IntersectLL"
   IntersectLC     -> "IntersectLC"
   IntersectCC     -> "IntersectCC"
+  NGonVertex _ _  -> "NGonVertex"
   FillTriangle _  -> "FillTriangle"
   FillCircle _    -> "FillCircle"
   Group label f   -> "Group " ++ show label ++ "\n" ++ showFlagA (n+2) f

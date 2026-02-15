@@ -11,6 +11,8 @@ import Flag.Construction.Types (Point)
 import Flag.Construction.Geometry (dist)
 import Flag.Construction.Radical (Radical, toDouble)
 import qualified RadicalSpec
+import ArbitraryRadical ()
+import qualified NGonVertexSpec
 import ImageGoldenSpec (imageGoldenTests)
 import ConstructionCostSpec (constructionCostTests)
 import InterpreterSpec (interpreterTests)
@@ -21,6 +23,7 @@ main = defaultMain $ testGroup "All Tests"
         , imageGoldenTests
     , constructionCostTests
     , RadicalSpec.radicalTests
+    , NGonVertexSpec.ngonVertexTests
     , interpreterTests
   ]
 

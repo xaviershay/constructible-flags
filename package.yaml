@@ -94,3 +94,4 @@ tests:
     - tasty
     - tasty-hunit
     - tasty-quickcheck
+    - QuickCheck
