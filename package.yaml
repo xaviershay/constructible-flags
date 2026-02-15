@@ -53,6 +53,8 @@ ghc-options:
 
 library:
   source-dirs: src
+  other-modules:
+    - Flag.GeneratedPantone
 
 executables:
   constructible-flags-exe:
@@ -81,6 +83,7 @@ tests:
     - RadicalSpec
     - ImageGoldenSpec
     - ConstructionCostSpec
+    - PantoneSpec
     ghc-options:
     - -threaded
     - -rtsopts

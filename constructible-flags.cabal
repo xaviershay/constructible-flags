@@ -57,9 +57,7 @@ library
       Flag.Render.Raster
       Flag.Source
   other-modules:
-      Paths_constructible_flags
-  autogen-modules:
-      Paths_constructible_flags
+      Flag.GeneratedPantone
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
@@ -129,6 +127,7 @@ test-suite constructible-flags-test
       RadicalSpec
       ImageGoldenSpec
       ConstructionCostSpec
+      PantoneSpec
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N

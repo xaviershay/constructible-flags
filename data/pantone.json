@@ -1,0 +1,37 @@
+{
+  "PMSRed032C": {
+    "label": "PMS Red 032 C",
+    "rgb": [230, 49, 62],
+    "chip": "images/pantone/PMSRed032C.webp",
+    "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-red-032-c.webp",
+    "sampledAt": "2026-02-15T00:00:00Z"
+  },
+  "PMSReflexBlueC": {
+    "label": "PMS Reflex Blue C",
+    "rgb": [16, 11, 136],
+    "chip": "images/pantone/PMSReflexBlueC.webp",
+    "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-reflex-blue-c.webp",
+    "sampledAt": "2026-02-15T00:00:00Z"
+  },
+  "PMS154225TCX": {
+    "label": "PMS 154225 TCX",
+    "rgb": [117, 168, 210],
+    "chip": "images/pantone/PMS154225TCX.webp",
+    "sourceUrl": "https://www.pantone.com/",
+    "sampledAt": "2026-02-15T00:00:00Z"
+  },
+  "PMS342C": {
+    "label": "PMS 342 C",
+    "rgb": [24, 104, 72],
+    "chip": "images/pantone/PMS342C.webp",
+    "sourceUrl": "https://www.pantone.com/",
+    "sampledAt": "2026-02-15T00:00:00Z"
+  },
+  "PMS485C": {
+    "label": "PMS 485 C",
+    "rgb": [210, 40, 24],
+    "chip": "images/pantone/PMS485C.webp",
+    "sourceUrl": "https://www.pantone.com/",
+    "sampledAt": "2026-02-15T00:00:00Z"
+  }
+}
