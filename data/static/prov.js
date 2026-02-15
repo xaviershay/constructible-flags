@@ -156,7 +156,7 @@ function renderProvHierarchy(nodes, links) {
   const g = svg.append('g');
 
   const zoom = d3.zoom()
-    .scaleExtent([1, 1])
+    .scaleExtent([0.5, 4])
     .on('zoom', e => g.attr('transform', e.transform));
   svg.call(zoom).on('wheel.zoom', null);
 
@@ -246,7 +246,7 @@ function renderProvHierarchy(nodes, links) {
   const height = Math.max(100, maxRows * rowH + pad.top + pad.bottom);
   const width = +svg.attr('width');
   const midX = width / 2;
-  svg.attr('height', height);
+  svg.attr('height', height * 2);
 
   const spread = width * 0.18;
   const colX = {};
