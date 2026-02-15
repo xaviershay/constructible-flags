@@ -2,7 +2,7 @@ import Distribution.Simple
 import System.Directory
 import System.FilePath
 import Data.Char (isSpace)
-import Data.List (isPrefixOf, intercalate)
+import Data.List (isPrefixOf, intercalate, sort)
 import Control.Monad
 
 main :: IO ()
@@ -31,7 +31,7 @@ generateRegistry = do
     unless exists $ putStrLn ("Warning: " ++ countryDir ++ " does not exist")
     when exists $ do
         files <- listDirectory countryDir
-        let hsFiles = filter ((== ".hs") . takeExtension) files
+        let hsFiles = sort . filter ((== ".hs") . takeExtension) $ files
         entries <- forM hsFiles $ \f -> do
             let path = countryDir </> f
             content <- readFile path
