@@ -37,6 +37,8 @@ dependencies:
 - effectful-core
 - diagrams-rasterific
 - JuicyPixels
+- blaze-html
+- filepath
 
 ghc-options:
 - -Wall

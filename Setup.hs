@@ -1,4 +1,5 @@
 import Distribution.Simple
+import Distribution.Simple.Utils (installOrdinaryFiles)
 import System.Directory
 import System.FilePath
 import Data.Char (isSpace)
@@ -76,6 +77,8 @@ generateRegistry = do
         createDirectoryIfMissing True (takeDirectory outFile)
         writeFile outFile contentOut
         putStrLn $ "Wrote " ++ outFile
+
+ 
 
 toLowerFirst :: String -> String
 toLowerFirst "" = ""

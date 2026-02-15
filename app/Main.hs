@@ -9,7 +9,9 @@ import Data.Ratio (numerator, denominator)
 import Diagrams.Backend.SVG (renderSVG)
 import Diagrams.Prelude (mkWidth)
 import Effectful (runPureEff)
-import System.Directory (createDirectoryIfMissing)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory, copyFile)
+import System.FilePath ((</>), takeDirectory)
+import Control.Monad (unless, when, forM_)
 
 import Flag.Construction.Types (Point)
 import Flag.Construction.Interpreter (Step, steps, evalCollectRadicals)
@@ -25,6 +27,8 @@ import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
 
 main :: IO ()
 main = do
+  -- Copy static data at runtime (so `out/` always contains `data/` when serving)
+  copyDirRecursive "data" "out"
   buildHtml
   writeDebugViewer
   mapM_ writeConstructionJson allCountryFlags
@@ -51,6 +55,26 @@ buildHtml = do
   writeFile "out/index.html" html
   
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
+
+
+-- | Recursively copy directory contents from src to dst
+copyDirRecursive :: FilePath -> FilePath -> IO ()
+copyDirRecursive src dst = do
+  exists <- doesDirectoryExist src
+  unless exists $ putStrLn $ "Warning: source directory " ++ src ++ " does not exist"
+  when exists $ do
+    createDirectoryIfMissing True dst
+    entries <- listDirectory src
+    forM_ entries $ \e -> do
+      let s = src </> e
+          d = dst </> e
+      isDir <- doesDirectoryExist s
+      if isDir
+        then copyDirRecursive s d
+        else do
+          createDirectoryIfMissing True (takeDirectory d)
+          copyFile s d
+    putStrLn $ "Copied " ++ src ++ " -> " ++ dst
 
 -- | Process a single flag: render SVG, generate PROV XML, and extract metadata
 processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, [SourcedElement], [Step], String)
