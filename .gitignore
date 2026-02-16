@@ -4,3 +4,4 @@ test/tmp
 .claude
 .DS_Store
 .vscode/settings.json
+test/failures

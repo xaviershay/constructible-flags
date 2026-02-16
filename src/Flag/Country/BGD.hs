@@ -46,11 +46,11 @@ bangladesh = CountryFlag
         (w, h) <- reference "Proportion" flagRules (10, 6)
         (pr, qr) <- reference "Disc/Length Ratio" flagRules (1, 5)
         _ <- reference "Procion Colors" flagRules ("Procion Brilliant Green H-2RS 50/1000", "Procion Brilliant Orange H-2RS 60/1000")
-        (greenPms, redPms) <- editorial "Pantone Colors" references (PMS342C, PMS485C)
+        (greenPms, redPms) <- editorial "Pantone Colors" references ("342-C", "485-C")
 
         -- Third: convert Pantone to RGB using the Pantone module
-        greenColor <- pmsToRGB greenPms
-        redColor   <- pmsToRGB redPms
+        greenColor <- pantoneToRGB greenPms
+        redColor   <- pantoneToRGB redPms
 
 
         pure $ proc origin -> do

@@ -19,12 +19,15 @@ evalIntersectLL' ((p1, p2), (p3, p4)) =
       (x4, y4) = p4
       denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
       t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
-  in (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+  in if isZero denom then error "cannot intersect parallel lines" else (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
 
--- | Line-circle intersection from defining points
+-- | Line-circle intersection from defining points.
+--
+-- Uses r² directly (avoiding sqrt for the radius) and divides by
+-- the rational-friendly 2a instead of computing sqrt(disc)/(2a).
 evalIntersectLC' :: ((Point, Point), (Point, Point)) -> (Point, Point)
 evalIntersectLC' ((lp1, lp2), (cc, ce)) =
-  let r  = dist cc ce
+  let r2 = (fst ce - fst cc)^(2::Int) + (snd ce - snd cc)^(2::Int)
       (x1, y1) = lp1
       (x2, y2) = lp2
       dx = x2 - x1
@@ -33,7 +36,7 @@ evalIntersectLC' ((lp1, lp2), (cc, ce)) =
       fy = y1 - snd cc
       a  = dx*dx + dy*dy
       b  = 2*(fx*dx + fy*dy)
-      c  = fx*fx + fy*fy - r*r
+      c  = fx*fx + fy*fy - r2
       disc = b*b - 4*a*c
       sd = sqrt disc
       t1 = (-b - sd) / (2*a)
@@ -42,20 +45,33 @@ evalIntersectLC' ((lp1, lp2), (cc, ce)) =
      , (x1 + t2*dx, y1 + t2*dy)
      )
 
--- | Circle-circle intersection from defining points
+-- | Circle-circle intersection from defining points.
+--
+-- Optimised to divide by d² (a sum of squares) instead of d (a sqrt).
+-- This avoids divR by irrational denominators, which causes expression blowup.
+--
+-- Derivation: let ad = a/d, hd = h/d.  Then
+--   ad = (r1² - r2² + d²) / (2·d²)
+--   hd = √(r1²/d² - ad²)
+-- and the intersection points are:
+--   (x1 + ad·dx + hd·dy,  y1 + ad·dy - hd·dx)
+--   (x1 + ad·dx - hd·dy,  y1 + ad·dy + hd·dx)
 evalIntersectCC' :: ((Point, Point), (Point, Point)) -> (Point, Point)
 evalIntersectCC' ((c1, e1), (c2, e2)) =
-  let r1 = dist c1 e1
-      r2 = dist c2 e2
-      d  = dist c1 c2
-      a  = (r1*r1 - r2*r2 + d*d) / (2*d)
-      h  = sqrt (r1*r1 - a*a)
-      (x1, y1) = c1
+  let (x1, y1) = c1
       (x2, y2) = c2
-      mx = x1 + a*(x2 - x1)/d
-      my = y1 + a*(y2 - y1)/d
-  in ( (mx + h*(y2 - y1)/d, my - h*(x2 - x1)/d)
-     , (mx - h*(y2 - y1)/d, my + h*(x2 - x1)/d)
+      dx = x2 - x1
+      dy = y2 - y1
+      d2 = dx*dx + dy*dy          -- d² (no sqrt needed)
+      r1sq = let (ex,ey) = e1 in (ex - x1)^(2::Int) + (ey - y1)^(2::Int)
+      r2sq = let (ex,ey) = e2 in (ex - x2)^(2::Int) + (ey - y2)^(2::Int)
+      -- a/d and h/d, computed without dividing by d
+      ad = (r1sq - r2sq + d2) / (2 * d2)
+      hd = sqrt (r1sq / d2 - ad * ad)
+      mx = x1 + ad * dx
+      my = y1 + ad * dy
+  in ( (mx + hd * dy, my - hd * dx)
+     , (mx - hd * dy, my + hd * dx)
      )
 
 -- | Euclidean distance between two points (exact)

@@ -28,10 +28,12 @@ module Flag.Construction.Radical
     , radicands
     , isInteger
     , isNatural
+    , nthPowerFree
     ) where
 
 import Data.List (nub)
 import Data.Ratio (numerator, denominator, (%))
+import Debug.Trace (trace)
 
 -- ---------------------------------------------------------------------------
 -- Core data type
@@ -45,7 +47,7 @@ import Data.Ratio (numerator, denominator, (%))
 data Radical
   = Rational !Rational                -- ^ An exact rational value
   | Ext !Radical !Radical !Radical !Int
-    -- ^ @Ext a b r n@ = a + b · r^(1/n).
+    -- ^ @Ext a b r n@ = a + b · r^(1/n).u
     -- Invariant (after normalisation):
     --   • n ≥ 2
     --   • b ≠ 0
@@ -111,49 +113,100 @@ radicands = nub . go
 -- Normalisation
 -- ---------------------------------------------------------------------------
 
--- | Normalise a Radical value:
+-- | Normalise a Radical value.
 --
---   1. Recursively normalise sub-expressions.
---   2. Collapse @Ext a 0 r n@ → @a@.
---   3. For rational radicands, factor out perfect nth powers and
---      collapse if the radicand is a perfect nth power.
+-- Pipeline: normaliseNested → factorRadical → mergeRadicand
+--           → denestSqrt → zeroElimination
 normalize :: Radical -> Radical
-normalize (Rational r) = Rational r
-normalize (Ext a b r n)
-  = let a' = normalize a
-        b' = normalize b
-        r' = normalize r
-    in  normalizeExt a' b' r' n
-normalize (MinPolyExt mp cs) = MinPolyExt mp (polyReduce mp cs)
+normalize rad =
+    zeroElimination . denestSqrt . mergeRadicand . factorRadical
+                    . normalizeNested $ rad
+  where
+    -- Recursively normalise sub-expressions.
+    normalizeNested (Ext a b c r) = Ext (normalize a) (normalize b) (normalize c) r
+    normalizeNested x@(Rational _) = x
+    normalizeNested (MinPolyExt mp cs) = MinPolyExt mp (polyReduce mp cs)
 
--- | Normalise an already-recursively-normalised Ext.
-normalizeExt :: Radical -> Radical -> Radical -> Int -> Radical
--- b = 0: collapse
-normalizeExt a b _ _ | isZero b = a
--- Rational radicand: try to simplify
-normalizeExt a b (Rational r) n
-  | r == 0    = a   -- b · 0^(1/n) = 0
-  | r < 0 && even n = error $ "normalizeExt: negative radicand "
-                            ++ show r ++ " under even root index " ++ show n
-  | r < 0 && odd n  =
-      -- ∛(-x) = -∛x
-      normalizeExt a (negateR b) (Rational (negate r)) n
+    -- Collapse Ext when the coefficient or radicand is zero.
+    zeroElimination (Ext a b _ _) | isZero b = a
+    zeroElimination (Ext a _ r _) | isZero r = a
+    zeroElimination x = x
+
+    -- For rational radicands, factor out perfect nth powers and
+    -- rationalise the radicand denominator.
+    -- E.g. √12 = 2√3, √(9/4) = 3/2, ∛(-8) = -2, √(1/5) = √5/5.
+    factorRadical (Ext a b (Rational r) n)
+      | r < 0 && even n = error $ "factorRadical: negative radicand "
+                                ++ show r ++ " under even root index " ++ show n
+      | r < 0 && odd n  =
+          -- ∛(-x) = -∛x: move sign into coefficient
+          factorRadical (Ext a (negateR b) (Rational (negate r)) n)
+      | otherwise =
+          let pn = numerator r
+              pd = denominator r
+              (dN, kN) = nthPowerFree n (abs pn)
+              (dD, kD) = nthPowerFree n pd
+              -- r = (dN^n · kN) / (dD^n · kD)
+              -- r^(1/n) = (dN/dD) · (kN/kD)^(1/n)
+              --
+              -- Rationalize the radicand denominator:
+              -- (kN/kD)^(1/n) = (kN · kD^(n-1))^(1/n) / kD
+              -- Then factor the integer radicand again.
+              rawRad  = kN * kD ^ (n - 1)
+              (dR, finalRad) = nthPowerFree n rawRad
+              factor  = Rational (fromInteger (dN * dR) % fromInteger (dD * kD))
+              newR    = Rational (fromInteger finalRad)
+              newB    = mulR b factor
+          in  if finalRad == 1
+                -- radicand was a perfect nth power: no radical remains
+                then addR a newB
+                else Ext a newB newR n
+    factorRadical x = x
+
+    -- Merge nested Ext levels that share the same radicand.
+    -- Two rules for flattening elements of Q(√r):
+    --   (1) Ext (Ext a1 b1 r n) b r n → Ext a1 (b1+b) r n
+    --       because: (a1 + b1·√r) + b·√r = a1 + (b1+b)·√r
+    --   (2) Ext a (Ext b1 b2 r n) r n → Ext (a + b2·r) b1 r n
+    --       because: a + (b1 + b2·√r)·√r = (a + b2·r) + b1·√r
+    mergeRadicand (Ext (Ext a1 b1 r1 n1) b r n)
+      | n1 == n && r1 `radEq` r =
+          normalize (Ext a1 (addR b1 b) r n)
+    mergeRadicand (Ext a (Ext b1 b2 r1 n1) r n)
+      | n1 == n && r1 `radEq` r =
+          normalize (Ext (addR a (mulR b2 r)) b1 r n)
+    mergeRadicand x = x
+
+    -- Denest square roots: √(a + b√r) = √((a+d)/2) + sign(b)·√((a-d)/2)
+    -- where d = √(a²-b²r), but ONLY when disc = a²-b²r is a perfect
+    -- square (rational d). Otherwise denesting recurses infinitely.
+    denestSqrt (Ext a0 b0 (Ext a b r 2) 2)
+      | isZero a0 =
+          let disc = subR (mulR a a) (mulR (mulR b b) r)
+          in case disc of
+               Rational d2
+                 | d2 >= 0, Just d <- perfectSqrtR d2 ->
+                     let half   = Rational (1 % 2)
+                         dR     = Rational d
+                         t1     = sqrtC (mulR (addR a dR) half)
+                         t2     = sqrtC (mulR (subR a dR) half)
+                         s      = signR b
+                         denest = if s >= 0 then addR t1 t2 else subR t1 t2
+                     in  mulR b0 denest
+               _ -> Ext a0 b0 (Ext a b r 2) 2
+    denestSqrt x = x
+
+-- | Check if a rational is a perfect square and return its sqrt.
+perfectSqrtR :: Rational -> Maybe Rational
+perfectSqrtR r
+  | r < 0     = Nothing
+  | r == 0    = Just 0
   | otherwise =
-      let pn = numerator r
-          pd = denominator r
-          (dN, kN) = nthPowerFree n (abs pn)
-          (dD, kD) = nthPowerFree n pd
-          -- r = (pn/pd) = (dN^n · kN) / (dD^n · kD)
-          -- r^(1/n) = (dN/dD) · (kN/kD)^(1/n)
-          factor = Rational (fromInteger dN % fromInteger dD)
-          newR   = Rational (fromInteger kN % fromInteger kD)
-          newB   = mulR b factor
-      in  if kN == 1 && kD == 1
-            -- radicand was a perfect nth power: b · factor, no radical
-            then addR a newB
-            else Ext a newB newR n
--- Non-rational radicand: leave as-is
-normalizeExt a b r n = Ext a b r n
+      let p = numerator r
+          q = denominator r
+      in case (isqrt p, isqrt q) of
+           (Just sp, Just sq) -> Just (sp % sq)
+           _                  -> Nothing
 
 -- ---------------------------------------------------------------------------
 -- Integer nth-power factoring
@@ -280,13 +333,21 @@ radEq _ _ = False
 divR :: Radical -> Radical -> Radical
 divR _ b | isZero b = error "divR: division by zero"
 divR a (Rational b) = mulR a (Rational (1 / b))
-divR a (Ext a2 b2 r2 2) =
-    -- Rationalise: multiply by conjugate (a2 - b2·√r2)
+divR a (Ext a2 b2 r2 2)
+    -- Special case: a / (b2·√r2) = a·√r2 / (b2·r2)
+    -- Avoids conjugate multiplication when a2=0, reducing nesting.
+    | isZero a2 =
+        let sqrtR = Ext (Rational 0) (Rational 1) r2 2
+            num   = mulR a sqrtR
+            denom = mulR b2 r2
+        in  divR num denom
+    -- General: multiply by conjugate (a2 - b2·√r2)
     -- Denominator: a2² - b2²·r2
-    let conj  = Ext a2 (negateR b2) r2 2
-        denom = subR (mulR a2 a2) (mulR (mulR b2 b2) r2)
-        num   = mulR a conj
-    in  divR num denom   -- denom should now be simpler (no √r2)
+    | otherwise =
+        let conj  = Ext a2 (negateR b2) r2 2
+            denom = subR (mulR a2 a2) (mulR (mulR b2 b2) r2)
+            num   = mulR a conj
+        in  divR num denom   -- denom should now be simpler (no √r2)
 divR (MinPolyExt mp1 cs1) (MinPolyExt mp2 cs2)
   | mp1 == mp2 = MinPolyExt mp1 (mpDiv mp1 cs1 cs2)
   | otherwise = error "divR: incompatible MinPolyExt fields"
@@ -335,9 +396,8 @@ sqrtC = nthRootC 2
 -- | Nth root of a Radical value.
 --
 -- For rational arguments, checks for perfect nth powers and factors out
--- nth-power components.  For n=2 with nested Ext arguments, attempts the
--- denesting identity.  For n>2 with non-rational arguments, raises an error
--- (to be implemented when higher-root constructions are added).
+-- nth-power components.  For Ext arguments, builds the extension and lets
+-- 'normalize' handle denesting.
 nthRootC :: Int -> Radical -> Radical
 nthRootC n (Rational r)
   | r == 0    = Rational 0
@@ -350,25 +410,6 @@ nthRootC n (Rational r)
       in case (inroot n p, inroot n q) of
            (Just sp, Just sq) -> Rational (sp % sq)
            _ -> normalize (Ext (Rational 0) (Rational 1) (Rational r) n)
-nthRootC 2 (Ext a b r 2) =
-    -- Try denesting: √(a + b√r) = √((a+d)/2) + √((a-d)/2)
-    -- where d = √(a² - b²r), if a²-b²r is a perfect square in the field.
-    let disc = subR (mulR a a) (mulR (mulR b b) r)
-    in case disc of
-         Rational d2
-           | d2 >= 0 ->
-               let d = sqrtC (Rational d2)
-                   half = Rational (1 % 2)
-                   t1 = sqrtC (mulR (addR a d) half)
-                   t2 = sqrtC (mulR (subR a d) half)
-                   s  = signR b
-               in  if s >= 0 then addR t1 t2 else subR t1 t2
-           | otherwise ->
-               -- Cannot denest; introduce new extension level
-               normalize (Ext (Rational 0) (Rational 1) (Ext a b r 2) 2)
-         _ ->
-           -- Discriminant is not rational; introduce new extension level
-           normalize (Ext (Rational 0) (Rational 1) (Ext a b r 2) 2)
 nthRootC n x = normalize (Ext (Rational 0) (Rational 1) x n)
 
 -- ---------------------------------------------------------------------------

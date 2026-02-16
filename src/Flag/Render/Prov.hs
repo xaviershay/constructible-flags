@@ -3,7 +3,7 @@ module Flag.Render.Prov
     ) where
 
 import Data.Char (toLower)
-import Data.List (nub)
+import Data.List (nub, isPrefixOf)
 
 import Flag.Source (Source(..), Entity(..), Agent(..), SourcedElement)
 
@@ -56,6 +56,7 @@ generateProvXml isoCode flagName' sources =
     , ""
     , agentDeclarations
     , entityDeclarations
+    , pantoneSamplingDeclarations
     , sourceValueDeclarations
     , usedDeclarations
     , relationshipDeclarations
@@ -236,6 +237,36 @@ generateProvXml isoCode flagName' sources =
     relationshipDeclarations = unlines $
       [ "  <!-- Provenance relationships -->" | not (null sources) ] ++
       concatMap sourceRelationships sources
+
+    -- Generate color-sample activities for pantone chip entities
+    pantoneSamplingDeclarations :: String
+    pantoneSamplingDeclarations = unlines $ concatMap pantoneActivityForSource sources
+
+    pantoneActivityForSource :: SourcedElement -> [String]
+    pantoneActivityForSource (name, SourceReference e)
+      | "PMS" `isPrefixOf` entityTitle e =
+          let key = entityTitle e
+              actId = "color-sample-" ++ escId key
+              sampledId = isoLower ++ "_" ++ escId name
+              entId = entityIdStr e
+          in [ "  <prov:activity prov:id=\"cf:" ++ actId ++ "\">"
+             , "    <prov:label>color-sample " ++ escXml key ++ "</prov:label>"
+             , "    <prov:type xsd:type=\"xsd:QName\">cf:color-sample</prov:type>"
+             , "  </prov:activity>"
+             , "  <prov:wasGeneratedBy>"
+             , "    <prov:entity prov:ref=\"cf:" ++ sampledId ++ "\" />"
+             , "    <prov:activity prov:ref=\"cf:" ++ actId ++ "\" />"
+             , "  </prov:wasGeneratedBy>"
+             , "  <prov:used>"
+             , "    <prov:activity prov:ref=\"cf:" ++ actId ++ "\" />"
+             , "    <prov:entity prov:ref=\"cf:" ++ entId ++ "\" />"
+             , "  </prov:used>"
+             , "  <prov:wasAssociatedWith>"
+             , "    <prov:activity prov:ref=\"cf:" ++ actId ++ "\" />"
+             , "    <prov:agent prov:ref=\"cf:pantone\" />"
+             , "  </prov:wasAssociatedWith>"
+             ]
+    pantoneActivityForSource _ = []
 
     sourceRelationships :: SourcedElement -> [String]
     sourceRelationships (name, SourceReference e) =

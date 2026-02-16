@@ -18,6 +18,9 @@ custom-setup:
   - Cabal
   - directory
   - filepath
+  - aeson
+  - bytestring
+  - text
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -40,6 +43,14 @@ dependencies:
 - JuicyPixels
 - blaze-html
 - filepath
+- aeson
+- aeson-pretty
+- http-conduit
+- time
+- text
+- webp
+- bytestring
+- unordered-containers
 
 ghc-options:
 - -Wall
@@ -76,6 +87,13 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - constructible-flags
+  pantone-sample:
+    main:                PantoneCli.hs
+    source-dirs:         app-pantone
+    ghc-options:
+    - -threaded
+    dependencies:
+    - constructible-flags
 tests:
   constructible-flags-test:
     main:                Spec.hs
@@ -85,6 +103,7 @@ tests:
     - ImageGoldenSpec
     - ConstructionCostSpec
     - PantoneSpec
+    - PantoneCliSpec
     ghc-options:
     - -threaded
     - -rtsopts
