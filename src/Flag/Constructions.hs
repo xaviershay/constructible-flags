@@ -237,8 +237,11 @@ bisectAngle = group "Angle bisector" $ proc (o, (a, b)) -> do
     (b1, b2) <- intersectLC -< ((o, b), (o, a))
     let b' = b2
     -- intersections of circles centred at a and b' with radius |a - o|
-    (s1, _s2) <- intersectCC -< ((a, o), (b', o))
-    returnA -< (o, s1)
+    -- Both circles pass through o, so one intersection is always o.
+    -- Pick the other one.
+    (s1, s2) <- intersectCC -< ((a, o), (b', o))
+    let s = if s1 == o then s2 else s1
+    returnA -< (o, s)
 
 -- | Translate a vector defined by @(a, b)@ so that its origin is at point
 -- @p@. Returns the pair @(p, q)@ where @q = p + (b - a)@.

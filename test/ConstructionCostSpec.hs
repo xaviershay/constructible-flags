@@ -21,7 +21,7 @@ expectedCosts =
   [ ("BGD", 55)
   , ("BWA", 78)
   , ("FRA", 35)
-  , ("JOR", 39)
+  , ("JOR", 76)
   , ("JPN", 29)
   ]
 

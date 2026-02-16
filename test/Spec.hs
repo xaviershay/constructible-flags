@@ -156,6 +156,17 @@ tests = testGroup "Tests"
             cos1 = (dxA * dxQ + dyA * dyQ) / (dist o a * dist o q)
             cos2 = (dxB * dxQ + dyB * dyQ) / (dist o b * dist o q)
         approxEqualD "angles equal" cos1 cos2
+    , testCase "bisects angle not from origin" $ do
+        let o = (0, -3)
+            a = (0, 0)
+            b = (3, (Rational ((-3) % 2)))
+            (_, q) = evalBisect (o, (a, b))
+            (dxA, dyA) = (fst a - fst o, snd a - snd o)
+            (dxB, dyB) = (fst b - fst o, snd b - snd o)
+            (dxQ, dyQ) = (fst q - fst o, snd q - snd o)
+            cos1 = (dxA * dxQ + dyA * dyQ) / (dist o a * dist o q)
+            cos2 = (dxB * dxQ + dyB * dyQ) / (dist o b * dist o q)
+        approxEqualD "angles equal" cos1 cos2
     ]
   , testGroup "parallel"
     [ testCase "result is parallel to input line" $ do
@@ -260,94 +271,94 @@ tests = testGroup "Tests"
       -- Converted QuickCheck properties into deterministic regression unit
     -- tests using a specific failing input captured from QuickCheck runs.
     -- These are expected to fail (reproduce the hang/incorrect behaviour).
---      localOption (mkTimeout 5000000) $ testCase "translate sub-step: sqrtC(Ext A B 5 2)" $ do
---        let x = Ext (Rational (182405 % 15876)) (Rational (454 % 189)) (Rational 5) 2
---        _ <- evaluate (toDouble (sqrtC x))
---        return ()
---    , localOption (mkTimeout 5000000) $ testCase "translate sub-step: dist(b,p)" $ do
---        let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
---            p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
---                , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
---                ) :: Point
---            r1 = dist b p
---        _ <- evaluate (toDouble r1)
---        return ()
---    , localOption (mkTimeout 5000000) $ testCase "translate sub-step: a = d^2/(2d)" $ do
---        let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
---            p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
---                , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
---                ) :: Point
---            r1 = dist b p
---            d = r1
---            aval = (r1*r1 - r1*r1 + d*d) / (2 * d)
---        _ <- evaluate (toDouble aval)
---        return ()
---    , localOption (mkTimeout 5000000) $ testCase "translate sub-step: h = sqrt(r1^2-a^2)" $ do
---        let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
---            p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
---                , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
---                ) :: Point
---            r1 = dist b p
---            d = r1
---            aval = (r1*r1 - r1*r1 + d*d) / (2 * d)
---            h = sqrt (r1*r1 - aval*aval)
---        _ <- evaluate (toDouble h)
---        return ()
---    , localOption (mkTimeout 5000000) $ testCase "translate sub-step: final CC coords" $ do
---        let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
---            p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
---                , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
---                ) :: Point
---            (q1, q2) = evalIntersectCC' ((b, p), (p, b))
---            depth (Rational _) = 0 :: Int
---            depth (Ext a' b' r' _) = 1 + maximum [depth a', depth b', depth r']
---            depth (MinPolyExt _ _) = 0
---            size (Rational _) = 1 :: Int
---            size (Ext a' b' r' _) = 1 + size a' + size b' + size r'
---            size (MinPolyExt _ _) = 1
---            info x = "d=" ++ show (depth x) ++ " s=" ++ show (size x) ++ " r=" ++ show (radicands x)
---        _ <- evaluate (toDouble (fst q1))
---        _ <- evaluate (toDouble (snd q1))
---        _ <- evaluate (toDouble (fst q2))
---        _ <- evaluate (toDouble (snd q2))
---        return ()
---
---    , localOption (mkTimeout 5000000) $ testCase "translate sub-step: intersectLL after CC" $ do
---        let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
---            p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
---                , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
---                ) :: Point
---            (q1, q2) = evalIntersectCC' ((b, p), (p, b))
---            m = evalIntersectLL' ((q1, q2), (b, p))
---        _ <- evaluate (toDouble (fst m))
---        _ <- evaluate (toDouble (snd m))
---        return ()
---    , localOption (mkTimeout 30000000) $ testCase "translate sub-step: intersectLC after midpoint" $ do
---        let a = (Rational (0 % 1), Rational (8 % 3)) :: Point
---            b = (Rational (4 % 9), Rational (4 % 9)) :: Point
---            p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
---                , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
---                ) :: Point
---            m = evalMid (b, p)
---            (_, q) = evalIntersectLC' ((a, m), (m, a))
---        _ <- evaluate (toDouble (fst q))
---        _ <- evaluate (toDouble (snd q))
---        return ()
---
---    , localOption (mkTimeout 2000000) $ testCase "result is translated vector (QC repro)" $ do
---        let a = (Rational (0 % 1), Rational (8 % 3)) :: Point
---            b = (Rational (4 % 9), Rational (4 % 9)) :: Point
---            p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
---                , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
---                ) :: Point
---            (_, q) = evalTrans ((a, b), p)
---            (dx1, dy1) = (fst b - fst a, snd b - snd a)
---            (dx2, dy2) = (fst q - fst p, snd q - snd p)
---            cross = dx1 * dy2 - dy1 * dx2
---        -- expected: cross ≈ 0 (but currently this test reproduces the bug)
---        approxEqualD "cross product should be 0 (regression)" 0 cross
+    --  localOption (mkTimeout 5000000) $ testCase "translate sub-step: sqrtC(Ext A B 5 2)" $ do
+    --    let x = Ext (Rational (182405 % 15876)) (Rational (454 % 189)) (Rational 5) 2
+    --    _ <- evaluate (toDouble (sqrtC x))
+    --    return ()
+    --, localOption (mkTimeout 5000000) $ testCase "translate sub-step: dist(b,p)" $ do
+    --    let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
+    --        p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
+    --            , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
+    --            ) :: Point
+    --        r1 = dist b p
+    --    _ <- evaluate (toDouble r1)
+    --    return ()
+    --, localOption (mkTimeout 5000000) $ testCase "translate sub-step: a = d^2/(2d)" $ do
+    --    let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
+    --        p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
+    --            , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
+    --            ) :: Point
+    --        r1 = dist b p
+    --        d = r1
+    --        aval = (r1*r1 - r1*r1 + d*d) / (2 * d)
+    --    _ <- evaluate (toDouble aval)
+    --    return ()
+    --, localOption (mkTimeout 5000000) $ testCase "translate sub-step: h = sqrt(r1^2-a^2)" $ do
+    --    let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
+    --        p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
+    --            , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
+    --            ) :: Point
+    --        r1 = dist b p
+    --        d = r1
+    --        aval = (r1*r1 - r1*r1 + d*d) / (2 * d)
+    --        h = sqrt (r1*r1 - aval*aval)
+    --    _ <- evaluate (toDouble h)
+    --    return ()
+    --, localOption (mkTimeout 5000000) $ testCase "translate sub-step: final CC coords" $ do
+    --    let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
+    --        p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
+    --            , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
+    --            ) :: Point
+    --        (q1, q2) = evalIntersectCC' ((b, p), (p, b))
+    --        depth (Rational _) = 0 :: Int
+    --        depth (Ext a' b' r' _) = 1 + maximum [depth a', depth b', depth r']
+    --        depth (MinPolyExt _ _) = 0
+    --        size (Rational _) = 1 :: Int
+    --        size (Ext a' b' r' _) = 1 + size a' + size b' + size r'
+    --        size (MinPolyExt _ _) = 1
+    --        info x = "d=" ++ show (depth x) ++ " s=" ++ show (size x) ++ " r=" ++ show (radicands x)
+    --    _ <- evaluate (toDouble (fst q1))
+    --    _ <- evaluate (toDouble (snd q1))
+    --    _ <- evaluate (toDouble (fst q2))
+    --    _ <- evaluate (toDouble (snd q2))
+    --    return ()
 
-    --, localOption (mkTimeout 100000) $ testCase "result preserves segment length (QC repro)" $ do
+    --, localOption (mkTimeout 5000000) $ testCase "translate sub-step: intersectLL after CC" $ do
+    --    let b = (Rational (4 % 9), Rational (4 % 9)) :: Point
+    --        p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
+    --            , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
+    --            ) :: Point
+    --        (q1, q2) = evalIntersectCC' ((b, p), (p, b))
+    --        m = evalIntersectLL' ((q1, q2), (b, p))
+    --    _ <- evaluate (toDouble (fst m))
+    --    _ <- evaluate (toDouble (snd m))
+    --    return ()
+    --, localOption (mkTimeout 3000000) $ testCase "translate sub-step: intersectLC after midpoint" $ do
+    --    let a = (Rational (0 % 1), Rational (8 % 3)) :: Point
+    --        b = (Rational (4 % 9), Rational (4 % 9)) :: Point
+    --        p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
+    --            , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
+    --            ) :: Point
+    --        m = evalMid (b, p)
+    --        (_, q) = evalIntersectLC' ((a, m), (m, a))
+    --    _ <- evaluate (toDouble (fst q))
+    --    _ <- evaluate (toDouble (snd q))
+    --    return ()
+
+    --, localOption (mkTimeout 2000000) $ testCase "result is translated vector (QC repro)" $ do
+    --    let a = (Rational (0 % 1), Rational (8 % 3)) :: Point
+    --        b = (Rational (4 % 9), Rational (4 % 9)) :: Point
+    --        p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2
+    --            , Ext (Rational (10 % 3)) (Rational (9 % 7)) (Rational (5 % 9)) 2
+    --            ) :: Point
+    --        (_, q) = evalTrans ((a, b), p)
+    --        (dx1, dy1) = (fst b - fst a, snd b - snd a)
+    --        (dx2, dy2) = (fst q - fst p, snd q - snd p)
+    --        cross = dx1 * dy2 - dy1 * dx2
+    --    -- expected: cross ≈ 0 (but currently this test reproduces the bug)
+    --    approxEqualD "cross product should be 0 (regression)" 0 cross
+
+    --, localOption (mkTimeout 1000000) $ testCase "result preserves segment length (QC repro)" $ do
     --    let a = (Rational (0 % 1), Rational (8 % 3)) :: Point
     --        b = (Rational (4 % 9), Rational (4 % 9)) :: Point
     --        p = ( Ext (Rational (1 % 2)) (Rational ((-5) % 3)) (Rational (4 % 5)) 2

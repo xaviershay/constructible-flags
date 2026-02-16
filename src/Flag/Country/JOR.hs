@@ -45,13 +45,16 @@ jordan = CountryFlag
             t <- fillTriangle redC -< (tl, center, bl)
 
             b1 <- bisectAngle -< (tl, (bl, center))
-            --b2 <- bisectAngle -< (bl, (tl, center))
-            --triangleCenter <- intersectLL -< (b1, b2)
+            b2 <- bisectAngle -< (center, (tl, bl))
+            triangleCenter <- intersectLL -< (b1, b2)
 
-            --r <- rationalMult 1 14 -< (tl, tr)
-            --(r', _) <- perpendicular -< (tl, r)
-            --starEdge <- translate -< ((tl, r'), triangleCenter)
+            r <- rationalMult 1 14 -< (tl, tr)
+            (r', _) <- perpendicular -< (tl, r)
+            starEdge <- translate -< ((tl, r'), triangleCenter)
 
+            -- TODO: We don't handle normalisation of MinPoly, nor have
+            -- optimised intersections of points involving them. Both needed so
+            -- that this function can complete.
             --star <- fillStar7x3 whiteC -< starEdge
 
             returnA -< bg <> t -- <> star
