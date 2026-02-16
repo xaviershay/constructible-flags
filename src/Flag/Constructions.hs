@@ -32,7 +32,7 @@ module Flag.Constructions
     , horizontalStripes
     ) where
 
-import Control.Arrow (returnA)
+import Control.Arrow (returnA, arr)
 import Data.Colour
 
 import Flag.Construction.Types
@@ -251,6 +251,16 @@ bisectAngle = group "Angle bisector" $ proc (o, (a, b)) -> do
 translate :: FlagA ((Point, Point), Point) (Point, Point)
 translate = group "Translate vector" $ proc ((a, b), p) -> do
   m <- midpoint -< (b, p)
+  -- Degenerate case: midpoint(b,p) == a would pass a zero-length line to
+  -- IntersectLC.  Detect it here and raise an explicit (unimplemented)
+  -- error so callers / tests observe the limitation instead of getting
+  -- a lower-level division-by-zero.
+  -- evaluate check inside an `arr` that receives `m` and `a` so the
+  -- ArrowProc-bound values are visible to the pure function
+  _ <- arr (\(m', a') -> if m' == a'
+                          then error "translate: degenerate midpoint (midpoint == a) - unimplemented"
+                          else ()) -< (m, a)
+
   (_, q) <- intersectLC -< ((a, m), (m, a))
   returnA -< (p, q)
 
@@ -344,13 +354,11 @@ rationalMult p q
   | otherwise = group (show p ++ "/" ++ show q) $ proc (a, b) -> do
       -- Get a perpendicular direction for the auxiliary line
       (c, _) <- perpendicular -< (a, b)
-      -- Mark q units along auxiliary line (a, c)
       qPt <- naturalMult q -< (a, c)
-      -- Mark p units along auxiliary line (a, c)
       pPt <- naturalMult p -< (a, c)
-      -- Connect qPt to b
-      -- Construct a translated vector (parallel) to (qPt, b) through pPt
+
       (_, target) <- translate -< ((qPt, b), pPt)
+
       -- Intersect that parallel with the original line (a, b)
       result <- intersectLL -< ((pPt, target), (a, b))
       returnA -< result

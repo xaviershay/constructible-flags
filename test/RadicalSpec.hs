@@ -9,7 +9,8 @@ import Flag.Construction.Radical
 
 radicalTests :: TestTree
 radicalTests = testGroup "Radical"
-  [ normalisationTests
+  [ nthPowerFreeTests
+  , normalisationTests
   , arithmeticTests
   , sqrtTests
   , nthRootTests
@@ -52,6 +53,49 @@ approxD msg expected actual =
     (abs (expected - actual) < 1e-9)
 
 -- -----------------------------------------------------------------------
+-- 0. nthPowerFree
+-- -----------------------------------------------------------------------
+
+nthPowerFreeTests :: TestTree
+nthPowerFreeTests = testGroup "nthPowerFree"
+  [ testCase "nthPowerFree 2 1 = (1, 1)" $
+      nthPowerFree 2 1 @?= (1, 1)
+
+  , testCase "nthPowerFree 2 4 = (2, 1) — 4 = 2²·1" $
+      nthPowerFree 2 4 @?= (2, 1)
+
+  , testCase "nthPowerFree 2 12 = (2, 3) — 12 = 2²·3" $
+      nthPowerFree 2 12 @?= (2, 3)
+
+  , testCase "nthPowerFree 2 18 = (3, 2) — 18 = 3²·2" $
+      nthPowerFree 2 18 @?= (3, 2)
+
+  , testCase "nthPowerFree 2 50 = (5, 2) — 50 = 5²·2" $
+      nthPowerFree 2 50 @?= (5, 2)
+
+  , testCase "nthPowerFree 2 7 = (1, 7) — 7 is square-free" $
+      nthPowerFree 2 7 @?= (1, 7)
+
+  , testCase "nthPowerFree 2 0 = (0, 0)" $
+      nthPowerFree 2 0 @?= (0, 0)
+
+  , testCase "nthPowerFree 3 8 = (2, 1) — 8 = 2³·1" $
+      nthPowerFree 3 8 @?= (2, 1)
+
+  , testCase "nthPowerFree 3 24 = (2, 3) — 24 = 2³·3" $
+      nthPowerFree 3 24 @?= (2, 3)
+
+  , testCase "nthPowerFree 3 27 = (3, 1) — 27 = 3³·1" $
+      nthPowerFree 3 27 @?= (3, 1)
+
+  , testCase "nthPowerFree 2 72 = (6, 2) — 72 = 6²·2" $
+      nthPowerFree 2 72 @?= (6, 2)
+
+  , testCase "nthPowerFree 2 100 = (10, 1) — 100 = 10²" $
+      nthPowerFree 2 100 @?= (10, 1)
+  ]
+
+-- -----------------------------------------------------------------------
 -- 1. Normalisation
 -- -----------------------------------------------------------------------
 
@@ -61,20 +105,20 @@ normalisationTests = testGroup "Normalisation"
       radicalEq "zero coeff" (rat 5) (normalize (Ext (rat 5) (rat 0) (rat 3) 2))
 
   -- PERFECT SQUARES
-  --, testCase "Eliminate perfect squares" $
-  --    isRat "√4" 2 (normalize (Ext (rat 0) (rat 1) (rat 4) 2))
- -- , testCase "Ext 0 1 (1/4) 2 collapses to Rational (1/2)" $
- --     isRat "√(1/4)" (1 % 2) (normalize (Ext (rat 0) (rat 1) (rat (1 % 4)) 2))
- -- , testCase "Ext 0 1 (9/4) 2 collapses to Rational (3/2)" $
- --     isRat "√(9/4)" (3 % 2) (normalize (Ext (rat 0) (rat 1) (rat (9 % 4)) 2))
- -- , testCase "Cube root: Ext 0 1 8 3 collapses to Rational 2" $
- --     isRat "∛8" 2 (normalize (Ext (rat 0) (rat 1) (rat 8) 3))
+  , testCase "Eliminate perfect squares: √4 = 2" $
+      isRat "√4" 2 (normalize (Ext (rat 0) (rat 1) (rat 4) 2))
+  , testCase "Ext 0 1 (1/4) 2 collapses to Rational (1/2)" $
+      isRat "√(1/4)" (1 % 2) (normalize (Ext (rat 0) (rat 1) (rat (1 % 4)) 2))
+  , testCase "Ext 0 1 (9/4) 2 collapses to Rational (3/2)" $
+      isRat "√(9/4)" (3 % 2) (normalize (Ext (rat 0) (rat 1) (rat (9 % 4)) 2))
+  , testCase "Cube root: Ext 0 1 8 3 collapses to Rational 2" $
+      isRat "∛8" 2 (normalize (Ext (rat 0) (rat 1) (rat 8) 3))
 
--- EXTRACTING SQUARE COMPONENT FROM RADICAL
---  , testCase "Ext 0 1 12 2 normalises to Ext 0 2 3 2" $
---      radicalEq "√12 = 2√3"
---        (Ext (rat 0) (rat 2) (rat 3) 2)
---        (normalize (Ext (rat 0) (rat 1) (rat 12) 2))
+  -- EXTRACTING SQUARE COMPONENT FROM RADICAL
+  , testCase "Ext 0 1 12 2 normalises to Ext 0 2 3 2 (√12 = 2√3)" $
+      radicalEq "√12 = 2√3"
+        (Ext (rat 0) (rat 2) (rat 3) 2)
+        (normalize (Ext (rat 0) (rat 1) (rat 12) 2))
 
   , testCase "Rational 0 + Rational 0 = Rational 0" $
       isRat "0+0" 0 (rat 0 + rat 0)
@@ -100,6 +144,94 @@ normalisationTests = testGroup "Normalisation"
   , testCase "normalize is idempotent (denominator-doubling case)" $
       let x = Ext (rat 9) (rat 9) (rat (1 % 5)) 2
       in assertEqual "idempotent denom-doubling" (normalize x) (normalize (normalize x))
+
+  -- Regression: without factorRadical, adding Ext values with different
+  -- rational radicands causes unbounded nesting. This test checks that
+  -- (a + b√(4/5))² normalises to a flat Ext (not a deeply nested tree).
+  , testCase "squaring Ext with reducible radicand stays flat" $
+      let x = Ext (rat (1 % 2)) (rat ((-5) % 3)) (rat (4 % 5)) 2
+          x2 = x * x
+      in assertBool "result is Rational or single Ext"
+           (case x2 of
+              Rational _ -> True
+              Ext _ _ (Rational _) _ -> True
+              _ -> False)
+
+  -- Regression: intersectCC with Ext inputs hangs computing
+  -- h = sqrt(r1^2 - a^2) where a = d^2/(2*d) = d/2 but the
+  -- symbolic form of a after divR is deeply nested.
+  -- Minimal: divR by sqrt of doubly-nested Ext
+  , localOption (mkTimeout 2000000) $
+    testCase "divR: 1 / sqrt(doubly-nested Ext) simple" $
+      let inner = Ext (rat 1) (rat 1) (rat 2) 2       -- 1+√2
+          outer = Ext inner (rat 1) (rat 3) 2          -- (1+√2)+√3
+          s = sqrtC outer                              -- √((1+√2)+√3)
+      in approxD "1/s" (1 / toDouble s) (toDouble (1 / s))
+  , localOption (mkTimeout 2000000) $
+    testCase "divR: x^2/(2x) where x = sqrt(doubly-nested) simple" $
+      let inner = Ext (rat 1) (rat 1) (rat 2) 2
+          outer = Ext inner (rat 1) (rat 3) 2
+          s = sqrtC outer
+      in approxD "s/2" (toDouble s / 2) (toDouble (s*s / (2*s)))
+  , localOption (mkTimeout 2000000) $
+    testCase "divR: 1 / sqrt(doubly-nested Ext) actual radicand" $
+      let radicand = Ext (Ext (rat (182405 % 15876)) (rat (52 % 21)) (rat 5) 2)
+                         (rat ((-10) % 27)) (rat (1 % 5)) 2
+          s = sqrtC radicand
+      in approxD "1/s" (1 / toDouble s) (toDouble (1 / s))
+  , localOption (mkTimeout 2000000) $
+    testCase "divR: x^2/(2x) actual radicand" $
+      let radicand = Ext (Ext (rat (182405 % 15876)) (rat (52 % 21)) (rat 5) 2)
+                         (rat ((-10) % 27)) (rat (1 % 5)) 2
+          s = sqrtC radicand
+      in approxD "s/2" (toDouble s / 2) (toDouble (s*s / (2*s)))
+  , localOption (mkTimeout 2000000) $
+    testCase "intersectCC sub-steps: aval = d^2/(2d) completes" $
+      let radicand = Ext (Ext (rat (182405 % 15876)) (rat (52 % 21)) (rat 5) 2)
+                         (rat ((-10) % 27)) (rat (1 % 5)) 2
+          r1 = sqrtC radicand
+          d  = r1
+          aval = (r1*r1 - r1*r1 + d*d) / (2 * d)
+      in approxD "a=d/2" (toDouble d / 2) (toDouble aval)
+  , localOption (mkTimeout 2000000) $
+    testCase "intersectCC sub-steps: aval*aval completes" $
+      let radicand = Ext (Ext (rat (182405 % 15876)) (rat (52 % 21)) (rat 5) 2)
+                         (rat ((-10) % 27)) (rat (1 % 5)) 2
+          r1 = sqrtC radicand
+          d  = r1
+          aval = (r1*r1 - r1*r1 + d*d) / (2 * d)
+      in approxD "a^2" (toDouble d ^ 2 / 4) (toDouble (aval * aval))
+  , localOption (mkTimeout 2000000) $
+    testCase "intersectCC sub-steps: r1^2 - a^2 completes" $
+      let radicand = Ext (Ext (rat (182405 % 15876)) (rat (52 % 21)) (rat 5) 2)
+                         (rat ((-10) % 27)) (rat (1 % 5)) 2
+          r1 = sqrtC radicand
+          d  = r1
+          aval = (r1*r1 - r1*r1 + d*d) / (2 * d)
+          inside = r1*r1 - aval*aval
+      in approxD "r1^2-a^2" (toDouble r1 ^ 2 * 3 / 4) (toDouble inside)
+  -- Normalization should merge √(1/5) and √5 into a single extension level
+  -- since √(1/5) = √5/5. Without this, divR creates 24-deep nesting
+  -- with alternating √(1/5) and √5 levels.
+  , testCase "normalize merges √(1/r) and √r extensions" $
+      let x = Ext (Ext (rat 1) (rat 1) (rat 5) 2)
+                  (rat 1) (rat (1 % 5)) 2
+          -- x = (1 + √5) + √(1/5) = (1 + √5) + √5/5
+          -- should normalize to Ext _ _ 5 2 (single level)
+      in case normalize x of
+           Ext _ _ (Rational r) 2 | r == 5 ->
+             approxD "value" (1 + sqrt 5 + sqrt 0.2) (toDouble x)
+           other -> assertFailure $
+             "Expected single Ext with radicand 5, got: " ++ take 200 (show other)
+  , localOption (mkTimeout 2000000) $
+    testCase "intersectCC sub-steps: sqrt(r1^2 - a^2) completes" $
+      let radicand = Ext (Ext (rat (182405 % 15876)) (rat (52 % 21)) (rat 5) 2)
+                         (rat ((-10) % 27)) (rat (1 % 5)) 2
+          r1 = sqrtC radicand
+          d  = r1
+          aval = (r1*r1 - r1*r1 + d*d) / (2 * d)
+          h  = sqrtC (r1*r1 - aval*aval)
+      in approxD "h" (toDouble r1 * sqrt 3 / 2) (toDouble h)
   ]
 
 -- -----------------------------------------------------------------------

@@ -19,7 +19,7 @@ evalIntersectLL' ((p1, p2), (p3, p4)) =
       (x4, y4) = p4
       denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
       t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
-  in (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+  in if isZero denom then error "cannot intersect parallel lines" else (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
 
 -- | Line-circle intersection from defining points
 evalIntersectLC' :: ((Point, Point), (Point, Point)) -> (Point, Point)
