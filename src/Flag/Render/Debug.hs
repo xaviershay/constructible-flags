@@ -77,6 +77,7 @@ layerLabel :: ConstructionLayer -> String
 layerLabel LayerIntersectLL {}     = "Intersect line–line"
 layerLabel LayerIntersectLC {}     = "Intersect line–circle"
 layerLabel LayerIntersectCC {}     = "Intersect circle–circle"
+layerLabel LayerNGonVertex {}      = "N-gon vertex"
 layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
 layerLabel (LayerCircle _ _ _)     = "Fill circle"
 

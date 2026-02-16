@@ -30,6 +30,9 @@ data ConstructionLayer
       Point Point       -- ^ First circle (center, edge)
       Point Point       -- ^ Second circle (center, edge)
       [Point]           -- ^ Result points
+  | LayerNGonVertex
+      Point Point       -- ^ Circle defining points (center, edge)
+      [Point]           -- ^ Result point
   | LayerTriangle (Colour Double) Point Point Point  -- ^ A filled triangle
   | LayerCircle (Colour Double) Point Point  -- ^ A filled circle (center, edge)
   deriving (Show)
@@ -39,6 +42,7 @@ layerInputPoints :: ConstructionLayer -> [Point]
 layerInputPoints (LayerIntersectLL lp1 lp2 lp3 lp4 _) = [lp1, lp2, lp3, lp4]
 layerInputPoints (LayerIntersectLC lp1 lp2 cc ce _) = [lp1, lp2, cc, ce]
 layerInputPoints (LayerIntersectCC c1 e1 c2 e2 _)   = [c1, e1, c2, e2]
+layerInputPoints (LayerNGonVertex c e _)              = [c, e]
 layerInputPoints (LayerTriangle _ p1 p2 p3)          = [p1, p2, p3]
 layerInputPoints (LayerCircle _ center edge)         = [center, edge]
 
@@ -47,6 +51,7 @@ layerOutputPoints :: ConstructionLayer -> [Point]
 layerOutputPoints (LayerIntersectLL _ _ _ _ pts) = pts
 layerOutputPoints (LayerIntersectLC _ _ _ _ pts) = pts
 layerOutputPoints (LayerIntersectCC _ _ _ _ pts) = pts
+layerOutputPoints (LayerNGonVertex _ _ pts)      = pts
 layerOutputPoints (LayerTriangle _ _ _ _)        = []
 layerOutputPoints (LayerCircle _ _ _)            = []
 
@@ -75,6 +80,9 @@ evalLayers IntersectLC      inp@((lp1, lp2), (cc, ce)) =
 evalLayers IntersectCC      inp@((c1, e1), (c2, e2)) =
     let (p1, p2) = evalIntersectCC' inp
     in  ((p1, p2), [LayerIntersectCC c1 e1 c2 e2 [p1, p2]])
+evalLayers (NGonVertex n k) inp@(c, e) =
+    let p = evalNGonVertex n k inp
+    in  (p, [LayerNGonVertex c e [p]])
 evalLayers (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
 evalLayers (FillCircle col) (center, edge) =

@@ -15,7 +15,8 @@ import Control.Arrow
 import Data.Colour
 import qualified Prelude
 
-import Flag.Construction.Radical (Radical)
+import Flag.Construction.Radical (Radical, toDouble)
+import Numeric (showFFloat)
 
 -- | A 2D point with exact radical coordinates
 type Point = (Radical, Radical)
@@ -27,7 +28,26 @@ data Drawing
   | DrawCircle (Colour Double) Point Radical  -- ^ A filled circle: colour, center, radius
   | Overlay Drawing Drawing
   | EmptyDrawing
-  deriving (Show)
+  
+
+-- | Pretty-print a 'Drawing' with one operation per line, indenting
+-- according to overlay depth and showing numerical approximations
+-- (Doubles) for point coordinates and radii.
+formatDrawing :: Int -> Drawing -> String
+formatDrawing n d = unlines (go n d)
+  where
+    indent _ = ""
+    showDbl r = showFFloat (Just 6) (toDouble r) ""
+    showPoint (x, y) = "(" ++ showDbl x ++ ", " ++ showDbl y ++ ")"
+    go :: Int -> Drawing -> [String]
+    go _ (DrawTriangle col p1 p2 p3) = ["DrawTriangle " ++ show col ++ " " ++ showPoint p1 ++ " " ++ showPoint p2 ++ " " ++ showPoint p3]
+    go _ (DrawPath col pts) = ["DrawPath " ++ show col ++ " " ++ show (map showPoint pts)]
+    go _ (DrawCircle col center r) = ["DrawCircle " ++ show col ++ " " ++ showPoint center ++ " r=" ++ showDbl r]
+    go _ (Overlay a b) = go 0 a ++ go 0 b
+    go _ EmptyDrawing = ["EmptyDrawing"]
+
+instance Show Drawing where
+  show = formatDrawing 0
 
 instance Semigroup Drawing where
   EmptyDrawing <> d = d

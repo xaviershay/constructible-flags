@@ -190,6 +190,7 @@ layerGeomSvg (LayerIntersectCC c1 e1 c2 e2 _) =
         ++ "\n"
         ++ svgCircleOutline c2x c2y (toD (pointDist c2 e2))
 
+layerGeomSvg (LayerNGonVertex _ _ _) = ""
 layerGeomSvg (LayerTriangle _ _ _ _) = ""
 
 layerGeomSvg (LayerCircle _ cc ce) =

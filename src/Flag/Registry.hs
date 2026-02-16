@@ -6,6 +6,7 @@ module Flag.Registry
     , bangladesh
     , botswana
     , france
+    , jordan
     , japan
     ) where
 
@@ -15,6 +16,7 @@ import Flag.Definition (Flag)
 import Flag.Country.BGD (bangladesh)
 import Flag.Country.BWA (botswana)
 import Flag.Country.FRA (france)
+import Flag.Country.JOR (jordan)
 import Flag.Country.JPN (japan)
 
 allCountryFlags :: [Flag (Sourced : '[])]
@@ -22,5 +24,6 @@ allCountryFlags =
     [ bangladesh
     , botswana
     , france
+    , jordan
     , japan
     ]

@@ -9,14 +9,15 @@ module Flag.Construction.Debug
 
 import Flag.Construction.Types
 import Flag.Construction.Geometry
+import Flag.Construction.Optimize
 
 -- | Evaluate a construction arrow, printing every geometric step
 -- with labeled inputs and outputs.
-trace :: Show a => Show b => FlagA a b -> a -> IO b
+trace :: Show a => FlagA a Drawing -> a -> IO Drawing
 trace fa input = do
     putStrLn $ "Input: " ++ show input
     result <- go 0 fa input
-    putStrLn $ "Output: " ++ show result
+    putStrLn $ "Output: \n" ++ show (optimize result)
     pure result
   where
     indent n = replicate (n * 2) ' '
@@ -50,6 +51,10 @@ trace fa input = do
         pure $ DrawTriangle c p1 p2 p3
     go _ (FillCircle c) (center, edge) =
         pure $ DrawCircle c center (dist center edge)
+    go n (NGonVertex n' k') input' = do
+        let result = evalNGonVertex n' k' input'
+        putStrLn $ indent n ++ "NGonVertex " ++ show n' ++ " " ++ show k' ++ " " ++ show input' ++ " => " ++ show result
+        pure result
     go n (Group label f) a = do
         putStrLn $ indent n ++ ">> " ++ label
         go (n + 1) f a

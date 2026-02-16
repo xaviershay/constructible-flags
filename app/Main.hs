@@ -89,7 +89,8 @@ processFlag flag = do
   -- Evaluate the arrow on a unit input to get the Drawing
   let flagInput = ((0, 0), (1, 0)) :: (Point, Point)
       (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
-      diagram = drawingToDiagram (optimize drawing)
+      --diagram = drawingToDiagram (optimize drawing)
+      diagram = drawingToDiagram (id drawing)
   renderSVG svgPath (mkWidth 300) diagram
 
   -- Get description

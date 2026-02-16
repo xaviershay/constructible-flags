@@ -10,6 +10,8 @@ module Flag.Constructions
     , fillTriangle
     , fillCircle
     , fillFiveStar
+    , fillStar7x2
+    , ngonVertex
 
       -- * Grouping
     , group
@@ -89,6 +91,62 @@ fillFiveStar col = group "Fill five star" $ proc (o, a) -> do
     t4 <- fillTriangle col -< (v4, i3, i4)
 
     returnA -< t0 <> t1 <> t2 <> t3 <> t4
+
+-- | Smart constructor for a single n-gon vertex.
+ngonVertex :: Int -> Int -> FlagA (Point, Point) Point
+ngonVertex = NGonVertex
+
+-- | Inscribe a regular seven-pointed star {7/2} in the given circle
+-- (centre, edge point) and fill it with the given colour.
+--
+-- Generates 7 outer vertices via NGonVertex, computes 7 inner vertices
+-- by intersecting adjacent star edges, then fills 14 triangles
+-- (7 outer spikes + 7 inner triangles forming the heptagonal core).
+fillStar7x2 :: Colour Double -> FlagA (Point, Point) Drawing
+fillStar7x2 col = group "Fill seven star" $ proc (o, a) -> do
+    -- Generate 7 outer vertices of the regular heptagon
+    let v0 = a
+    v1 <- ngonVertex 7 1 -< (o, a)
+    v2 <- ngonVertex 7 2 -< (o, a)
+    v3 <- ngonVertex 7 3 -< (o, a)
+    v4 <- ngonVertex 7 4 -< (o, a)
+    v5 <- ngonVertex 7 5 -< (o, a)
+    v6 <- ngonVertex 7 6 -< (o, a)
+
+    -- Inner vertices: intersection of adjacent {7/2} star edges.
+    -- Star edge k connects v_k to v_{(k+2) mod 7}.
+    -- Inner point k is the intersection of edge k and edge (k+1).
+    -- Edge k: v_k -- v_{k+2}
+    -- Edge k+1: v_{k+1} -- v_{k+3}
+    i0 <- intersectLL -< ((v0, v2), (v1, v3))
+    i1 <- intersectLL -< ((v1, v3), (v2, v4))
+    i2 <- intersectLL -< ((v2, v4), (v3, v5))
+    i3 <- intersectLL -< ((v3, v5), (v4, v6))
+    i4 <- intersectLL -< ((v4, v6), (v5, v0))
+    i5 <- intersectLL -< ((v5, v0), (v6, v1))
+    i6 <- intersectLL -< ((v6, v1), (v0, v2))
+
+    -- Fill 7 outer spike triangles (outer vertex + two nearest inner points).
+    -- Vertex v_k sits on star edges (k-2 mod 7) and k.  The nearest inner
+    -- points along those edges are i_{k-2 mod 7} and i_{k-1 mod 7}.
+    s0 <- fillTriangle col -< (v0, i5, i6)
+    s1 <- fillTriangle col -< (v1, i6, i0)
+    s2 <- fillTriangle col -< (v2, i0, i1)
+    s3 <- fillTriangle col -< (v3, i1, i2)
+    s4 <- fillTriangle col -< (v4, i2, i3)
+    s5 <- fillTriangle col -< (v5, i3, i4)
+    s6 <- fillTriangle col -< (v6, i4, i5)
+
+    -- Fill 7 inner triangles forming the heptagonal core
+    -- Fan from i0 to all other inner points
+    c0 <- fillTriangle col -< (i0, i1, i2)
+    c1 <- fillTriangle col -< (i0, i2, i3)
+    c2 <- fillTriangle col -< (i0, i3, i4)
+    c3 <- fillTriangle col -< (i0, i4, i5)
+    c4 <- fillTriangle col -< (i0, i5, i6)
+
+    returnA -< s0 <> s1 <> s2 <> s3 <> s4 <> s5 <> s6
+            <> c0 <> c1 <> c2 <> c3 <> c4
 
 -- | Fill a circle defined by its center and an edge point
 fillCircle :: Colour Double -> FlagA (Point, Point) Drawing

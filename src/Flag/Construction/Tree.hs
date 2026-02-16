@@ -37,6 +37,9 @@ evalTree IntersectLC      inp@((lp1, lp2), (cc, ce)) =
 evalTree IntersectCC      inp@((c1, e1), (c2, e2)) =
     let (p1, p2) = evalIntersectCC' inp
     in  ((p1, p2), [TreeLayer (LayerIntersectCC c1 e1 c2 e2 [p1, p2])])
+evalTree (NGonVertex n k) inp@(c, e) =
+    let p = evalNGonVertex n k inp
+    in  (p, [TreeLayer (LayerNGonVertex c e [p])])
 evalTree (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [TreeLayer (LayerTriangle col p1 p2 p3)])
 evalTree (FillCircle col) (center, edge) =
