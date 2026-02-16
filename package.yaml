@@ -31,6 +31,7 @@ description:         Please see the README on GitHub at <https://github.com/xavi
 dependencies:
 - base >= 4.7 && < 5
 - colour
+- containers
 - diagrams-lib
 - diagrams-svg
 - directory

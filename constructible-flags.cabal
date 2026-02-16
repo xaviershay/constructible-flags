@@ -45,6 +45,7 @@ library
       Flag.Country.BGD
       Flag.Country.BWA
       Flag.Country.FRA
+      Flag.Country.JOR
       Flag.Country.JPN
       Flag.Definition
       Flag.Pantone
@@ -66,6 +67,7 @@ library
     , base >=4.7 && <5
     , blaze-html
     , colour
+    , containers
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
@@ -89,6 +91,7 @@ executable constructible-flags-exe
     , blaze-html
     , colour
     , constructible-flags
+    , containers
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
@@ -112,6 +115,7 @@ executable debug-flag
     , blaze-html
     , colour
     , constructible-flags
+    , containers
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
@@ -138,6 +142,7 @@ test-suite constructible-flags-test
     , blaze-html
     , colour
     , constructible-flags
+    , containers
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg

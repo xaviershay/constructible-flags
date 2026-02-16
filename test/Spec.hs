@@ -16,6 +16,7 @@ import qualified NGonVertexSpec
 import ImageGoldenSpec (imageGoldenTests)
 import ConstructionCostSpec (constructionCostTests)
 import InterpreterSpec (interpreterTests)
+import OptimizeSpec (optimizeTests)
 
 main :: IO ()
 main = defaultMain $ testGroup "All Tests"
@@ -25,6 +26,7 @@ main = defaultMain $ testGroup "All Tests"
     , RadicalSpec.radicalTests
     , NGonVertexSpec.ngonVertexTests
     , interpreterTests
+    , optimizeTests
   ]
 
 -- | Approximate equality for points, converting Radical to Double.

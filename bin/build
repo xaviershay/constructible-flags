@@ -1,0 +1,6 @@
+ #!/bin/bash
+
+ set -ex
+ 
+ stack build
+ stack exec constructible-flags-exe
