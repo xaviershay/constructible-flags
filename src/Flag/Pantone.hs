@@ -3,41 +3,38 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Flag.Pantone
-    ( PantoneId(..)
-    , pmsToRGB
-    , pantoneToRGB
+    ( pantoneToRGB
+    , pantoneAgent
     ) where
+
+import Flag.Source
 
 import Data.Colour
 import Data.Colour.SRGB (sRGB24)
 import Effectful
 
-import Flag.Source
-import Flag.GeneratedPantone (generatedPantoneRGB)
+import Flag.Source (Agent, mkAgentOrg, mkEntity, attributeTo)
+import Flag.GeneratedPantone (generatedPantoneRGB, generatedPantoneSourceUrl)
 
--- | Pantone color identifier
-data PantoneId =
-    PMSRed032C
-  | PMSReflexBlueC
-  | PMS154225TCX
-  | PMS342C
-  | PMS485C
-  deriving (Show, Eq)
+-- | Agent representing the Pantone organisation
+pantoneAgent :: Agent
+pantoneAgent = mkAgentOrg "pantone" "Pantone"
 
+-- | Generic Pantone entity (kept for backwards compatibility in URLs)
 pantone :: Entity
 pantone = mkEntity "Pantone" "https://www.pantone.com/"
 
--- | Lookup by string key (compiled from data/pantone.json)
+-- | Lookup by string key (compiled from data/pantone.json). When available
+-- the generated module provides a sourceUrl for the chip; in that case we
+-- attribute a chip-specific entity to the Pantone agent so provenance can
+-- show the chip image and a later `color-sample` activity can be emitted.
 pantoneToRGB :: Sourced :> es => String -> Eff es (Colour Double)
 pantoneToRGB key =
   case generatedPantoneRGB key of
-    Just (r,g,b) -> reference "RGB Conversion" pantone (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
+    Just (r,g,b) ->
+      case generatedPantoneSourceUrl key of
+        Just url ->
+          let chipEntity = attributeTo pantoneAgent (mkEntity key url)
+          in reference "RGB Conversion" chipEntity (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
+        Nothing -> reference "RGB Conversion" pantone (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
     Nothing -> error $ "pantoneToRGB: unknown Pantone key: " ++ key
-
--- | Backwards-compatible shim for existing PantoneId sum type
-pmsToRGB :: Sourced :> es => PantoneId -> Eff es (Colour Double)
-pmsToRGB PMSRed032C     = pantoneToRGB "PMSRed032C"
-pmsToRGB PMSReflexBlueC = pantoneToRGB "PMSReflexBlueC"
-pmsToRGB PMS154225TCX   = pantoneToRGB "PMS154225TCX"
-pmsToRGB PMS342C        = pantoneToRGB "PMS342C"
-pmsToRGB PMS485C        = pantoneToRGB "PMS485C"

@@ -10,6 +10,22 @@ Instructions for each flag are defined inside an effect, that allows inspection 
 
 Sources and source types are included so that quality can be assessed.
 
+## Regenerating golden tests
+
+Each flag has a pixel-exact golden image in `test/golden/`. To regenerate after visual changes (e.g. updated Pantone colours):
+
+```bash
+# Regenerate all golden images
+rm test/golden/*.png
+stack test
+
+# Or regenerate a single flag
+rm test/golden/bgd.png
+stack test
+```
+
+The first run creates new golden files and fails so you can review them. Run `stack test` again to confirm they pass, then commit the updated PNGs.
+
 ## TODO
 
 * Incorporate source notes out of comments

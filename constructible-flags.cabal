@@ -26,9 +26,12 @@ source-repository head
 custom-setup
   setup-depends:
       Cabal
+    , aeson
     , base
+    , bytestring
     , directory
     , filepath
+    , text
 
 library
   exposed-modules:
@@ -48,6 +51,7 @@ library
       Flag.Country.JPN
       Flag.Definition
       Flag.Pantone
+      Flag.Pantone.Cli
       Flag.Registry
       Flag.Render.Debug
       Flag.Render.DebugV2
@@ -63,8 +67,11 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       JuicyPixels
+    , aeson
+    , aeson-pretty
     , base >=4.7 && <5
     , blaze-html
+    , bytestring
     , colour
     , diagrams-lib
     , diagrams-rasterific
@@ -72,6 +79,11 @@ library
     , directory
     , effectful-core
     , filepath
+    , http-conduit
+    , text
+    , time
+    , unordered-containers
+    , webp
   default-language: Haskell2010
 
 executable constructible-flags-exe
@@ -85,8 +97,11 @@ executable constructible-flags-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , aeson
+    , aeson-pretty
     , base >=4.7 && <5
     , blaze-html
+    , bytestring
     , colour
     , constructible-flags
     , diagrams-lib
@@ -95,6 +110,11 @@ executable constructible-flags-exe
     , directory
     , effectful-core
     , filepath
+    , http-conduit
+    , text
+    , time
+    , unordered-containers
+    , webp
   default-language: Haskell2010
 
 executable debug-flag
@@ -108,8 +128,11 @@ executable debug-flag
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , aeson
+    , aeson-pretty
     , base >=4.7 && <5
     , blaze-html
+    , bytestring
     , colour
     , constructible-flags
     , diagrams-lib
@@ -118,6 +141,42 @@ executable debug-flag
     , directory
     , effectful-core
     , filepath
+    , http-conduit
+    , text
+    , time
+    , unordered-containers
+    , webp
+  default-language: Haskell2010
+
+executable pantone-sample
+  main-is: PantoneCli.hs
+  other-modules:
+      Paths_constructible_flags
+  autogen-modules:
+      Paths_constructible_flags
+  hs-source-dirs:
+      app-pantone
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded
+  build-depends:
+      JuicyPixels
+    , aeson
+    , aeson-pretty
+    , base >=4.7 && <5
+    , blaze-html
+    , bytestring
+    , colour
+    , constructible-flags
+    , diagrams-lib
+    , diagrams-rasterific
+    , diagrams-svg
+    , directory
+    , effectful-core
+    , filepath
+    , http-conduit
+    , text
+    , time
+    , unordered-containers
+    , webp
   default-language: Haskell2010
 
 test-suite constructible-flags-test
@@ -128,14 +187,18 @@ test-suite constructible-flags-test
       ImageGoldenSpec
       ConstructionCostSpec
       PantoneSpec
+      PantoneCliSpec
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
     , QuickCheck
+    , aeson
+    , aeson-pretty
     , base >=4.7 && <5
     , blaze-html
+    , bytestring
     , colour
     , constructible-flags
     , diagrams-lib
@@ -144,7 +207,12 @@ test-suite constructible-flags-test
     , directory
     , effectful-core
     , filepath
+    , http-conduit
     , tasty
     , tasty-hunit
     , tasty-quickcheck
+    , text
+    , time
+    , unordered-containers
+    , webp
   default-language: Haskell2010

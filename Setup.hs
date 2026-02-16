@@ -1,10 +1,14 @@
 import Distribution.Simple
-import Distribution.Simple.Utils (installOrdinaryFiles)
 import System.Directory
 import System.FilePath
-import Data.Char (isSpace, isDigit)
-import Data.List (isPrefixOf, intercalate, sort, isInfixOf)
+import Data.Char (isSpace)
+import Data.List (isPrefixOf, intercalate, sort)
 import Control.Monad
+import qualified Data.ByteString.Lazy as BL
+import Data.Aeson (Value(..), eitherDecode)
+import qualified Data.Aeson.KeyMap as KM
+import qualified Data.Aeson.Key as Key
+import qualified Data.Text as T
 
 main :: IO ()
 main = do
@@ -92,67 +96,69 @@ generatePantoneModule = do
         putStrLn $ "Warning: " ++ inFile ++ " does not exist, writing empty mapping"
         createDirectoryIfMissing True (takeDirectory outFile)
         writeFile outFile $ unlines
-            [ "module Flag.GeneratedPantone (generatedPantoneRGB, generatedPantoneList) where"
+            [ "module Flag.GeneratedPantone (generatedPantoneRGB, generatedPantoneSourceUrl, generatedPantoneList) where"
             , ""
             , "generatedPantoneRGB :: String -> Maybe (Int, Int, Int)"
             , "generatedPantoneRGB _ = Nothing"
             , ""
-            , "generatedPantoneList :: [(String, (Int, Int, Int))]"
+            , "generatedPantoneSourceUrl :: String -> Maybe String"
+            , "generatedPantoneSourceUrl _ = Nothing"
+            , ""
+            , "generatedPantoneList :: [(String, (Int, Int, Int, String, String))]"
             , "generatedPantoneList = []"
             ]
     when exists $ do
-        content <- readFile inFile
-        let entries = parsePantoneRGBs content
-            makeCase (k,(r,g,b)) = "generatedPantoneRGB " ++ show k ++ " = Just (" ++ show r ++ "," ++ show g ++ "," ++ show b ++ ")"
-            cases = map makeCase entries
-            listEntries = map (\(k,(r,g,b)) -> "(" ++ show k ++ ", (" ++ show r ++ "," ++ show g ++ "," ++ show b ++ "))") entries
+        raw <- BL.readFile inFile
+        entries <- case eitherDecode raw of
+            Left err -> fail $ "Failed to parse " ++ inFile ++ ": " ++ err
+            Right val -> return (parsePantoneEntries val)
+        let makeRGBCase (k,(r,g,b,_,_)) = "generatedPantoneRGB " ++ show k ++ " = Just (" ++ show r ++ "," ++ show g ++ "," ++ show b ++ ")"
+            makeSrcCase (k,(_,_,_,_chip,src)) = "generatedPantoneSourceUrl " ++ show k ++ " = Just " ++ show src
+            casesRGB = map makeRGBCase entries
+            casesSrc = map makeSrcCase entries
+            listEntries = map (\(k,(r,g,b,chip,src)) -> "(" ++ show k ++ ", (" ++ show r ++ "," ++ show g ++ "," ++ show b ++ "," ++ show chip ++ "," ++ show src ++ "))") entries
             out = unlines $ concat
-                [ ["module Flag.GeneratedPantone (generatedPantoneRGB, generatedPantoneList) where", ""]
+                [ ["module Flag.GeneratedPantone (generatedPantoneRGB, generatedPantoneSourceUrl, generatedPantoneList) where", ""]
                 , ["generatedPantoneRGB :: String -> Maybe (Int, Int, Int)"]
-                , cases
+                , casesRGB
                 , ["generatedPantoneRGB _ = Nothing", ""]
-                , ["generatedPantoneList :: [(String, (Int, Int, Int))]"]
+                , ["generatedPantoneSourceUrl :: String -> Maybe String"]
+                , casesSrc
+                , ["generatedPantoneSourceUrl _ = Nothing", ""]
+                , ["generatedPantoneList :: [(String, (Int, Int, Int, String, String))]"]
                 , ["generatedPantoneList = ["]
                 , (case listEntries of
-                [] -> []
-                xs -> map (\e -> "    " ++ e ++ ",") (init xs) ++ ["    " ++ last xs])
+                    [] -> []
+                    xs -> map (\e -> "    " ++ e ++ ",") (init xs) ++ ["    " ++ last xs])
                 , ["    ]"]
                 ]
         createDirectoryIfMissing True (takeDirectory outFile)
         writeFile outFile out
         putStrLn $ "Wrote " ++ outFile
 
--- very small ad-hoc parser for our controlled JSON format
-parsePantoneRGBs :: String -> [(String, (Int, Int, Int))]
-parsePantoneRGBs src = go (lines src)
+-- Parse the top-level JSON object into sorted entries
+parsePantoneEntries :: Value -> [(String, (Int, Int, Int, String, String))]
+parsePantoneEntries (Object obj) = sort
+    [ (key, parseEntry val) | (k, val) <- KM.toList obj, let key = T.unpack (Key.toText k) ]
   where
-    go [] = []
-    go (l:ls) =
-      case extractKey l of
-        Nothing -> go ls
-        Just key ->
-          let (obj, rest) = break (\s -> "}" `isPrefixOf` dropWhile isSpace s) ls
-              rgbLine = head $ filter ("\"rgb\"" `isInfixOf`) obj
-              (r,g,b) = parseRGB rgbLine
-           in (key, (r,g,b)) : go rest
+    parseEntry (Object o) =
+        let rgb = case KM.lookup (Key.fromString "rgb") o of
+                Just (Array arr) -> case mapM toInt (foldr (:) [] arr) of
+                    Just [r,g,b] -> (r,g,b)
+                    _            -> (0,0,0)
+                _ -> (0,0,0)
+            chip = getString "chip" o
+            src  = getString "sourceUrl" o
+        in case rgb of (r,g,b) -> (r,g,b,chip,src)
+    parseEntry _ = (0,0,0,"","")
 
-    extractKey s =
-      let t = dropWhile isSpace s
-      in if not (null t) && head t == '"'
-           then Just $ takeWhile (/= '"') $ tail t
-           else Nothing
+    toInt (Number n) = Just (round n)
+    toInt _          = Nothing
 
-    parseRGB s =
-      let after = dropWhile (/= '[') s
-          nums = takeWhile (/= ']') $ tail after
-          parts = map (read . filter (\c -> isDigit c || c == '-')) $ splitBy ',' nums
-      in case parts of
-           [a,b,c] -> (a,b,c)
-           _ -> (0,0,0)
-
-    splitBy c xs = case break (== c) xs of
-                     (h, []) -> [h]
-                     (h, _:_rest) -> h : splitBy c _rest
+    getString field o = case KM.lookup (Key.fromString field) o of
+        Just (String t) -> T.unpack t
+        _               -> ""
+parsePantoneEntries _ = []
 
 toLowerFirst :: String -> String
 toLowerFirst "" = ""

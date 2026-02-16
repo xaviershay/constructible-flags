@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
+# Wrapper that runs the project's `pantone-sample add` via stack and
+# forwards all provided arguments.
+exec stack exec pantone-sample -- add "$@"
