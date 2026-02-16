@@ -170,6 +170,7 @@ executable pantone-sample
     , bytestring
     , colour
     , constructible-flags
+    , containers
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
