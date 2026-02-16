@@ -11,6 +11,7 @@ module Flag.Constructions
     , fillCircle
     , fillFiveStar
     , fillStar7x2
+    , fillStar7x3
     , ngonVertex
 
       -- * Grouping
@@ -19,6 +20,7 @@ module Flag.Constructions
       -- * Composite constructors
     , perpendicular
     , translate
+    , bisectAngle
     , parallel
     , naturalMult
     , rationalMult
@@ -148,6 +150,58 @@ fillStar7x2 col = group "Fill seven star" $ proc (o, a) -> do
     returnA -< s0 <> s1 <> s2 <> s3 <> s4 <> s5 <> s6
             <> c0 <> c1 <> c2 <> c3 <> c4
 
+-- | Inscribe a regular seven-pointed star {7/3} in the given circle
+-- (centre, edge point) and fill it with the given colour.
+--
+-- Generates 7 outer vertices via NGonVertex, computes 7 inner vertices
+-- by intersecting adjacent star edges, then fills 14 triangles
+-- (7 outer spikes + 7 inner triangles forming the heptagonal core).
+fillStar7x3 :: Colour Double -> FlagA (Point, Point) Drawing
+fillStar7x3 col = group "Fill seven star" $ proc (o, a) -> do
+    -- Generate 7 outer vertices of the regular heptagon
+    let v0 = a
+    v1 <- ngonVertex 7 1 -< (o, a)
+    v2 <- ngonVertex 7 2 -< (o, a)
+    v3 <- ngonVertex 7 3 -< (o, a)
+    v4 <- ngonVertex 7 4 -< (o, a)
+    v5 <- ngonVertex 7 5 -< (o, a)
+    v6 <- ngonVertex 7 6 -< (o, a)
+
+    -- Inner vertices: intersection of adjacent {7/2} star edges.
+    -- Star edge k connects v_k to v_{(k+2) mod 7}.
+    -- Inner point k is the intersection of edge k and edge (k+1).
+    -- Edge k: v_k -- v_{k+2}
+    -- Edge k+1: v_{k+1} -- v_{k+3}
+    i0 <- intersectLL -< ((v0, v3), (v1, v4))
+    i1 <- intersectLL -< ((v1, v4), (v2, v5))
+    i2 <- intersectLL -< ((v2, v5), (v3, v6))
+    i3 <- intersectLL -< ((v3, v6), (v4, v0))
+    i4 <- intersectLL -< ((v4, v0), (v5, v1))
+    i5 <- intersectLL -< ((v5, v1), (v6, v2))
+    i6 <- intersectLL -< ((v6, v2), (v0, v3))
+
+    -- Fill 7 outer spike triangles (outer vertex + two nearest inner points).
+    -- Vertex v_k sits on star edges (k-2 mod 7) and k.  The nearest inner
+    -- points along those edges are i_{k-2 mod 7} and i_{k-1 mod 7}.
+    s0 <- fillTriangle col -< (v0, i5, i6)
+    s1 <- fillTriangle col -< (v1, i6, i0)
+    s2 <- fillTriangle col -< (v2, i0, i1)
+    s3 <- fillTriangle col -< (v3, i1, i2)
+    s4 <- fillTriangle col -< (v4, i2, i3)
+    s5 <- fillTriangle col -< (v5, i3, i4)
+    s6 <- fillTriangle col -< (v6, i4, i5)
+
+    -- Fill 7 inner triangles forming the heptagonal core
+    -- Fan from i0 to all other inner points
+    c0 <- fillTriangle col -< (i0, i1, i2)
+    c1 <- fillTriangle col -< (i0, i2, i3)
+    c2 <- fillTriangle col -< (i0, i3, i4)
+    c3 <- fillTriangle col -< (i0, i4, i5)
+    c4 <- fillTriangle col -< (i0, i5, i6)
+
+    returnA -< s0 <> s1 <> s2 <> s3 <> s4 <> s5 <> s6
+            <> c0 <> c1 <> c2 <> c3 <> c4
+
 -- | Fill a circle defined by its center and an edge point
 fillCircle :: Colour Double -> FlagA (Point, Point) Drawing
 fillCircle = FillCircle
@@ -173,6 +227,18 @@ perpendicular = group "Perpendicular points" $ proc (a, b) -> do
     (p, p') <- intersectLC -< ((d, e), (a, b))
 
     returnA -< (p, p')
+
+-- | Given an angle with vertex @o@ and arm points @a@ and @b@ (i.e. rays
+-- @o→a@ and @o→b@), construct the internal angle bisector. Returns a
+-- pair @(o, p)@ where the line through @o@ and @p@ bisects the angle.
+bisectAngle :: FlagA (Point, (Point, Point)) (Point, Point)
+bisectAngle = group "Angle bisector" $ proc (o, (a, b)) -> do
+    -- point on ray o->b at same distance from o as a
+    (b1, b2) <- intersectLC -< ((o, b), (o, a))
+    let b' = b2
+    -- intersections of circles centred at a and b' with radius |a - o|
+    (s1, _s2) <- intersectCC -< ((a, o), (b', o))
+    returnA -< (o, s1)
 
 -- | Translate a vector defined by @(a, b)@ so that its origin is at point
 -- @p@. Returns the pair @(p, q)@ where @q = p + (b - a)@.

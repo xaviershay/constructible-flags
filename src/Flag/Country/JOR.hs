@@ -29,10 +29,29 @@ jordan = CountryFlag
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        -- _ <- editorial "2:3 proportion" references ()
+        blackC <- editorial "Black" [] (sRGB24 0 0 0)
+        whiteC <- editorial "White" [] (sRGB24 255 255 255)
+        greenC <- editorial "Green" [] (sRGB24 0 255 0)
+        redC <- editorial "Red" [] (sRGB24 255 0 0)
+        proportions <- editorial "Stripe Heights" [] [1, 1, 1]
+
+        let colors = [blackC, whiteC, greenC]
         pure $ proc (a, b) -> do
-            d1 <- fillBox (sRGB24 200 200 200) 2 1 -< (a, b)
-            (_, p) <- perpendicular -< (a, b)
-            d2 <- fillStar7x2 (sRGB24 255 0 0) -< (a, p)
-            --returnA -< d1 <> d2
-            returnA -< d2
+            bg <- horizontalStripes 6 (zip proportions colors) -< (a, b)
+            (tl, tr, br, bl) <- boxNatural 6 3 -< (a, b)
+
+            center <- intersectLL -< ((tl, br), (tr, bl))
+
+            t <- fillTriangle redC -< (tl, center, bl)
+
+            b1 <- bisectAngle -< (tl, (bl, center))
+            --b2 <- bisectAngle -< (bl, (tl, center))
+            --triangleCenter <- intersectLL -< (b1, b2)
+
+            --r <- rationalMult 1 14 -< (tl, tr)
+            --(r', _) <- perpendicular -< (tl, r)
+            --starEdge <- translate -< ((tl, r'), triangleCenter)
+
+            --star <- fillStar7x3 whiteC -< starEdge
+
+            returnA -< bg <> t -- <> star

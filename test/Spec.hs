@@ -5,11 +5,13 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
 
-import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, midpoint, translate)
+import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, midpoint, translate, bisectAngle)
 import Flag.Construction.Interpreter (eval)
 import Flag.Construction.Types (Point)
-import Flag.Construction.Geometry (dist)
-import Flag.Construction.Radical (Radical, toDouble)
+import Flag.Construction.Geometry (dist, evalIntersectCC')
+import Flag.Construction.Radical (Radical(..), toDouble)
+import Data.Ratio ((%))
+import Control.Exception (evaluate)
 import qualified RadicalSpec
 import ArbitraryRadical ()
 import qualified NGonVertexSpec
@@ -49,6 +51,9 @@ evalPerp = eval perpendicular
 
 evalPar :: ((Point, Point), Point) -> (Point, Point)
 evalPar = eval parallel
+
+evalBisect :: (Point, (Point, Point)) -> (Point, Point)
+evalBisect = eval bisectAngle
 
 evalTrans :: ((Point, Point), Point) -> (Point, Point)
 evalTrans = eval translate
@@ -129,6 +134,27 @@ tests = testGroup "Tests"
             dot = dx1 * (fst p - fst a) + dy1 * (snd p - snd a)
         approxEqualD "dot product" 0 dot
         approxEqualD "distance" (dist a b) (dist a p)
+    ]
+
+  , testGroup "bisectAngle"
+    [ testCase "returns line through vertex" $ do
+        let o = (0, 0)
+            a = (1, 0)
+            b = (0, 1)
+            (p, _) = evalBisect (o, (a, b))
+        approxEqual "vertex" o p
+
+    , testCase "bisects right angle" $ do
+        let o = (0, 0)
+            a = (1, 0)
+            b = (0, 1)
+            (_, q) = evalBisect (o, (a, b))
+            (dxA, dyA) = (fst a - fst o, snd a - snd o)
+            (dxB, dyB) = (fst b - fst o, snd b - snd o)
+            (dxQ, dyQ) = (fst q - fst o, snd q - snd o)
+            cos1 = (dxA * dxQ + dyA * dyQ) / (dist o a * dist o q)
+            cos2 = (dxB * dxQ + dyB * dyQ) / (dist o b * dist o q)
+        approxEqualD "angles equal" cos1 cos2
     ]
   , testGroup "parallel"
     [ testCase "result is parallel to input line" $ do
@@ -230,5 +256,138 @@ tests = testGroup "Tests"
         let ((a, b), p) = (((0, 0), (1, 0)), (0, 1))
             (r, _) = evalTrans ((a, b), p)
         approxEqual "passes through p" p r
+    ]
+
+  , localOption (mkTimeout 100000) $ testCase "IntersectCC regression: radical-heavy input should not hang (timeout 0.1s)" $ do
+      -- Input taken from bug report: exercise IntersectCC on radicals with
+      -- nested Ext values.  We force numeric evaluation via `toDouble` so
+      -- any lazy normalization / arithmetic is performed inside the test.
+      let c1 = (Rational (0 % 1), Rational ((-3) % 1))
+          e1 = (Rational (0 % 1), Rational (0 % 1))
+          c2 = (Ext (Rational (0 % 1)) (Rational (6 % 5)) (Rational (5 % 1)) 2,
+                Ext (Rational (0 % 1)) (Rational ((-3) % 5)) (Rational (5 % 1)) 2)
+          e2 = (Rational (0 % 1), Rational (0 % 1))
+
+      let input = ((c1, e1), (c2, e2))
+      let (p1, _p2) = evalIntersectCC' input
+      _ <- evaluate (toDouble (fst p1))
+      assertBool "IntersectCC completed" True
+
+  , localOption (mkTimeout 100000) $ testCase "IntersectCC step: r1 and r2 compute quickly" $ do
+      let c1 = (Rational (0 % 1), Rational ((-3) % 1))
+          e1 = (Rational (0 % 1), Rational (0 % 1))
+          c2 = (Ext (Rational (0 % 1)) (Rational (6 % 5)) (Rational (5 % 1)) 2,
+                Ext (Rational (0 % 1)) (Rational ((-3) % 5)) (Rational (5 % 1)) 2)
+          e2 = (Rational (0 % 1), Rational (0 % 1))
+          r1 = dist c1 e1
+          r2 = dist c2 e2
+      -- both radii should be exactly 3
+      approxEqualD "r1" 3 r1
+      approxEqualD "r2" 3 r2
+      assertBool "r1 == r2" (r1 == r2)
+
+  , localOption (mkTimeout 100000) $ testCase "IntersectCC step: compute d (center distance)" $ do
+      let c1 = (Rational (0 % 1), Rational ((-3) % 1))
+          c2 = (Ext (Rational (0 % 1)) (Rational (6 % 5)) (Rational (5 % 1)) 2,
+                Ext (Rational (0 % 1)) (Rational ((-3) % 5)) (Rational (5 % 1)) 2)
+          d = dist c1 c2
+      -- force numeric evaluation only
+      _ <- evaluate (toDouble d)
+      assertBool "computed d" True
+
+  , localOption (mkTimeout 100000) $ testCase "IntersectCC step: compute a = (r1^2 - r2^2 + d^2) / (2*d)" $ do
+      let c1 = (Rational (0 % 1), Rational ((-3) % 1))
+          e1 = (Rational (0 % 1), Rational (0 % 1))
+          c2 = (Ext (Rational (0 % 1)) (Rational (6 % 5)) (Rational (5 % 1)) 2,
+                Ext (Rational (0 % 1)) (Rational ((-3) % 5)) (Rational (5 % 1)) 2)
+          e2 = (Rational (0 % 1), Rational (0 % 1))
+          r1 = dist c1 e1
+          r2 = dist c2 e2
+          d  = dist c1 c2
+          a  = (r1*r1 - r2*r2 + d*d) / (Rational (2 % 1) * d)
+      -- since r1 == r2, a should simplify to d/2; force numeric evaluation
+      _ <- evaluate (toDouble a)
+      assertBool "computed a" True
+
+  , localOption (mkTimeout 100000) $ testCase "IntersectCC step: compute inside = r1^2 - a^2 and sqrt" $ do
+      let c1 = (Rational (0 % 1), Rational ((-3) % 1))
+          e1 = (Rational (0 % 1), Rational (0 % 1))
+          c2 = (Ext (Rational (0 % 1)) (Rational (6 % 5)) (Rational (5 % 1)) 2,
+                Ext (Rational (0 % 1)) (Rational ((-3) % 5)) (Rational (5 % 1)) 2)
+          e2 = (Rational (0 % 1), Rational (0 % 1))
+          r1 = dist c1 e1
+          r2 = dist c2 e2
+          d  = dist c1 c2
+          a  = (r1*r1 - r2*r2 + d*d) / (Rational (2 % 1) * d)
+          inside = r1*r1 - a*a
+          h = sqrt inside
+      _ <- evaluate (toDouble inside)
+      _ <- evaluate (toDouble h)
+      assertBool "computed sqrt" True
+
+  , testGroup "IntersectCC diagnostics"
+    [ localOption (mkTimeout 100000) $ testCase "xdiff (x2 - x1) evaluates quickly" $ do
+        let c1x = Rational (0 % 1)
+            c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
+            xdiff = c2x - c1x
+        _ <- evaluate (toDouble xdiff)
+        assertBool "xdiff ok" True
+
+    , localOption (mkTimeout 100000) $ testCase "ydiff (y2 - y1) evaluates quickly" $ do
+        let c1y = Rational ((-3) % 1)
+            c2y = Ext (Rational 0) (Rational ((-3) % 5)) (Rational (5 % 1)) 2
+            ydiff = c2y - c1y
+        _ <- evaluate (toDouble ydiff)
+        assertBool "ydiff ok" True
+
+    , localOption (mkTimeout 100000) $ testCase "x2 = xdiff^2" $ do
+        let c1x = Rational (0 % 1)
+            c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
+            x2 = (c2x - c1x) * (c2x - c1x)
+        _ <- evaluate (toDouble x2)
+        assertBool "x2 ok" True
+
+    , localOption (mkTimeout 100000) $ testCase "y2 = ydiff^2" $ do
+        let c1y = Rational ((-3) % 1)
+            c2y = Ext (Rational 0) (Rational ((-3) % 5)) (Rational (5 % 1)) 2
+            y2 = (c2y - c1y) * (c2y - c1y)
+        _ <- evaluate (toDouble y2)
+        assertBool "y2 ok" True
+
+    , localOption (mkTimeout 100000) $ testCase "sum = x2 + y2" $ do
+        let c1x = Rational (0 % 1)
+            c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
+            c1y = Rational ((-3) % 1)
+            c2y = Ext (Rational 0) (Rational ((-3) % 5)) (Rational (5 % 1)) 2
+            x2 = (c2x - c1x) * (c2x - c1x)
+            y2 = (c2y - c1y) * (c2y - c1y)
+            s = x2 + y2
+        _ <- evaluate (toDouble s)
+        case s of
+          MinPolyExt{} -> assertFailure "sum unexpectedly MinPolyExt"
+          _ -> assertBool "sum ok (Ext/Rational)" True
+
+    , localOption (mkTimeout 100000) $ testCase "sum constructor is printable" $ do
+        let c1x = Rational (0 % 1)
+            c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
+            c1y = Rational ((-3) % 1)
+            c2y = Ext (Rational 0) (Rational ((-3) % 5)) (Rational (5 % 1)) 2
+            x2 = (c2x - c1x) * (c2x - c1x)
+            y2 = (c2y - c1y) * (c2y - c1y)
+            s = x2 + y2
+        _ <- evaluate (show s)
+        assertBool "showable" True
+
+    , localOption (mkTimeout 1000000) $ testCase "FOCUS sqrt(sum) (distance)" $ do
+        let c1x = Rational (0 % 1)
+            c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
+            c1y = Rational ((-3) % 1)
+            c2y = Ext (Rational 0) (Rational ((-3) % 5)) (Rational (5 % 1)) 2
+            x2 = (c2x - c1x) * (c2x - c1x)
+            y2 = (c2y - c1y) * (c2y - c1y)
+            s = x2 + y2
+            d = sqrt s
+        _ <- evaluate (toDouble d)
+        assertBool "distance ok" True
     ]
   ]

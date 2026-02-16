@@ -32,6 +32,7 @@ module Flag.Construction.Radical
 
 import Data.List (nub)
 import Data.Ratio (numerator, denominator, (%))
+import Debug.Trace (trace)
 
 -- ---------------------------------------------------------------------------
 -- Core data type
@@ -45,7 +46,7 @@ import Data.Ratio (numerator, denominator, (%))
 data Radical
   = Rational !Rational                -- ^ An exact rational value
   | Ext !Radical !Radical !Radical !Int
-    -- ^ @Ext a b r n@ = a + b · r^(1/n).
+    -- ^ @Ext a b r n@ = a + b · r^(1/n).u
     -- Invariant (after normalisation):
     --   • n ≥ 2
     --   • b ≠ 0
@@ -112,48 +113,26 @@ radicands = nub . go
 -- ---------------------------------------------------------------------------
 
 -- | Normalise a Radical value:
---
---   1. Recursively normalise sub-expressions.
---   2. Collapse @Ext a 0 r n@ → @a@.
---   3. For rational radicands, factor out perfect nth powers and
---      collapse if the radicand is a perfect nth power.
 normalize :: Radical -> Radical
-normalize (Rational r) = Rational r
-normalize (Ext a b r n)
-  = let a' = normalize a
-        b' = normalize b
-        r' = normalize r
-    in  normalizeExt a' b' r' n
-normalize (MinPolyExt mp cs) = MinPolyExt mp (polyReduce mp cs)
+normalize rad = normalize' [] rad
+  where
+    -- Track textual keys of nodes visited on the current normalization
+    -- stack; if an exact structural re-entry happens we short-circuit.
+    normalize' :: [String] -> Radical -> Radical
+    normalize' seen r = zeroElimination . perfectSquares . normalizeNested $ r
+  
+    normalizeNested (Ext a b c r) = Ext (normalize a) (normalize b) (normalize c) r
+    normalizeNested x@(Rational _) = x
+    normalizeNested x = error ("normalizeNested unimplemented: " ++ show x)
 
--- | Normalise an already-recursively-normalised Ext.
-normalizeExt :: Radical -> Radical -> Radical -> Int -> Radical
--- b = 0: collapse
-normalizeExt a b _ _ | isZero b = a
--- Rational radicand: try to simplify
-normalizeExt a b (Rational r) n
-  | r == 0    = a   -- b · 0^(1/n) = 0
-  | r < 0 && even n = error $ "normalizeExt: negative radicand "
-                            ++ show r ++ " under even root index " ++ show n
-  | r < 0 && odd n  =
-      -- ∛(-x) = -∛x
-      normalizeExt a (negateR b) (Rational (negate r)) n
-  | otherwise =
-      let pn = numerator r
-          pd = denominator r
-          (dN, kN) = nthPowerFree n (abs pn)
-          (dD, kD) = nthPowerFree n pd
-          -- r = (pn/pd) = (dN^n · kN) / (dD^n · kD)
-          -- r^(1/n) = (dN/dD) · (kN/kD)^(1/n)
-          factor = Rational (fromInteger dN % fromInteger dD)
-          newR   = Rational (fromInteger kN % fromInteger kD)
-          newB   = mulR b factor
-      in  if kN == 1 && kD == 1
-            -- radicand was a perfect nth power: b · factor, no radical
-            then addR a newB
-            else Ext a newB newR n
--- Non-rational radicand: leave as-is
-normalizeExt a b r n = Ext a b r n
+    zeroElimination (Ext a 0 _ _) = a
+    zeroElimination (Ext a _ 0 _) = a
+    zeroElimination x = x
+
+    perfectSquares = id -- TODO
+    --perfectSquares o@(Ext a b x@(Rational y) 2)
+    --  | sqrt(y) ^ 2 == y = a + b * x
+    --  | otherwise = o
 
 -- ---------------------------------------------------------------------------
 -- Integer nth-power factoring

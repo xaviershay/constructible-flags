@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-exec stack test "$@"
+exec stack test --fast "$@"

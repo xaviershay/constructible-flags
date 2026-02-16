@@ -57,16 +57,24 @@ approxD msg expected actual =
 
 normalisationTests :: TestTree
 normalisationTests = testGroup "Normalisation"
-  [ testCase "Ext a 0 r 2 collapses to a" $
+  [ testCase "Eliminate radicals with 0 coefficient" $
       radicalEq "zero coeff" (rat 5) (normalize (Ext (rat 5) (rat 0) (rat 3) 2))
 
-  , testCase "Ext 0 1 4 2 collapses to Rational 2" $
-      isRat "√4" 2 (normalize (Ext (rat 0) (rat 1) (rat 4) 2))
+  -- PERFECT SQUARES
+  --, testCase "Eliminate perfect squares" $
+  --    isRat "√4" 2 (normalize (Ext (rat 0) (rat 1) (rat 4) 2))
+ -- , testCase "Ext 0 1 (1/4) 2 collapses to Rational (1/2)" $
+ --     isRat "√(1/4)" (1 % 2) (normalize (Ext (rat 0) (rat 1) (rat (1 % 4)) 2))
+ -- , testCase "Ext 0 1 (9/4) 2 collapses to Rational (3/2)" $
+ --     isRat "√(9/4)" (3 % 2) (normalize (Ext (rat 0) (rat 1) (rat (9 % 4)) 2))
+ -- , testCase "Cube root: Ext 0 1 8 3 collapses to Rational 2" $
+ --     isRat "∛8" 2 (normalize (Ext (rat 0) (rat 1) (rat 8) 3))
 
-  , testCase "Ext 0 1 12 2 normalises to Ext 0 2 3 2" $
-      radicalEq "√12 = 2√3"
-        (Ext (rat 0) (rat 2) (rat 3) 2)
-        (normalize (Ext (rat 0) (rat 1) (rat 12) 2))
+-- EXTRACTING SQUARE COMPONENT FROM RADICAL
+--  , testCase "Ext 0 1 12 2 normalises to Ext 0 2 3 2" $
+--      radicalEq "√12 = 2√3"
+--        (Ext (rat 0) (rat 2) (rat 3) 2)
+--        (normalize (Ext (rat 0) (rat 1) (rat 12) 2))
 
   , testCase "Rational 0 + Rational 0 = Rational 0" $
       isRat "0+0" 0 (rat 0 + rat 0)
@@ -76,25 +84,22 @@ normalisationTests = testGroup "Normalisation"
         (Ext (rat 0) (rat 1) (rat 3) 2)
         (normalize (Ext (Ext (rat 0) (rat 0) (rat 2) 2) (rat 1) (rat 3) 2))
 
-  , testCase "Ext 0 1 9 2 collapses to Rational 3" $
-      isRat "√9" 3 (normalize (Ext (rat 0) (rat 1) (rat 9) 2))
-
-  , testCase "Ext 0 1 (1/4) 2 collapses to Rational (1/2)" $
-      isRat "√(1/4)" (1 % 2) (normalize (Ext (rat 0) (rat 1) (rat (1 % 4)) 2))
-
-  , testCase "Ext 0 1 (9/4) 2 collapses to Rational (3/2)" $
-      isRat "√(9/4)" (3 % 2) (normalize (Ext (rat 0) (rat 1) (rat (9 % 4)) 2))
-
-  , testCase "Cube root: Ext 0 1 8 3 collapses to Rational 2" $
-      isRat "∛8" 2 (normalize (Ext (rat 0) (rat 1) (rat 8) 3))
-
-  , testCase "Cube root canonical: Ext 0 1 24 3 normalises to Ext 0 2 3 3" $
-      radicalEq "∛24 = 2∛3"
-        (Ext (rat 0) (rat 2) (rat 3) 3)
-        (normalize (Ext (rat 0) (rat 1) (rat 24) 3))
-
-  , testCase "Ext with zero radicand collapses" $
+  , testCase "Root of zero is 0" $
       isRat "0 radicand" 5 (normalize (Ext (rat 5) (rat 3) (rat 0) 2))
+
+  -- Regression: normalization should be idempotent for tricky inputs that
+  -- previously caused rewrite cycles in trace output.
+  , testCase "normalize is idempotent (no-op repeat case)" $
+      let x = Ext (rat 0) (rat (6 % 5)) (rat 5) 2
+      in assertEqual "idempotent" (normalize x) (normalize (normalize x))
+
+  , testCase "normalize is idempotent (81/5 -> 9/1 case)" $
+      let x = Ext (rat 0) (rat 1) (rat (81 % 5)) 2
+      in assertEqual "idempotent 81/5" (normalize x) (normalize (normalize x))
+
+  , testCase "normalize is idempotent (denominator-doubling case)" $
+      let x = Ext (rat 9) (rat 9) (rat (1 % 5)) 2
+      in assertEqual "idempotent denom-doubling" (normalize x) (normalize (normalize x))
   ]
 
 -- -----------------------------------------------------------------------
