@@ -100,11 +100,11 @@ radicands = nub . go
 
 -- | Normalise a Radical value.
 --
--- Pipeline: normaliseNested → factorRadical → mergeRadicand
+-- Pipeline: normaliseNested → factorRadical → consolidateRadicands
 --           → denestSqrt → zeroElimination
 normalize :: Radical -> Radical
 normalize rad =
-    zeroElimination . denestSqrt . mergeRadicand . factorRadical
+    zeroElimination . denestSqrt . consolidateRadicands . factorRadical
                     . normalizeNested $ rad
   where
     -- Recursively normalise sub-expressions.
@@ -148,19 +148,21 @@ normalize rad =
                 else Ext a newB newR n
     factorRadical x = x
 
-    -- Merge nested Ext levels that share the same radicand.
-    -- Two rules for flattening elements of Q(√r):
-    --   (1) Ext (Ext a1 b1 r n) b r n → Ext a1 (b1+b) r n
-    --       because: (a1 + b1·√r) + b·√r = a1 + (b1+b)·√r
-    --   (2) Ext a (Ext b1 b2 r n) r n → Ext (a + b2·r) b1 r n
-    --       because: a + (b1 + b2·√r)·√r = (a + b2·r) + b1·√r
-    mergeRadicand (Ext (Ext a1 b1 r1 n1) b r n)
-      | n1 == n && r1 `radEq` r =
-          normalize (Ext a1 (addR b1 b) r n)
-    mergeRadicand (Ext a (Ext b1 b2 r1 n1) r n)
-      | n1 == n && r1 `radEq` r =
-          normalize (Ext (addR a (mulR b2 r)) b1 r n)
-    mergeRadicand x = x
+    -- Consolidate all occurrences of a radicand into a single Ext layer.
+    -- Generalises the old mergeRadicand (which only handled adjacent levels)
+    -- to handle the same radicand appearing at any nesting depth.
+    -- Uses extractCoeff to decompose a and b into parts with/without √r,
+    -- then recombines into a single Ext layer.
+    consolidateRadicands (Ext a b r n)
+      | containsRadicand a r n || containsRadicand b r n =
+          let (aw, ac) = extractCoeff a r n
+              (bw, bc) = extractCoeff b r n
+              -- expr = (aw + ac·√r) + (bw + bc·√r)·√r
+              --      = (aw + bc·r) + (ac + bw)·√r
+              a' = addR aw (mulR bc r)
+              b' = addR ac bw
+          in  normalize (Ext a' b' r n)
+    consolidateRadicands x = x
 
     -- Denest square roots: √(a + b√r) = √((a+d)/2) + sign(b)·√((a-d)/2)
     -- where d = √(a²-b²r), but ONLY when disc = a²-b²r is a perfect
@@ -314,26 +316,72 @@ radEq _ _ = False
 divR :: Radical -> Radical -> Radical
 divR _ b | isZero b = error "divR: division by zero"
 divR a (Rational b) = mulR a (Rational (1 / b))
-divR a (Ext a2 b2 r2 2)
-    -- Special case: a / (b2·√r2) = a·√r2 / (b2·r2)
-    -- Avoids conjugate multiplication when a2=0, reducing nesting.
-    | isZero a2 =
-        let sqrtR = Ext (Rational 0) (Rational 1) r2 2
-            num   = mulR a sqrtR
-            denom = mulR b2 r2
-        in  divR num denom
-    -- General: multiply by conjugate (a2 - b2·√r2)
-    -- Denominator: a2² - b2²·r2
-    | otherwise =
-        let conj  = Ext a2 (negateR b2) r2 2
-            denom = subR (mulR a2 a2) (mulR (mulR b2 b2) r2)
-            num   = mulR a conj
-        in  divR num denom   -- denom should now be simpler (no √r2)
+divR a (Ext a2 b2 r2 2) =
+    -- Consolidate: collect all √r2 from a2 and b2 into a single layer.
+    -- Without this, conjugate multiplication can reintroduce √r2 from
+    -- inner nesting levels, causing non-termination.
+    let (aw, ac) = extractCoeff a2 r2 2
+        (bw, bc) = extractCoeff b2 r2 2
+        -- denom = (aw + ac·√r2) + (bw + bc·√r2)·√r2
+        --       = (aw + bc·r2) + (ac + bw)·√r2
+        a2' = addR aw (mulR bc r2)
+        b2' = addR ac bw
+    in if isZero b2'
+       then divR a a2'  -- no √r2 remains in denominator
+       else if isZero a2'
+            -- Special case: a / (b2'·√r2) = a·√r2 / (b2'·r2)
+            then let sqrtR = Ext (Rational 0) (Rational 1) r2 2
+                     num   = mulR a sqrtR
+                     denom = mulR b2' r2
+                 in  divR num denom
+            -- General: multiply by conjugate (a2' - b2'·√r2)
+            -- Denominator: a2'² - b2'²·r2  (no √r2 remains)
+            else let conj  = Ext a2' (negateR b2') r2 2
+                     denom = subR (mulR a2' a2') (mulR (mulR b2' b2') r2)
+                     num   = mulR a conj
+                 in  divR num denom
 divR (Real d1) (Real d2) = Real (d1 / d2)
 divR (Rational r) (Real d) = Real (fromRational r / d)
 divR (Real d) x = Real (d / toDouble x)
 divR x (Real d) = Real (toDouble x / d)
 divR _ b = error $ "divR: division by non-rational, non-quadratic radical: " ++ show b
+
+-- | Check whether a Radical expression contains a given radicand at any depth.
+containsRadicand :: Radical -> Radical -> Int -> Bool
+containsRadicand (Rational _) _ _ = False
+containsRadicand (Real _) _ _ = False
+containsRadicand (Ext a b r n) targetR targetN
+    | n == targetN && r `radEq` targetR = True
+    | otherwise = containsRadicand a targetR targetN
+               || containsRadicand b targetR targetN
+
+-- | Decompose a Radical into parts with and without a given radicand.
+-- @extractCoeff expr r n@ returns @(without, coeff)@ such that
+-- @expr = without + coeff * r^(1\/n)@ and neither @without@ nor @coeff@
+-- contains @r^(1\/n)@.
+--
+-- This is used by 'normalize' (consolidateRadicands) and 'divR' to
+-- consolidate all occurrences of a radicand into a single Ext layer,
+-- preventing expression blowup and non-termination.
+extractCoeff :: Radical -> Radical -> Int -> (Radical, Radical)
+extractCoeff (Rational q) _ _ = (Rational q, Rational 0)
+extractCoeff (Real d) _ _ = (Real d, Rational 0)
+extractCoeff (Ext a b r n) targetR targetN
+    | n == targetN && r `radEq` targetR =
+        -- This layer has the target radicand: a + b·√target.
+        -- Recursively extract √target from a and b too.
+        let (aw, ac) = extractCoeff a targetR targetN
+            (bw, bc) = extractCoeff b targetR targetN
+            -- expr = (aw + ac·√t) + (bw + bc·√t)·√t
+            --      = (aw + bc·t) + (ac + bw)·√t
+        in (addR aw (mulR bc targetR), addR ac bw)
+    | otherwise =
+        -- Different radicand. Extract target from sub-expressions.
+        let (aw, ac) = extractCoeff a targetR targetN
+            (bw, bc) = extractCoeff b targetR targetN
+            -- expr = (aw + ac·√target) + (bw + bc·√target)·√r
+            --      = (aw + bw·√r) + (ac + bc·√r)·√target
+        in (normalize (Ext aw bw r n), normalize (Ext ac bc r n))
 
 absR :: Radical -> Radical
 absR x = if signR x < 0 then negateR x else x

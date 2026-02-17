@@ -202,6 +202,21 @@ constructionTests = testGroup "Constructions"
         let (a, b) = ((1, 2), (5, 8))
             m = evalMid (a, b)
         approxEqualD "equidistant" (dist a m) (dist m b)
+
+    , localOption (mkTimeout 2000000) $
+      testCase "midpoint of Rational and Ext point" $ do
+        -- This previously hung: midpoint construction introduces √3
+        -- from intersectCC alongside the input's √5, creating a
+        -- multi-radicand denominator that caused divR non-termination.
+        let a = (Rational 0, Rational 0) :: Point
+            inner = Ext (Rational 1) (Rational 2) (Rational 5) 2
+            b = (inner, Rational 3) :: Point
+            m = evalMid (a, b)
+            expectedX = (1 + 2 * sqrt 5) / 2
+        assertBool "midpoint x"
+          (abs (toDouble (fst m) - expectedX) < 1e-9)
+        assertBool "midpoint y"
+          (abs (toDouble (snd m) - 1.5) < 1e-9)
     ]
   , testGroup "rationalMult"
     [ testCase "p=q returns second point" $

@@ -52,9 +52,6 @@ jordan = CountryFlag
             (r', _) <- perpendicular -< (tl, r)
             starEdge <- translate -< ((tl, r'), triangleCenter)
 
-            -- TODO: n-gon vertices now use Real (floating-point).
-            -- Intersections involving Real values collapse to Real.
-            -- This function may need further work to complete.
-            --star <- fillStar7x3 whiteC -< starEdge
+            star <- fillStar7x3 whiteC -< starEdge
 
-            returnA -< bg <> t -- <> star
+            returnA -< bg <> t <> star

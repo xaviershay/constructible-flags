@@ -21,6 +21,8 @@ radicalTests = testGroup "Radical"
   , isIntegerTests
   , radicandsTests
   , realTests
+  , divRMultiRadicandTests
+  , consolidationTests
   ]
 
 -- -----------------------------------------------------------------------
@@ -50,6 +52,18 @@ approxD :: String -> Double -> Double -> Assertion
 approxD msg expected actual =
   assertBool (msg ++ ": expected " ++ show expected ++ " got " ++ show actual)
     (abs (expected - actual) < 1e-9)
+
+-- | Depth of a Radical expression tree
+radDepth :: Radical -> Int
+radDepth (Rational _) = 0
+radDepth (Real _) = 0
+radDepth (Ext a b _ _) = 1 + max (radDepth a) (radDepth b)
+
+-- | Size (node count) of a Radical expression tree
+radSize :: Radical -> Int
+radSize (Rational _) = 1
+radSize (Real _) = 1
+radSize (Ext a b r _) = 1 + radSize a + radSize b + radSize r
 
 -- -----------------------------------------------------------------------
 -- 0. nthPowerFree
@@ -576,4 +590,120 @@ realTests = testGroup "Real"
 
   , testCase "negate (Real d)" $ do
       approxD "neg" (-2.5) (toDouble (negate (Real 2.5)))
+  ]
+
+-- -----------------------------------------------------------------------
+-- 12. divR with multi-radicand denominators
+-- -----------------------------------------------------------------------
+
+divRMultiRadicandTests :: TestTree
+divRMultiRadicandTests = testGroup "divR multi-radicand"
+  [ localOption (mkTimeout 2000000) $
+    testCase "divR by denom with √3 at two nesting levels" $
+      -- Ext(Ext(1, 1, 3, 2), 1, 5, 2) has √3 inside √5 layer.
+      -- Wrapping in another √3 layer creates duplicate √3.
+      let inner = Ext (Ext (rat 1) (rat 1) (rat 3) 2) (rat 1) (rat 5) 2
+          denom = Ext inner (rat 1) (rat 3) 2  -- √3 at two levels
+          result = rat 1 / denom
+      in approxD "1/denom" (1 / toDouble denom) (toDouble result)
+
+  , localOption (mkTimeout 2000000) $
+    testCase "divR by denom with √5 at two nesting levels" $
+      let inner = Ext (rat 2) (rat 1) (rat 5) 2       -- 2 + √5
+          mid   = Ext inner (rat 1) (rat 3) 2          -- (2+√5) + √3
+          denom = Ext mid (rat 1) (rat 5) 2            -- ... + √5 (duplicate)
+          result = rat 1 / denom
+      in approxD "1/denom" (1 / toDouble denom) (toDouble result)
+
+  , localOption (mkTimeout 2000000) $
+    testCase "divR by depth-5 nested Ext with 3 radicands" $
+      -- Simulates the structure from the intersectLL hang:
+      -- depth 5 with radicands √3, √5, √15
+      let d1 = Ext (rat 0) (rat 2) (rat 15) 2           -- 2√15
+          d2 = Ext d1 (rat 4) (rat 5) 2                  -- 2√15 + 4√5
+          d3 = Ext d2 (rat 1) (rat 3) 2                  -- ... + √3
+          d4 = Ext d3 (rat (-2)) (rat 15) 2              -- ... - 2√15
+          denom = Ext d4 (rat (-9)) (rat 3) 2             -- ... - 9√3
+          result = rat 1 / denom
+      in approxD "1/deep-denom" (1 / toDouble denom) (toDouble result)
+
+  , localOption (mkTimeout 2000000) $
+    testCase "divR preserves value (Ext numerator / multi-rad denom)" $
+      let num = Ext (rat 3) (rat 1) (rat 5) 2  -- 3 + √5
+          inner = Ext (rat 1) (rat 1) (rat 3) 2
+          denom = Ext inner (rat 2) (rat 5) 2   -- (1+√3) + 2√5
+          result = num / denom
+      in approxD "num/denom" (toDouble num / toDouble denom) (toDouble result)
+
+  , localOption (mkTimeout 2000000) $
+    testCase "divR: consolidation eliminates spurious radicand" $
+      -- Ext(Ext(0, 1, 3, 2), 1, 3, 2) = √3 + √3 = 2√3
+      -- After consolidation b' = 2, and divR should produce Rational
+      let denom = Ext (Ext (rat 0) (rat 1) (rat 3) 2) (rat 1) (rat 3) 2
+          result = rat 1 / denom
+      in approxD "1/(2√3)" (1 / toDouble denom) (toDouble result)
+  ]
+
+-- -----------------------------------------------------------------------
+-- 13. Consolidation regression tests (expression blowup prevention)
+-- -----------------------------------------------------------------------
+
+consolidationTests :: TestTree
+consolidationTests = testGroup "consolidateRadicands"
+  [ testCase "normalize consolidates √3 at two levels into one" $
+      -- Ext(Ext(0, 1, 3, 2), 1, 3, 2) = √3 + √3 should become 2√3
+      let expr = normalize (Ext (Ext (rat 0) (rat 1) (rat 3) 2) (rat 1) (rat 3) 2)
+      in do radDepth expr @?= 1
+            approxD "value" (2 * sqrt 3) (toDouble expr)
+
+  , testCase "normalize consolidates √5 nested under √3" $
+      -- (√5) + (√5)·√3 → with √5 at two levels
+      let expr = normalize (Ext (Ext (rat 0) (rat 1) (rat 5) 2)
+                                (Ext (rat 0) (rat 1) (rat 5) 2)
+                                (rat 3) 2)
+      in do assertBool "depth should be <= 2" (radDepth expr <= 2)
+            approxD "value" (sqrt 5 + sqrt 5 * sqrt 3) (toDouble expr)
+
+  , localOption (mkTimeout 2000000) $
+    testCase "addR with different radicands doesn't blow up" $
+      -- (1+2√3)+3√5 added to itself should stay small
+      let e = Ext (Ext (rat 1) (rat 2) (rat 3) 2) (rat 3) (rat 5) 2
+          r = e + e
+      in do assertBool ("depth <= 2, got " ++ show (radDepth r)) (radDepth r <= 2)
+            assertBool ("size <= 10, got " ++ show (radSize r)) (radSize r <= 10)
+            approxD "value" (2 * toDouble e) (toDouble r)
+
+  , localOption (mkTimeout 2000000) $
+    testCase "mulR with different radicands doesn't blow up" $
+      -- (√3+√5)² should stay small
+      let e = Ext (Ext (rat 0) (rat 1) (rat 3) 2) (rat 1) (rat 5) 2
+          r = e * e
+      in do assertBool ("depth <= 2, got " ++ show (radDepth r)) (radDepth r <= 2)
+            assertBool ("size <= 15, got " ++ show (radSize r)) (radSize r <= 15)
+            approxD "value" ((sqrt 3 + sqrt 5) ** 2) (toDouble r)
+
+  , localOption (mkTimeout 2000000) $
+    testCase "repeated squaring doesn't blow up" $
+      -- ((1+2√3)+3√5)^8 via repeated squaring should stay bounded
+      let e = Ext (Ext (rat 1) (rat 2) (rat 3) 2) (rat 3) (rat 5) 2
+          e2 = e * e
+          e4 = e2 * e2
+          e8 = e4 * e4
+      in do assertBool ("depth <= 3, got " ++ show (radDepth e8)) (radDepth e8 <= 3)
+            assertBool ("size <= 20, got " ++ show (radSize e8)) (radSize e8 <= 20)
+
+  , localOption (mkTimeout 2000000) $
+    testCase "sqrt of multi-radicand expression stays small" $
+      let e = Ext (Ext (rat 1) (rat 2) (rat 3) 2) (rat 3) (rat 5) 2
+          r = sqrt e
+      in do assertBool ("size <= 15, got " ++ show (radSize r)) (radSize r <= 15)
+            approxD "value" (sqrt (toDouble e)) (toDouble r)
+
+  , localOption (mkTimeout 2000000) $
+    testCase "chained mul/div with multi-radicand stays small" $
+      let e1 = Ext (Ext (rat 1) (rat 2) (rat 3) 2) (rat 3) (rat 5) 2
+          e2 = Ext (Ext (rat 0) (rat 1) (rat 3) 2) (rat 1) (rat 5) 2
+          r = (e1 * e1) / e2
+      in do assertBool ("size <= 20, got " ++ show (radSize r)) (radSize r <= 20)
+            approxD "value" (toDouble e1 ** 2 / toDouble e2) (toDouble r)
   ]
