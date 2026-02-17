@@ -26,13 +26,11 @@ genRadical n = frequency
         r <- fmap abs genSmallRational
         return $ normalize (Ext a b (Rational r) 2)
     )
-  --, (1, do
-  --      -- MinPolyExt using supported cosMinPoly field (use heptagon)
-  --      let mp = cosMinPoly 7
-  --          d = mpDegree mp
-  --      cs <- vectorOf d genSmallRational
-  --      return $ normalize (MinPolyExt mp cs)
-  --  )
+  , (1, do
+        -- Real value (approximate floating-point)
+        d <- choose (-10.0, 10.0)
+        return $ Real d
+    )
   ]
 
 instance Arbitrary Radical where

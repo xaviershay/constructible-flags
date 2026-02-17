@@ -11,11 +11,6 @@
 -- corresponding construction primitives are added.
 module Flag.Construction.Radical
     ( Radical(..)
-    , MinPoly(..)
-    , fieldLabels
-    , cosMinPoly
-    , chebyshevT
-    , chebyshevU
     , normalize
     , toDouble
     , toKaTeX
@@ -33,7 +28,6 @@ module Flag.Construction.Radical
 
 import Data.List (nub)
 import Data.Ratio (numerator, denominator, (%))
-import Debug.Trace (trace)
 
 -- ---------------------------------------------------------------------------
 -- Core data type
@@ -52,19 +46,10 @@ data Radical
     --   • n ≥ 2
     --   • b ≠ 0
     --   • r is in canonical form (nth-power-free for rational r)
-  | MinPolyExt !MinPoly ![Rational]
-    -- ^ Element of Q[x]/(f) represented as coefficient vector
-    --   c_0 + c_1·x + ... + c_{d-1}·x^{d-1}
+  | Real !Double
+    -- ^ An approximate real value (floating-point).
+    --   \"Contagious\": any operation combining Real with Ext collapses to Real.
   deriving (Show, Read)
-
--- | Minimal polynomial descriptor for an algebraic field extension.
-data MinPoly = MinPoly
-  { mpCoeffs     :: ![Rational]  -- monic polynomial: [c_0 .. c_{d-1}] for x^d + ...
-  , mpDegree     :: !Int         -- d
-  , mpRootApprox :: !Double      -- which root we mean (for toDouble/Ord)
-  , mpLabel      :: !String      -- KaTeX label for field symbol
-  }
-  deriving (Show, Read, Eq)
 
 -- | Smart constructor: build an extension and normalise.
 radical :: Radical -> Radical -> Radical -> Int -> Radical
@@ -77,7 +62,7 @@ radical a b r n = normalize (Ext a b r n)
 isZero :: Radical -> Bool
 isZero (Rational r) = r == 0
 isZero (Ext a b _ _) = isZero a && isZero b
-isZero (MinPolyExt _ cs) = all (== 0) cs
+isZero (Real d) = abs d < 1e-15
 
 isRational :: Radical -> Bool
 isRational (Rational _) = True
@@ -107,7 +92,7 @@ radicands = nub . go
     go (Ext a b r n) = go a ++ go b ++ case r of
       Rational q -> [(q, n)]
       _          -> go r
-    go (MinPolyExt _ _) = []
+    go (Real _) = []
 
 -- ---------------------------------------------------------------------------
 -- Normalisation
@@ -125,7 +110,7 @@ normalize rad =
     -- Recursively normalise sub-expressions.
     normalizeNested (Ext a b c r) = Ext (normalize a) (normalize b) (normalize c) r
     normalizeNested x@(Rational _) = x
-    normalizeNested (MinPolyExt mp cs) = MinPolyExt mp (polyReduce mp cs)
+    normalizeNested x@(Real _) = x
 
     -- Collapse Ext when the coefficient or radicand is zero.
     zeroElimination (Ext a b _ _) | isZero b = a
@@ -274,13 +259,11 @@ addR (Ext a1 b1 r1 n1) (Ext a2 b2 r2 n2)
   -- (a1 + b1·r1^(1/n1)) + (a2 + b2·r2^(1/n2))
   --   = Ext (Ext (a1+a2) b2 r2 n2) b1 r1 n1
   | otherwise = normalize (Ext (Ext (addR a1 a2) b2 r2 n2) b1 r1 n1)
-addR (MinPolyExt mp1 cs1) (MinPolyExt mp2 cs2)
-  | mp1 == mp2 = MinPolyExt mp1 (mpAdd cs1 cs2)
-  | otherwise = error "addR: incompatible MinPolyExt fields"
-addR (MinPolyExt mp cs) (Rational r) = MinPolyExt mp (let (h:ts) = cs in (h + r) : ts)
-addR (Rational r) m@(MinPolyExt _ _) = addR m (Rational r)
-addR (MinPolyExt mp cs) ext@(Ext a b r n) = normalize (Ext (addR (MinPolyExt mp cs) a) b r n)
-addR ext@(Ext a b r n) (MinPolyExt mp cs) = normalize (Ext (addR a (MinPolyExt mp cs)) b r n)
+addR (Real d1) (Real d2) = Real (d1 + d2)
+addR (Real d) (Rational r) = Real (d + fromRational r)
+addR (Rational r) (Real d) = Real (fromRational r + d)
+addR (Real d) x = Real (d + toDouble x)
+addR x (Real d) = Real (toDouble x + d)
 
 subR :: Radical -> Radical -> Radical
 subR a b = addR a (negateR b)
@@ -288,7 +271,7 @@ subR a b = addR a (negateR b)
 negateR :: Radical -> Radical
 negateR (Rational r) = Rational (negate r)
 negateR (Ext a b r n) = Ext (negateR a) (negateR b) r n
-negateR (MinPolyExt mp cs) = MinPolyExt mp (mpNeg cs)
+negateR (Real d) = Real (negate d)
 
 mulR :: Radical -> Radical -> Radical
 mulR (Rational a) (Rational b) = Rational (a * b)
@@ -314,20 +297,18 @@ mulR (Ext a1 b1 r1 n1) (Ext a2 b2 r2 n2)
       in  normalize $ addR (addR term1 term2) (addR term3 term4)
   | otherwise = error $ "mulR: arithmetic for root index "
                      ++ show n1 ++ " and " ++ show n2 ++ " not yet implemented"
-mulR (MinPolyExt mp1 cs1) (MinPolyExt mp2 cs2)
-  | mp1 == mp2 = MinPolyExt mp1 (mpMul mp1 cs1 cs2)
-  | otherwise = error "mulR: incompatible MinPolyExt fields"
-mulR (MinPolyExt mp cs) (Rational r) = MinPolyExt mp (mpScale r cs)
-mulR (Rational r) m@(MinPolyExt _ _) = mulR m (Rational r)
-mulR (MinPolyExt mp cs) ext@(Ext a b r n) = normalize (Ext (mulR (MinPolyExt mp cs) a) (mulR (MinPolyExt mp cs) b) r n)
-mulR ext@(Ext a b r n) (MinPolyExt mp cs) = normalize (Ext (mulR a (MinPolyExt mp cs)) (mulR b (MinPolyExt mp cs)) r n)
+mulR (Real d1) (Real d2) = Real (d1 * d2)
+mulR (Real d) (Rational r) = Real (d * fromRational r)
+mulR (Rational r) (Real d) = Real (fromRational r * d)
+mulR (Real d) x = Real (d * toDouble x)
+mulR x (Real d) = Real (toDouble x * d)
 
 -- | Structural equality after normalisation (used for radicand comparison).
 radEq :: Radical -> Radical -> Bool
 radEq (Rational a) (Rational b) = a == b
 radEq (Ext a1 b1 r1 n1) (Ext a2 b2 r2 n2) =
   n1 == n2 && radEq a1 a2 && radEq b1 b2 && radEq r1 r2
-radEq (MinPolyExt mp1 cs1) (MinPolyExt mp2 cs2) = mp1 == mp2 && cs1 == cs2
+radEq (Real d1) (Real d2) = abs (d1 - d2) < 1e-15
 radEq _ _ = False
 
 divR :: Radical -> Radical -> Radical
@@ -348,14 +329,10 @@ divR a (Ext a2 b2 r2 2)
             denom = subR (mulR a2 a2) (mulR (mulR b2 b2) r2)
             num   = mulR a conj
         in  divR num denom   -- denom should now be simpler (no √r2)
-divR (MinPolyExt mp1 cs1) (MinPolyExt mp2 cs2)
-  | mp1 == mp2 = MinPolyExt mp1 (mpDiv mp1 cs1 cs2)
-  | otherwise = error "divR: incompatible MinPolyExt fields"
-divR (MinPolyExt mp cs) (Rational r) = MinPolyExt mp (mpScale (1 / r) cs)
-divR (Rational r) (MinPolyExt mp cs) =
-  let d = mpDegree mp
-      vec = (r : replicate (d - 1) 0)
-  in  MinPolyExt mp (mpMul mp vec (mpInv mp cs))
+divR (Real d1) (Real d2) = Real (d1 / d2)
+divR (Rational r) (Real d) = Real (fromRational r / d)
+divR (Real d) x = Real (d / toDouble x)
+divR x (Real d) = Real (toDouble x / d)
 divR _ b = error $ "divR: division by non-rational, non-quadratic radical: " ++ show b
 
 absR :: Radical -> Radical
@@ -374,9 +351,8 @@ signR (Ext a b r n) =
     let d = toDouble (Ext a b r n)
     in  if abs d < 1e-15 then 0
         else if d < 0 then -1 else 1
-signR (MinPolyExt mp cs) =
-  let d = toDouble (MinPolyExt mp cs)
-  in  if abs d < 1e-15 then 0 else if d < 0 then -1 else 1
+signR (Real d) =
+  if abs d < 1e-15 then 0 else if d < 0 then -1 else 1
 
 signumR :: Radical -> Radical
 signumR x = case signR x of
@@ -410,6 +386,11 @@ nthRootC n (Rational r)
       in case (inroot n p, inroot n q) of
            (Just sp, Just sq) -> Rational (sp % sq)
            _ -> normalize (Ext (Rational 0) (Rational 1) (Rational r) n)
+nthRootC n (Real d)
+  | d < 0 && even n = error $ "nthRootC: negative radicand " ++ show d
+                            ++ " under even root index " ++ show n
+  | d < 0 && odd n  = Real (negate (abs d ** (1 / fromIntegral n)))
+  | otherwise        = Real (d ** (1 / fromIntegral n))
 nthRootC n x = normalize (Ext (Rational 0) (Rational 1) x n)
 
 -- ---------------------------------------------------------------------------
@@ -460,9 +441,7 @@ instance Floating Radical where
 -- | Convert a Radical to a Double approximation.
 toDouble :: Radical -> Double
 toDouble (Rational r)    = fromRational r
-toDouble (MinPolyExt mp cs) =
-  let x = mpRootApprox mp
-  in sum [ fromRational c * (x ** fromIntegral i) | (c, i) <- zip cs [0 :: Int ..] ]
+toDouble (Real d)        = d
 toDouble (Ext a b r n)   = toDouble a + toDouble b * (toDouble r ** (1 / fromIntegral n))
 
 -- ---------------------------------------------------------------------------
@@ -480,16 +459,7 @@ toKaTeX (Rational r)
           d = denominator r
           sign = if n < 0 then "-" else ""
       in  sign ++ "\\frac{" ++ show (abs n) ++ "}{" ++ show d ++ "}"
-toKaTeX (MinPolyExt mp cs) =
-  let lbl = mpLabel mp
-      terms = zip cs [0 :: Int ..]
-      renderTerm (c, i)
-        | c == 0 = Nothing
-        | i == 0 = Just (toKaTeX (Rational c))
-        | i == 1 = if c == 1 then Just lbl else if c == -1 then Just ("-" ++ lbl) else if c < 0 then Just ("-" ++ toKaTeX (Rational (abs c)) ++ lbl) else Just (toKaTeX (Rational c) ++ lbl)
-        | otherwise = if c == 1 then Just (lbl ++ "^{" ++ show i ++ "}") else if c == -1 then Just ("-" ++ lbl ++ "^{" ++ show i ++ "}") else if c < 0 then Just ("-" ++ toKaTeX (Rational (abs c)) ++ lbl ++ "^{" ++ show i ++ "}") else Just (toKaTeX (Rational c) ++ lbl ++ "^{" ++ show i ++ "}")
-      parts = [ s | Just s <- map renderTerm terms ]
-  in if null parts then "0" else foldl1 (\a b -> a ++ " + " ++ b) parts
+toKaTeX (Real d) = show d
 toKaTeX (Ext a b r n)
   = let bStr = toKaTeXCoeff b
         radStr = renderRadical r n
@@ -527,245 +497,3 @@ toKaTeXCoeffAbs (Rational r)
   | otherwise  = toKaTeX (Rational (abs r))
 toKaTeXCoeffAbs x = toKaTeX (absR x)
 
--- ---------------------------------------------------------------------------
--- Minimal polynomial arithmetic helpers (coeff vectors)
--- ---------------------------------------------------------------------------
-
--- | Reduce a coefficient vector modulo the monic minimal polynomial.
--- The polynomial is x^d + c_{d-1} x^{d-1} + ... + c_0 where
--- mpCoeffs = [c_0 .. c_{d-1}]. Returns a vector of length d.
-polyReduce :: MinPoly -> [Rational] -> [Rational]
-polyReduce mp cs =
-  let d = mpDegree mp
-      coeffs = cs ++ replicate (max 0 (d - length cs)) 0
-      -- reduce higher-degree terms into lower ones
-      reduce vec i
-        | i < d = take d vec
-        | otherwise =
-            let ai = vec !! i
-                vec' = if ai == 0 then vec
-                       else
-                         -- For x^i with i >= d, use relation x^d = -sum_{k=0..d-1} c_k x^k
-                         foldl (\buf j ->
-                           let idx = i - d + j
-                               c = mpCoeffs mp !! j
-                               old = buf !! idx
-                               new = old + ai * (negate c)
-                           in take idx buf ++ [new] ++ drop (idx + 1) buf
-                         ) vec [0 .. d - 1]
-            in  reduce vec' (i - 1)
-  in  reduce coeffs (length coeffs - 1)
-
--- | Add two coefficient vectors (pad/truncate to degree).
-mpAdd :: [Rational] -> [Rational] -> [Rational]
-mpAdd a b = let n = max (length a) (length b)
-            in  [ (if i < length a then a !! i else 0) + (if i < length b then b !! i else 0) | i <- [0..n-1] ]
-
-mpNeg :: [Rational] -> [Rational]
-mpNeg = map negate
-
-mpScale :: Rational -> [Rational] -> [Rational]
-mpScale s = map (s *)
-
-mpSub :: [Rational] -> [Rational] -> [Rational]
-mpSub a b = mpAdd a (mpNeg b)
-
--- | Multiply two polynomials and reduce modulo the minimal polynomial.
-mpMul :: MinPoly -> [Rational] -> [Rational] -> [Rational]
-mpMul mp a b =
-  let la = length a
-      lb = length b
-      prodLen = max 1 (la + lb - 1)
-      prod = replicate prodLen 0
-      prod' = foldl (\buf (i, ai) ->
-                foldl (\buf2 (j, bj) ->
-                  let idx = i + j
-                      old = buf2 !! idx
-                      new = old + ai * bj
-                  in take idx buf2 ++ [new] ++ drop (idx + 1) buf2
-                ) buf (zip [0..] b)
-              ) prod (zip [0..] a)
-  in polyReduce mp prod'
-
--- | Division and inversion are non-trivial; provide stubs for now.
-mpDiv :: MinPoly -> [Rational] -> [Rational] -> [Rational]
-mpDiv mp a b =
-  -- a / b in the field Q[x]/(f) == a * b^{-1} mod f
-  let invB = mpInv mp b
-  in mpMul mp a invB
-
--- Raw polynomial helpers (no modulo reduction)
-polyTrim :: [Rational] -> [Rational]
-polyTrim = reverse . dropWhile (== 0) . reverse
-
-polyDegree :: [Rational] -> Int
-polyDegree p = length (polyTrim p) - 1
-
-polyAddRaw :: [Rational] -> [Rational] -> [Rational]
-polyAddRaw a b = let n = max (length a) (length b)
-                 in [ (if i < length a then a !! i else 0) + (if i < length b then b !! i else 0) | i <- [0..n-1] ]
-
-polySubRaw :: [Rational] -> [Rational] -> [Rational]
-polySubRaw a b = polyAddRaw a (map negate b)
-
-polyScaleRaw :: Rational -> [Rational] -> [Rational]
-polyScaleRaw s = map (s *)
-
-polyMulRaw :: [Rational] -> [Rational] -> [Rational]
-polyMulRaw a b =
-  let la = length a
-      lb = length b
-      prod = replicate (max 1 (la + lb - 1)) 0
-  in foldl (\buf (i, ai) -> foldl (\buf2 (j, bj) ->
-                    let idx = i + j
-                        old = buf2 !! idx
-                        new = old + ai * bj
-                    in take idx buf2 ++ [new] ++ drop (idx + 1) buf2
-                  ) buf (zip [0..] b)
-           ) prod (zip [0..] a)
-
--- Polynomial division (quotient and remainder), raw over Q.
-polyDivMod :: [Rational] -> [Rational] -> ([Rational], [Rational])
-polyDivMod a b
-  | null tb = error "polyDivMod: division by zero"
-  | degreeA < degreeB = ([0], polyTrim a)
-  | otherwise = go (polyTrim a) []
-  where
-    tb = polyTrim b
-    degreeB = length tb - 1
-    degreeA = length (polyTrim a) - 1
-    leadB = last tb
-    go r q
-      | length r - 1 < degreeB = (if null q then [0] else reverse q, polyTrim r)
-      | otherwise =
-          let degR = length r - 1
-              coeff = (last r) / leadB
-              shift = degR - degreeB
-              term = replicate shift 0 ++ map (coeff *) tb
-              r' = polyTrim (polySubRaw r term)
-          in go r' (coeff : q)
-
--- Extended GCD for polynomials over Q. Returns (g, s, t) with s*a + t*b = g.
-polyExtendedGCD :: [Rational] -> [Rational] -> ([Rational], [Rational], [Rational])
-polyExtendedGCD a b = go a b [1] [0] [0] [1]
-  where
-    go r0 r1 s0 s1 t0 t1
-      | all (==0) r1 = (polyTrim r0, s0, t0)
-      | otherwise =
-          let (q, r2) = polyDivMod r0 r1
-              s2 = polySubRaw s0 (polyMulRaw q s1)
-              t2 = polySubRaw t0 (polyMulRaw q t1)
-          in go r1 r2 s1 s2 t1 t2
-
--- Solve linear system M * t = e0 over Q, where M_j = polyReduce(mp, a * x^j).
-mpInv :: MinPoly -> [Rational] -> [Rational]
-mpInv mp a
-  | all (==0) (polyTrim a) = error "mpInv: inverse of zero"
-  | otherwise =
-      let d = mpDegree mp
-          aTrim = polyTrim a
-          -- build matrix columns: for basis vector with 1 at pos j, compute col = polyReduce(mp, a * x^j)
-          unit j = replicate j 0 ++ [1]
-          cols = [ polyReduce mp (polyMulRaw aTrim (unit j)) | j <- [0 .. d - 1] ]
-          -- matrix as list of rows: row i contains cols[j][i]
-          rows = [ [ if i < length (cols !! j) then (cols !! j) !! i else 0 | j <- [0 .. d - 1] ] | i <- [0 .. d - 1] ]
-          rhs = 1 : replicate (d - 1) 0
-          solution = solveLinearSystem rows rhs
-      in polyReduce mp solution
-
--- Gaussian elimination for rational matrices. Rows given as list of lists.
-solveLinearSystem :: [[Rational]] -> [Rational] -> [Rational]
-solveLinearSystem a b =
-  let n = length a
-      -- augment matrix
-      aug = [ (row ++ [bval]) | (row, bval) <- zip a b ]
-      forward mat col
-        | col >= n = mat
-        | otherwise =
-            -- find pivot
-            case findIndexNonZero mat col col of
-              Nothing -> error "solveLinearSystem: singular matrix"
-              Just piv ->
-                let mat1 = swapRows mat col piv
-                    pivotRow = mat1 !! col
-                    pivotVal = pivotRow !! col
-                    pivotRowNorm = map (/ pivotVal) pivotRow
-                    mat2 = [ if i == col then pivotRowNorm else
-                               let factor = (mat1 !! i) !! col
-                               in zipWith (-) (mat1 !! i) (map (factor *) pivotRowNorm)
-                           | i <- [0 .. n - 1] ]
-                in forward mat2 (col + 1)
-      backsub mat =
-        let xs = replicate n 0
-        in foldr (\i acc ->
-            let row = mat !! i
-                rhsVal = last row - sum [ (row !! j) * (acc !! j) | j <- [i+1 .. n-1] ]
-            in take i acc ++ [rhsVal / (row !! i)] ++ drop (i+1) acc
-          ) xs [0..n-1]
-      matF = forward aug 0
-  in backsub matF
-
-findIndexNonZero :: [[Rational]] -> Int -> Int -> Maybe Int
-findIndexNonZero mat start col =
-  let idxs = [start .. length mat - 1]
-  in foldr (\i acc -> if acc == Nothing && (mat !! i) !! col /= 0 then Just i else acc) Nothing idxs
-
-swapRows :: [[Rational]] -> Int -> Int -> [[Rational]]
-swapRows mat i j
-  | i == j = mat
-  | otherwise = [ rowAt k | k <- [0 .. length mat - 1] ]
-  where
-    rowAt k
-      | k == i = mat !! j
-      | k == j = mat !! i
-      | otherwise = mat !! k
-
--- | Collect labels of any MinPolyExt fields reachable from a Radical.
-fieldLabels :: Radical -> [String]
-fieldLabels (Rational _) = []
-fieldLabels (Ext a b r _) = fieldLabels a ++ fieldLabels b ++ fieldLabels r
-fieldLabels (MinPolyExt mp _) = [mpLabel mp]
-
--- | Minimal polynomial for cos(2π/n) where supported.
-cosMinPoly :: Int -> MinPoly
-cosMinPoly 7 = MinPoly
-  { mpCoeffs = [(-1) % 8, (-1) % 2, 1 % 2]
-  , mpDegree = 3
-  , mpRootApprox = 0.6234898018559786
-  , mpLabel = "\\zeta_7"
-  }
-cosMinPoly 4 = MinPoly
-  { mpCoeffs = [0 % 1]
-  , mpDegree = 1
-  , mpRootApprox = 0.0
-  , mpLabel = "\\zeta_4"
-  }
-cosMinPoly n = error $ "cosMinPoly: n=" ++ show n ++ " not yet supported"
-
--- | Chebyshev polynomials of the first kind (T_k) and second kind (U_k),
--- represented as coefficient vectors reduced modulo the minimal polynomial.
-chebyshevT :: MinPoly -> Int -> [Rational]
-chebyshevT mp k
-  | k < 0 = error "chebyshevT: negative index"
-  | k == 0 = polyReduce mp ([1] ++ replicate (mpDegree mp - 1) 0)
-  | k == 1 = polyReduce mp ([0,1] ++ replicate (mpDegree mp - 2) 0)
-  | otherwise =
-      let two = 2 % 1
-          cVec = polyReduce mp ([0,1] ++ replicate (mpDegree mp - 2) 0)
-          tPrev = chebyshevT mp (k - 1)
-          tPrev2 = chebyshevT mp (k - 2)
-          term = mpScale two (mpMul mp cVec tPrev)
-      in polyReduce mp (mpSub term tPrev2)
-
-chebyshevU :: MinPoly -> Int -> [Rational]
-chebyshevU mp k
-  | k < 0 = error "chebyshevU: negative index"
-  | k == 0 = polyReduce mp ([1] ++ replicate (mpDegree mp - 1) 0)
-  | k == 1 = polyReduce mp ([0,2] ++ replicate (mpDegree mp - 2) 0)
-  | otherwise =
-      let two = 2 % 1
-          cVec = polyReduce mp ([0,1] ++ replicate (mpDegree mp - 2) 0)
-          uPrev = chebyshevU mp (k - 1)
-          uPrev2 = chebyshevU mp (k - 2)
-          term = mpScale two (mpMul mp cVec uPrev)
-      in polyReduce mp (mpSub term uPrev2)

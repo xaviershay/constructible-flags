@@ -52,9 +52,9 @@ jordan = CountryFlag
             (r', _) <- perpendicular -< (tl, r)
             starEdge <- translate -< ((tl, r'), triangleCenter)
 
-            -- TODO: We don't handle normalisation of MinPoly, nor have
-            -- optimised intersections of points involving them. Both needed so
-            -- that this function can complete.
+            -- TODO: n-gon vertices now use Real (floating-point).
+            -- Intersections involving Real values collapse to Real.
+            -- This function may need further work to complete.
             --star <- fillStar7x3 whiteC -< starEdge
 
             returnA -< bg <> t -- <> star

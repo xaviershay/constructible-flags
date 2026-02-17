@@ -7,8 +7,7 @@ module Flag.Construction.Geometry
     ) where
 
 import Flag.Construction.Types (Point)
-import Flag.Construction.Radical (Radical)
-import Flag.Construction.Radical
+import Flag.Construction.Radical (Radical(..), isZero)
 
 -- | Line-line intersection from defining points
 evalIntersectLL' :: ((Point, Point), (Point, Point)) -> Point
@@ -80,20 +79,16 @@ dist (x1, y1) (x2, y2) = sqrt ((x2 - x1)^(2::Int) + (y2 - y1)^(2::Int))
 
 
 -- | Evaluate the k-th vertex of a regular n-gon given (center, firstVertex).
+-- Uses floating-point trigonometry via 'Real' values; any subsequent
+-- arithmetic with 'Ext' will collapse to 'Real'.
 evalNGonVertex :: Int -> Int -> (Point, Point) -> Point
-evalNGonVertex _ 0 ((cx, cy), (vx, vy)) = (vx, vy)
+evalNGonVertex _ 0 ((_, _), (vx, vy)) = (vx, vy)
 evalNGonVertex n k ((cx, cy), (vx, vy)) =
-  let mp = cosMinPoly n
-      tk = MinPolyExt mp (chebyshevT mp k)
-      uk1 = MinPolyExt mp (chebyshevU mp (k - 1))
-      oneMinusC2 = MinPolyExt mp [1, 0, -1]
-      sqrtTerm = Ext (Rational 0) uk1 oneMinusC2 2
+  let theta = 2 * pi * fromIntegral k / fromIntegral n
+      cosT = Real (cos theta)
+      sinT = Real (sin theta)
       dx = vx - cx
       dy = vy - cy
-      xPart1 = dx * tk
-      xPart2 = dy * sqrtTerm
-      yPart1 = dx * sqrtTerm
-      yPart2 = dy * tk
-      newx = cx + (xPart1 - xPart2)
-      newy = cy + (yPart1 + yPart2)
+      newx = cx + dx * cosT - dy * sinT
+      newy = cy + dx * sinT + dy * cosT
   in (newx, newy)

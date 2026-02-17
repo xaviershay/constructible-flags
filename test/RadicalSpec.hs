@@ -20,8 +20,7 @@ radicalTests = testGroup "Radical"
   , isNaturalTests
   , isIntegerTests
   , radicandsTests
-  , minPolyExtTests
-  , minPolyArithmeticTests
+  , realTests
   ]
 
 -- -----------------------------------------------------------------------
@@ -531,67 +530,50 @@ radicandsTests = testGroup "radicands"
 
 
 -- -----------------------------------------------------------------------
--- 11. MinPolyExt / Chebyshev / Heptagon smoke tests
+-- 11. Real constructor tests
 -- -----------------------------------------------------------------------
 
-minPolyExtTests :: TestTree
-minPolyExtTests = testGroup "MinPolyExt"
-  [ testCase "chebyshev T_2 gives cos(4pi/7)" $ do
-      let mp = cosMinPoly 7
-          x = MinPolyExt mp (chebyshevT mp 2)
-      approxD "P2.x" (cos (4 * pi / 7)) (toDouble x)
+realTests :: TestTree
+realTests = testGroup "Real"
+  [ testCase "Real + Real" $ do
+      let a = Real 1.5
+          b = Real 2.5
+      approxD "add" 4.0 (toDouble (a + b))
 
-  , testCase "heptagon y coordinate uses sqrt(1-c^2)" $ do
-      let mp = cosMinPoly 7
-          oneMinusC2 = MinPolyExt mp [1, 0, -1]
-          yCoeff = MinPolyExt mp (chebyshevU mp 1)
-          y = Ext (Rational 0) yCoeff oneMinusC2 2
-      approxD "P2.y" (sin (4 * pi / 7)) (toDouble y)
+  , testCase "Real + Rational collapses to Real" $ do
+      let a = Real 1.5
+          b = Rational 2
+          r = a + b
+      approxD "add" 3.5 (toDouble r)
+      case r of
+        Real _ -> return ()
+        _      -> assertFailure "expected Real constructor"
 
-  , testCase "sin^2 = 1 - c^2 for heptagon" $ do
-      let mp = cosMinPoly 7
-          oneMinusC2 = MinPolyExt mp [1, 0, -1]
-          sinVal = Ext (Rational 0) (Rational 1) oneMinusC2 2
-          sinSq = sinVal * sinVal
-      approxD "sin^2" (sin (2 * pi / 7) ^ 2) (toDouble sinSq)
+  , testCase "Real * Ext collapses to Real" $ do
+      let a = Real 2.0
+          b = Ext (Rational 1) (Rational 1) (Rational 2) 2  -- 1 + sqrt(2)
+          r = a * b
+      approxD "mul" (2.0 * (1 + sqrt 2)) (toDouble r)
+      case r of
+        Real _ -> return ()
+        _      -> assertFailure "expected Real constructor"
 
-  , testCase "fieldLabels picks up MinPolyExt label" $ do
-      let mp = cosMinPoly 7
-      fieldLabels (MinPolyExt mp [0,1,0]) @?= [mpLabel mp]
-  ]
+  , testCase "toDouble (Real d) == d" $ do
+      toDouble (Real 3.14) @?= 3.14
 
+  , testCase "toKaTeX (Real d)" $ do
+      toKaTeX (Real 3.14) @?= "3.14"
 
--- -----------------------------------------------------------------------
--- 12. MinPolyExt arithmetic (tests first)
--- -----------------------------------------------------------------------
+  , testCase "isZero (Real 0.0)" $ do
+      isZero (Real 0.0) @?= True
 
-minPolyArithmeticTests :: TestTree
-minPolyArithmeticTests = testGroup "MinPolyExtArithmetic"
-  [ testCase "addition of MinPolyExt vectors" $ do
-      let mp = cosMinPoly 7
-          a = MinPolyExt mp [1,0,0]
-          b = MinPolyExt mp [0,1,0]
-          expected = MinPolyExt mp [1,1,0]
-      approxD "add coeffs" (toDouble expected) (toDouble (a + b))
+  , testCase "isZero (Real 1.0)" $ do
+      isZero (Real 1.0) @?= False
 
-  , testCase "scale MinPolyExt by rational" $ do
-      let mp = cosMinPoly 7
-          a = MinPolyExt mp [1,2,0]
-          res = a * Rational 2
-          expected = MinPolyExt mp [2,4,0]
-      approxD "scale" (toDouble expected) (toDouble res)
+  , testCase "Real / Real" $ do
+      let r = Real 6.0 / Real 2.0
+      approxD "div" 3.0 (toDouble r)
 
-  , testCase "division by rational" $ do
-      let mp = cosMinPoly 7
-          a = MinPolyExt mp [1,2,0]
-          res = a / Rational 2
-          expected = MinPolyExt mp [1 % 2,1,0]
-      approxD "div by rat" (toDouble expected) (toDouble res)
-
-  , testCase "division MinPolyExt / MinPolyExt (numeric)" $ do
-      let mp = cosMinPoly 7
-          a = MinPolyExt mp [1,0,0]
-          b = MinPolyExt mp [0,1,0]
-          res = a / b
-      approxD "div fields" (toDouble a / toDouble b) (toDouble res)
+  , testCase "negate (Real d)" $ do
+      approxD "neg" (-2.5) (toDouble (negate (Real 2.5)))
   ]
