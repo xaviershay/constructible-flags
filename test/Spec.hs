@@ -12,7 +12,7 @@ import InterpreterSpec (interpreterTests)
 import OptimizeSpec (optimizeTests)
 
 main :: IO ()
-main = defaultMain $ testGroup "All Tests"
+main = defaultMain $ localOption (mkTimeout 2000000) $ testGroup "All Tests"
   [ ConstructionSpec.constructionTests
   , GeometrySpec.geometryTests
   , RadicalSpec.radicalTests

@@ -203,8 +203,7 @@ constructionTests = testGroup "Constructions"
             m = evalMid (a, b)
         approxEqualD "equidistant" (dist a m) (dist m b)
 
-    , localOption (mkTimeout 2000000) $
-      testCase "midpoint of Rational and Ext point" $ do
+    , testCase "midpoint of Rational and Ext point" $ do
         -- This previously hung: midpoint construction introduces √3
         -- from intersectCC alongside the input's √5, creating a
         -- multi-radicand denominator that caused divR non-termination.

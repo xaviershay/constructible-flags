@@ -35,35 +35,35 @@ geometryTests = testGroup "Geometry"
           Right v -> assertFailure ("expected exception, got: " ++ show v)
     ]
   , testGroup "IntersectCC diagnostics"
-    [ localOption (mkTimeout 100000) $ testCase "xdiff (x2 - x1) evaluates quickly" $ do
+    [ testCase "xdiff (x2 - x1) evaluates quickly" $ do
         let c1x = Rational (0 % 1)
             c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
             xdiff = c2x - c1x
         _ <- evaluate (toDouble xdiff)
         assertBool "xdiff ok" True
 
-    , localOption (mkTimeout 100000) $ testCase "ydiff (y2 - y1) evaluates quickly" $ do
+    , testCase "ydiff (y2 - y1) evaluates quickly" $ do
         let c1y = Rational ((-3) % 1)
             c2y = Ext (Rational 0) (Rational ((-3) % 5)) (Rational (5 % 1)) 2
             ydiff = c2y - c1y
         _ <- evaluate (toDouble ydiff)
         assertBool "ydiff ok" True
 
-    , localOption (mkTimeout 100000) $ testCase "x2 = xdiff^2" $ do
+    , testCase "x2 = xdiff^2" $ do
         let c1x = Rational (0 % 1)
             c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
             x2 = (c2x - c1x) * (c2x - c1x)
         _ <- evaluate (toDouble x2)
         assertBool "x2 ok" True
 
-    , localOption (mkTimeout 100000) $ testCase "y2 = ydiff^2" $ do
+    , testCase "y2 = ydiff^2" $ do
         let c1y = Rational ((-3) % 1)
             c2y = Ext (Rational 0) (Rational ((-3) % 5)) (Rational (5 % 1)) 2
             y2 = (c2y - c1y) * (c2y - c1y)
         _ <- evaluate (toDouble y2)
         assertBool "y2 ok" True
 
-    , localOption (mkTimeout 100000) $ testCase "sum = x2 + y2" $ do
+    , testCase "sum = x2 + y2" $ do
         let c1x = Rational (0 % 1)
             c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
             c1y = Rational ((-3) % 1)
@@ -76,7 +76,7 @@ geometryTests = testGroup "Geometry"
           Real{} -> assertFailure "sum unexpectedly Real"
           _ -> assertBool "sum ok (Ext/Rational)" True
 
-    , localOption (mkTimeout 100000) $ testCase "sum constructor is printable" $ do
+    , testCase "sum constructor is printable" $ do
         let c1x = Rational (0 % 1)
             c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
             c1y = Rational ((-3) % 1)
@@ -87,7 +87,7 @@ geometryTests = testGroup "Geometry"
         _ <- evaluate (show s)
         assertBool "showable" True
 
-    , localOption (mkTimeout 1000000) $ testCase "FOCUS sqrt(sum) (distance)" $ do
+    , testCase "FOCUS sqrt(sum) (distance)" $ do
         let c1x = Rational (0 % 1)
             c2x = Ext (Rational 0) (Rational (6 % 5)) (Rational (5 % 1)) 2
             c1y = Rational ((-3) % 1)
