@@ -11,10 +11,11 @@ import Flag.Source
 
 import Data.Colour
 import Data.Colour.SRGB (sRGB24)
+import Data.List (stripPrefix)
+import Data.Maybe (fromMaybe)
 import Effectful
 
-import Flag.Source (Agent, mkAgentOrg, mkEntity, attributeTo)
-import Flag.GeneratedPantone (generatedPantoneRGB, generatedPantoneSourceUrl)
+import Flag.GeneratedPantone (generatedPantoneRGB, generatedPantoneSourceUrl, generatedPantoneList)
 
 -- | Agent representing the Pantone organisation
 pantoneAgent :: Agent
@@ -34,7 +35,10 @@ pantoneToRGB key =
     Just (r,g,b) ->
       case generatedPantoneSourceUrl key of
         Just url ->
-          let chipEntity = attributeTo pantoneAgent (mkEntity key url)
+          let baseEntity = attributeTo pantoneAgent (mkEntity key url)
+              chipEntity = case lookup key generatedPantoneList of
+                Just (_, _, _, path, _) -> screenshot "" (fromMaybe path (stripPrefix "images/" path)) baseEntity
+                Nothing                -> baseEntity
           in reference "RGB Conversion" chipEntity (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
         Nothing -> reference "RGB Conversion" pantone (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
     Nothing -> error $ "pantoneToRGB: unknown Pantone key: " ++ key

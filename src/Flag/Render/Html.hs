@@ -11,7 +11,7 @@ module Flag.Render.Html
     ) where
 
 import Data.Char (toLower)
-import Data.List (nub, sortOn, groupBy, intercalate)
+import Data.List (nub, sortOn, groupBy, intercalate, partition)
 import Data.Function (on)
 
 import qualified Text.Blaze.Html5 as H
@@ -19,7 +19,7 @@ import Text.Blaze.Html5 (docTypeHtml, (!), toValue, toHtml, preEscapedToHtml)
 import qualified Text.Blaze.Html5.Attributes as A
 import Text.Blaze.Html.Renderer.String (renderHtml)
 
-import Flag.Source (Source(..), Entity(..), SourcedElement)
+import Flag.Source (Source(..), Entity(..), Agent(..), SourcedElement)
 import Flag.Construction.Interpreter (Step(..))
 
 -- ---------------------------------------------------------------------------
@@ -94,69 +94,94 @@ generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, fiel
           H.toHtml $ " — " ++ show (length constructionSteps) ++ " cost"
         H.preEscapedToHtml $ formatSteps constructionSteps
       H.h2 $ toHtml "Sources"
-      H.div ! A.class_ (toValue "sources") $ H.preEscapedToHtml $ formatSources sources
-      H.h2 $ toHtml "Screenshots"
-      H.preEscapedToHtml $ screenshotsTable sources
+      H.preEscapedToHtml $ formatSourceCards sources
       H.h2 $ toHtml "Provenance"
       H.div ! A.style (toValue "overflow:hidden;border:1px solid #ddd;background:#fafafa;cursor:grab") $ H.preEscapedToHtml "<svg id=\"prov-hier\" width=\"880\" height=\"500\"></svg>"
       -- Call initProv with the provenance file path
       H.script $ H.preEscapedToHtml $ "initProv(\"" ++ isoLower ++ "-prov.xml\");"
 
 -- ---------------------------------------------------------------------------
--- Screenshots table
+-- Source cards (grouped sources with inline screenshots)
 -- ---------------------------------------------------------------------------
 
--- | Generate a table of screenshots referenced in provenance.
--- For each entity with a screenshot, shows the image, the attributes derived
--- from it, and any notes (e.g. relationship type like "implied").
-screenshotsTable :: [SourcedElement] -> String
-screenshotsTable elems =
-  let allEntities = nub [ e | (_, src) <- elems, e <- sourceEntitiesFlat src ]
+-- | Render sources as cards, each with its screenshot (if any) displayed inline.
+-- Sources are first grouped by exact Source match (merging elements that share
+-- a source), then groups with the same element names are merged (so e.g.
+-- multiple Pantone chips for "RGB Conversion" appear in one card).
+formatSourceCards :: [SourcedElement] -> String
+formatSourceCards [] = "<em>None</em>"
+formatSourceCards elems =
+  let -- Pass 1: group elements by identical Source
+      bySource = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) elems
+      -- Each group becomes (elementNames, [sources])
+      sourceGroups = [ (nub $ map fst grp, [snd (head grp)])
+                     | grp <- bySource ]
+      -- Pass 2: merge groups that share the same element names
+      merged = mergeByNames $ sortOn fst sourceGroups
+  in "<div class=\"source-cards\">" ++ concatMap formatMergedCard merged ++ "</div>"
+
+-- | Merge adjacent groups that share the same element name list.
+mergeByNames :: [([String], [Source])] -> [([String], [Source])]
+mergeByNames [] = []
+mergeByNames [x] = [x]
+mergeByNames ((n1, s1):(n2, s2):rest)
+  | n1 == n2  = mergeByNames ((n1, s1 ++ s2) : rest)
+  | otherwise = (n1, s1) : mergeByNames ((n2, s2) : rest)
+
+-- | Render a merged card: may have multiple sources.
+formatMergedCard :: ([String], [Source]) -> String
+formatMergedCard (names, srcs) =
+  let elementsStr = escapeHtml (joinElements names)
+      headings = intercalate ", " $ map formatSourceHeading srcs
+      -- Collect all entities across all sources
+      allEntities = nub $ concatMap sourceEntitiesFlat srcs
       screenshotEntities = [ e | e <- allEntities, entityScreenshot e /= Nothing ]
-  in if null screenshotEntities
-     then ""
-     else "<table class=\"screenshots-table\"><thead><tr>"
-       ++ "<th>Screenshot</th><th>Attributes</th><th>Notes</th>"
-       ++ "</tr></thead><tbody>"
-       ++ concatMap (screenshotRow elems) screenshotEntities
-       ++ "</tbody></table>"
+      isPantone e = case entityAgent e of
+        Just a  -> agentId a == "pantone"
+        Nothing -> False
+      (pantoneEnts, regularEnts) = partition isPantone screenshotEntities
+      screenshotsHtml = concatMap renderScreenshot regularEnts
+                     ++ renderPantoneChips pantoneEnts
+  in "<div class=\"source-card\">"
+     ++ "<div class=\"source-info\">"
+     ++ headings
+     ++ " <span class=\"elements\">(" ++ elementsStr ++ ")</span>"
+     ++ "</div>"
+     ++ screenshotsHtml
+     ++ "</div>"
 
-screenshotRow :: [SourcedElement] -> Entity -> String
-screenshotRow elems entity =
-  let Just (_date, path) = entityScreenshot entity
-      -- Find all sourced elements that reference this entity
-      attrs = [ (name, noteForSource src entity)
-              | (name, src) <- elems
-              , entityReferencedBy src entity
-              ]
-      attrsHtml = if null attrs
-                  then "<em>None</em>"
-                  else "<ul>" ++ concatMap (\(n, _) -> "<li>" ++ escapeHtml n ++ "</li>") attrs ++ "</ul>"
-      notes = filter (not . null) $ map snd attrs
-      notesHtml = if null notes
-                  then ""
-                  else intercalate "<br>" (nub notes)
-  in "<tr>"
-     ++ "<td><img src=\"/images/" ++ escapeHtml path ++ "\"></td>"
-     ++ "<td>" ++ attrsHtml ++ "</td>"
-     ++ "<td>" ++ notesHtml ++ "</td>"
-     ++ "</tr>"
+-- | Render the source heading (link + type annotation).
+formatSourceHeading :: Source -> String
+formatSourceHeading (SourceReference e) = formatEntityLink e
+formatSourceHeading (SourceImpliedReference e) = formatEntityLink e ++ " (implied)"
+formatSourceHeading (SourceUnsightedReference e _) = formatEntityLink e ++ " (unsighted)"
+formatSourceHeading (SourceEditorial _) = "Editorial decision"
 
--- | Does this Source reference the given entity (directly or as corroboration)?
-entityReferencedBy :: Source -> Entity -> Bool
-entityReferencedBy (SourceReference e) entity = e == entity
-entityReferencedBy (SourceImpliedReference e) entity = e == entity
-entityReferencedBy (SourceUnsightedReference e refs) entity = e == entity || entity `elem` refs
-entityReferencedBy (SourceEditorial refs) entity = entity `elem` refs
+-- | Render a regular (non-Pantone) screenshot as a block-level image.
+renderScreenshot :: Entity -> String
+renderScreenshot entity =
+  case entityScreenshot entity of
+    Just (_, path) ->
+      "<div class=\"source-screenshot\">"
+      ++ "<img src=\"/images/" ++ escapeHtml path ++ "\">"
+      ++ "</div>"
+    Nothing -> ""
 
--- | Generate a note string for how this source relates to the entity.
-noteForSource :: Source -> Entity -> String
-noteForSource (SourceReference _) _ = ""
-noteForSource (SourceImpliedReference _) _ = "implied"
-noteForSource (SourceUnsightedReference e _) entity
-  | e == entity = "unsighted"
-  | otherwise   = "corroborating"
-noteForSource (SourceEditorial _) _ = "editorial"
+-- | Render Pantone chip images grouped together in a row.
+renderPantoneChips :: [Entity] -> String
+renderPantoneChips [] = ""
+renderPantoneChips chips =
+  "<div class=\"pantone-chips\">"
+  ++ concatMap renderChip chips
+  ++ "</div>"
+  where
+    renderChip entity = case entityScreenshot entity of
+      Just (_, path) ->
+        "<div class=\"pantone-chip\">"
+        ++ "<img src=\"/images/" ++ escapeHtml path ++ "\">"
+        ++ "<span>" ++ escapeHtml (entityTitle entity) ++ "</span>"
+        ++ "</div>"
+      Nothing -> ""
 
 -- | Get all entities from a Source (flat list).
 sourceEntitiesFlat :: Source -> [Entity]
