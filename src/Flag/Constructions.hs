@@ -105,7 +105,7 @@ ngonVertex = NGonVertex
 -- by intersecting adjacent star edges, then fills 14 triangles
 -- (7 outer spikes + 7 inner triangles forming the heptagonal core).
 fillStar7x2 :: Colour Double -> FlagA (Point, Point) Drawing
-fillStar7x2 col = group "Fill seven star" $ proc (o, a) -> do
+fillStar7x2 col = group "Fill {7/2} star" $ proc (o, a) -> do
     -- Generate 7 outer vertices of the regular heptagon
     let v0 = a
     v1 <- ngonVertex 7 1 -< (o, a)
@@ -157,7 +157,7 @@ fillStar7x2 col = group "Fill seven star" $ proc (o, a) -> do
 -- by intersecting adjacent star edges, then fills 14 triangles
 -- (7 outer spikes + 7 inner triangles forming the heptagonal core).
 fillStar7x3 :: Colour Double -> FlagA (Point, Point) Drawing
-fillStar7x3 col = group "Fill seven star" $ proc (o, a) -> do
+fillStar7x3 col = group "Fill {7/3} star" $ proc (o, a) -> do
     -- Generate 7 outer vertices of the regular heptagon
     let v0 = a
     v1 <- ngonVertex 7 1 -< (o, a)
@@ -172,24 +172,24 @@ fillStar7x3 col = group "Fill seven star" $ proc (o, a) -> do
     -- Inner point k is the intersection of edge k and edge (k+1).
     -- Edge k: v_k -- v_{k+2}
     -- Edge k+1: v_{k+1} -- v_{k+3}
-    i0 <- intersectLL -< ((v0, v3), (v1, v4))
-    i1 <- intersectLL -< ((v1, v4), (v2, v5))
-    i2 <- intersectLL -< ((v2, v5), (v3, v6))
-    i3 <- intersectLL -< ((v3, v6), (v4, v0))
-    i4 <- intersectLL -< ((v4, v0), (v5, v1))
-    i5 <- intersectLL -< ((v5, v1), (v6, v2))
-    i6 <- intersectLL -< ((v6, v2), (v0, v3))
+    i0 <- intersectLL -< ((v0, v3), (v1, v5))
+    i1 <- intersectLL -< ((v1, v4), (v2, v6))
+    i2 <- intersectLL -< ((v2, v5), (v3, v0))
+    i3 <- intersectLL -< ((v3, v6), (v4, v1))
+    i4 <- intersectLL -< ((v4, v0), (v5, v2))
+    i5 <- intersectLL -< ((v5, v1), (v6, v3))
+    i6 <- intersectLL -< ((v6, v2), (v0, v4))
 
     -- Fill 7 outer spike triangles (outer vertex + two nearest inner points).
     -- Vertex v_k sits on star edges (k-2 mod 7) and k.  The nearest inner
     -- points along those edges are i_{k-2 mod 7} and i_{k-1 mod 7}.
-    s0 <- fillTriangle col -< (v0, i5, i6)
-    s1 <- fillTriangle col -< (v1, i6, i0)
-    s2 <- fillTriangle col -< (v2, i0, i1)
-    s3 <- fillTriangle col -< (v3, i1, i2)
-    s4 <- fillTriangle col -< (v4, i2, i3)
-    s5 <- fillTriangle col -< (v5, i3, i4)
-    s6 <- fillTriangle col -< (v6, i4, i5)
+    s0 <- fillTriangle col -< (v0, i6, i0)
+    s1 <- fillTriangle col -< (v1, i0, i1)
+    s2 <- fillTriangle col -< (v2, i1, i2)
+    s3 <- fillTriangle col -< (v3, i2, i3)
+    s4 <- fillTriangle col -< (v4, i3, i4)
+    s5 <- fillTriangle col -< (v5, i4, i5)
+    s6 <- fillTriangle col -< (v6, i5, i6)
 
     -- Fill 7 inner triangles forming the heptagonal core
     -- Fan from i0 to all other inner points

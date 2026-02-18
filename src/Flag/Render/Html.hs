@@ -55,7 +55,7 @@ generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
       H.td $ do
         H.div ! A.style (toValue "text-align:center") $ H.a ! A.href (toValue $ "debug-v2/?flag=" ++ map toLower isoCode) $ H.toHtml $ show (length constructionSteps) ++ " cost"
         H.preEscapedToHtml $ formatSteps constructionSteps
-        H.preEscapedToHtml $ "<div style=\"text-align:center\">$" ++ field ++"$</div>"
+        -- H.preEscapedToHtml $ "<div style=\"text-align:center\">$" ++ field ++"$</div>"
       H.td $ do
         H.preEscapedToHtml $ formatSources sources
         H.preEscapedToHtml $ "<div style=\"margin-top:8px;font-size:0.85em\"><a href=\"" ++ map toLower isoCode ++ "-prov.xml\">[PROV]</a></div>"
@@ -93,7 +93,6 @@ generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, fiel
           H.a ! A.href (toValue $ "debug-v2/?flag=" ++ isoLower) $ H.toHtml "Interactive viewer"
           H.toHtml $ " — " ++ show (length constructionSteps) ++ " cost"
         H.preEscapedToHtml $ formatSteps constructionSteps
-        H.preEscapedToHtml $ "<div>$" ++ field ++ "$</div>"
       H.h2 $ toHtml "Sources"
       H.div ! A.class_ (toValue "sources") $ H.preEscapedToHtml $ formatSources sources
       H.h2 $ toHtml "Screenshots"
@@ -178,12 +177,14 @@ formatSteps ss =
       ccCount = length [() | StepIntersectCC <- ss]
       ftCount = length [() | StepFillTriangle <- ss]
       fcCount = length [() | StepFillCircle <- ss]
+      ngonCount = length [() | StepNGonVertex <- ss]
       rows = concat
         [ if llCount > 0 then ["\\text{\9472}\\!\\cap\\!\\text{\9472} &\\times " ++ show llCount] else []
         , if lcCount > 0 then ["\\text{\9472}\\!\\cap\\!\\bigcirc &\\times " ++ show lcCount] else []
         , if ccCount > 0 then ["\\bigcirc\\!\\cap\\!\\bigcirc &\\times " ++ show ccCount] else []
         , if ftCount > 0 then ["\\blacktriangle &\\times " ++ show ftCount] else []
         , if fcCount > 0 then ["\\bullet &\\times " ++ show fcCount] else []
+        , if ngonCount > 0 then ["\\star &\\times " ++ show ngonCount] else []
         ]
   in if null rows
      then "<em>None</em>"
