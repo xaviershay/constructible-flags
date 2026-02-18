@@ -1,5 +1,4 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Flag.Render.DebugV2
     ( writeDebugViewer
@@ -7,20 +6,24 @@ module Flag.Render.DebugV2
     ) where
 
 import Data.Char (toLower)
-import Data.List (nub, intercalate)
+import Data.List (intercalate)
+import qualified Data.Set as Set
 import Data.Colour (Colour)
 import Data.Colour.SRGB (toSRGB, channelRed, channelGreen, channelBlue)
-import Effectful (runPureEff)
 import Numeric (showFFloat, showHex)
 import System.Directory (createDirectoryIfMissing, copyFile)
+
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as KM
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.Text as T
 
 import Flag.Construction.Radical (Radical, toDouble, toKaTeX)
 import Flag.Construction.Types (Point)
 import Flag.Construction.Layers (ConstructionLayer(..), layerInputPoints,
                                  layerOutputPoints, pointDist)
-import Flag.Construction.Tree (evalTree)
-import Flag.Source (Sourced, runSourcedPure)
-import Flag.Definition (Flag(..))
+import Flag.Construction.Tree (ConstructionTree)
 import Flag.Render.Debug (NumberedEntry(..), numberTree, numberedLeaves)
 
 -- | Convert a Point (Radical, Radical) to (Double, Double) for SVG rendering.
@@ -45,14 +48,12 @@ writeDebugViewer = do
   putStrLn "  Wrote out/debug-v2/debug-v2.js"
 
 -- | Write the construction JSON for a single flag.
-writeConstructionJson :: Flag (Sourced : '[]) -> IO ()
-writeConstructionJson flag = do
+-- Takes the flag name, ISO code, initial points, and pre-evaluated construction tree.
+writeConstructionJson :: String -> String -> (Point, Point) -> [ConstructionTree] -> IO ()
+writeConstructionJson name isoCode input tree = do
   createDirectoryIfMissing True "out/construction"
 
-  let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
-      input = ((0, 0), (1, 0)) :: (Point, Point)
-      (_, tree) = evalTree flagArrow input
-      (_, numbered) = numberTree 1 tree
+  let (_, numbered) = numberTree 1 tree
       leaves = numberedLeaves numbered
       allLayers = map snd leaves
       initialPts = [fst input, snd input]
@@ -90,67 +91,105 @@ writeConstructionJson flag = do
       fvbW = (fMaxX - fMinX) + 2 * fPadX
       fvbH = (fMaxY - fMinY) + 2 * fPadY
 
-  -- Compute live-after sets for dot rendering
-  let nSteps = length allLayers
-      liveAfter = [ nub $ concatMap layerInputPoints (drop i allLayers)
-                  | i <- [0 .. nSteps] ]
+  -- Compute live-after sets (single backward pass using Double-keyed Sets).
+  let inputPtSets = map (Set.fromList . map toDP . layerInputPoints) allLayers
+      liveAfterSets = scanr Set.union Set.empty inputPtSets
 
-  -- Build JSON
+  -- Pre-compute cumulative output points (as Double pairs) per step.
+  let outputPtLists = map (map toDP . layerOutputPoints) allLayers
+      prevOutputsDbl = scanl (\acc outs -> acc ++ outs) [] outputPtLists
+
+  -- Build JSON using Aeson
   let viewBox = showF vbMinX ++ " " ++ showF vbMinY
                 ++ " " ++ showF vbW ++ " " ++ showF vbH
       fillViewBox = showF fvbMinX ++ " " ++ showF fvbMinY
                     ++ " " ++ showF fvbW ++ " " ++ showF fvbH
-      json = jsonObj
-        [ ("flagName", jsonStr (flagName flag))
-        , ("viewBox", jsonStr viewBox)
-        , ("fillViewBox", jsonStr fillViewBox)
-        , ("initialPoints", jsonArr
+      json = jObj
+        [ ("flagName", jStr name)
+        , ("viewBox", jStr viewBox)
+        , ("fillViewBox", jStr fillViewBox)
+        , ("initialPoints", Aeson.Array $ fromList
             [ jsonPoint (fst input) "A"
             , jsonPoint (snd input) "B"
             ])
-        , ("tree", treeToJson numbered allLayers initialPts liveAfter)
+        , ("tree", treeToJson numbered allLayers initialPts
+                     liveAfterSets prevOutputsDbl)
         ]
 
-  let isoLower = map toLower (flagIsoCode flag)
+  let isoLower = map toLower isoCode
       path = "out/construction/" ++ isoLower ++ ".json"
-  writeFile path json
+  BL.writeFile path (Aeson.encode json)
   putStrLn $ "  Wrote " ++ path
+
+-- ---------------------------------------------------------------------------
+-- Aeson helpers
+-- ---------------------------------------------------------------------------
+
+jObj :: [(T.Text, Aeson.Value)] -> Aeson.Value
+jObj pairs = Aeson.Object $ KM.fromList [(Key.fromText k, v) | (k, v) <- pairs]
+
+jStr :: String -> Aeson.Value
+jStr = Aeson.String . T.pack
+
+jNum :: Double -> Aeson.Value
+jNum = Aeson.Number . realToFrac
+
+fromList :: [Aeson.Value] -> Aeson.Array
+fromList = foldl (\v x -> v <> pure x) mempty
 
 -- ---------------------------------------------------------------------------
 -- Tree → JSON
 -- ---------------------------------------------------------------------------
 
-treeToJson :: [NumberedEntry] -> [ConstructionLayer] -> [Point] -> [[Point]] -> String
-treeToJson entries allLayers initialPts liveAfter =
-    jsonArr (map entryToJson entries)
+treeToJson :: [NumberedEntry] -> [ConstructionLayer] -> [Point]
+           -> [Set.Set (Double, Double)]   -- ^ liveAfterSets
+           -> [[(Double, Double)]]         -- ^ prevOutputsDbl
+           -> Aeson.Value
+treeToJson entries _allLayers initialPts liveAfterSets prevOutputsDbl =
+    Aeson.Array $ fromList (map entryToJson entries)
   where
-    entryToJson :: NumberedEntry -> String
+    initialDbl = map toDP initialPts
+
+    entryToJson :: NumberedEntry -> Aeson.Value
     entryToJson (NLeaf idx label layer) =
       let layerIdx = idx - 1
-          live = if layerIdx + 1 < length liveAfter
-                   then liveAfter !! (layerIdx + 1)
-                   else []
-          prevOutputs = concatMap layerOutputPoints (take layerIdx allLayers)
+          liveSet = if layerIdx + 1 < length liveAfterSets
+                      then liveAfterSets !! (layerIdx + 1)
+                      else Set.empty
+          prevOutDbl = if layerIdx < length prevOutputsDbl
+                         then prevOutputsDbl !! layerIdx
+                         else []
           curOutputs = layerOutputPoints layer
-          allKnown = initialPts ++ prevOutputs ++ curOutputs
-          liveDots = filter (`elem` live) allKnown
-      in jsonObj
-        [ ("type", jsonStr "leaf")
-        , ("index", show idx)
-        , ("label", jsonStr label)
-        , ("geomSvg", jsonStr (layerGeomSvg layer))
-        , ("fillSvg", jsonStr (layerFillSvg layer))
-        , ("dotsSvg", jsonStr (dotsSvg (curOutputs ++ liveDots)))
-        , ("points", jsonArr (map (\p -> jsonPoint p "") curOutputs))
-        , ("inputPoints", jsonArr (map (\p -> jsonPoint p "") (layerInputPoints layer)))
+          curOutDbl = map toDP curOutputs
+          allKnownDbl = initialDbl ++ prevOutDbl ++ curOutDbl
+          liveDotsDbl = filter (`Set.member` liveSet) allKnownDbl
+          dotPtsDbl = dedupDbl (curOutDbl ++ liveDotsDbl)
+      in jObj
+        [ ("type", jStr "leaf")
+        , ("index", jNum (fromIntegral idx))
+        , ("label", jStr label)
+        , ("geomSvg", jStr (layerGeomSvg layer))
+        , ("fillSvg", jStr (layerFillSvg layer))
+        , ("dotsSvg", jStr (dotsSvgDbl dotPtsDbl))
+        , ("points", Aeson.Array $ fromList (map (\p -> jsonPoint p "") curOutputs))
+        , ("inputPoints", Aeson.Array $ fromList (map (\p -> jsonPoint p "") (layerInputPoints layer)))
         ]
 
     entryToJson (NGroup label children) =
-      jsonObj
-        [ ("type", jsonStr "group")
-        , ("label", jsonStr label)
-        , ("children", jsonArr (map entryToJson children))
+      jObj
+        [ ("type", jStr "group")
+        , ("label", jStr label)
+        , ("children", Aeson.Array $ fromList (map entryToJson children))
         ]
+
+jsonPoint :: Point -> String -> Aeson.Value
+jsonPoint (x, y) label = jObj
+    [ ("x", jNum (toDouble x))
+    , ("y", jNum (toDouble y))
+    , ("exactX", jStr (toKaTeX x))
+    , ("exactY", jStr (toKaTeX y))
+    , ("label", jStr label)
+    ]
 
 -- ---------------------------------------------------------------------------
 -- Fill bounding box helpers
@@ -219,16 +258,24 @@ layerFillSvg (LayerCircle col cc ce) =
 
 layerFillSvg _ = ""
 
--- | Generate SVG for dot markers
-dotsSvg :: [Point] -> String
-dotsSvg pts =
+-- | Generate SVG for dot markers from pre-computed (Double, Double) pairs.
+dotsSvgDbl :: [(Double, Double)] -> String
+dotsSvgDbl pts =
     intercalate "\n"
-      [ let (x, y) = toDP p
-        in  "<circle cx=\"" ++ showF x ++ "\" cy=\"" ++ showF y
-            ++ "\" r=\"0.04\" fill=\"black\" class=\"dot\" data-x=\""
-            ++ showF x ++ "\" data-y=\"" ++ showF y ++ "\"/>"
-      | p <- nub pts
+      [ "<circle cx=\"" ++ showF x ++ "\" cy=\"" ++ showF y
+        ++ "\" r=\"0.04\" fill=\"black\" class=\"dot\" data-x=\""
+        ++ showF x ++ "\" data-y=\"" ++ showF y ++ "\"/>"
+      | (x, y) <- pts
       ]
+
+-- | Deduplicate a list of (Double, Double) pairs preserving order.
+dedupDbl :: [(Double, Double)] -> [(Double, Double)]
+dedupDbl = go Set.empty
+  where
+    go _ [] = []
+    go seen (p:ps)
+      | Set.member p seen = go seen ps
+      | otherwise         = p : go (Set.insert p seen) ps
 
 -- ---------------------------------------------------------------------------
 -- SVG primitives
@@ -264,43 +311,6 @@ colourToHex col =
     hexByte n
       | n < 16    = "0" ++ showHex n ""
       | otherwise = showHex n ""
-
--- ---------------------------------------------------------------------------
--- JSON helpers (hand-rolled, no aeson dependency)
--- ---------------------------------------------------------------------------
-
-jsonObj :: [(String, String)] -> String
-jsonObj pairs = "{" ++ intercalate "," (map (\(k, v) -> jsonStr k ++ ":" ++ v) pairs) ++ "}"
-
-jsonArr :: [String] -> String
-jsonArr items = "[" ++ intercalate "," items ++ "]"
-
-jsonStr :: String -> String
-jsonStr s = "\"" ++ concatMap escapeJsonChar s ++ "\""
-
-escapeJsonChar :: Char -> String
-escapeJsonChar '"'  = "\\\""
-escapeJsonChar '\\' = "\\\\"
-escapeJsonChar '\n' = "\\n"
-escapeJsonChar '\r' = "\\r"
-escapeJsonChar '\t' = "\\t"
-escapeJsonChar c
-  | c < ' '   = "\\u" ++ padHex 4 (fromEnum c)
-  | otherwise  = [c]
-
-padHex :: Int -> Int -> String
-padHex width n =
-    let h = showHex n ""
-    in replicate (width - length h) '0' ++ h
-
-jsonPoint :: Point -> String -> String
-jsonPoint (x, y) label = jsonObj
-    [ ("x", showF (toDouble x))
-    , ("y", showF (toDouble y))
-    , ("exactX", jsonStr (toKaTeX x))
-    , ("exactY", jsonStr (toKaTeX y))
-    , ("label", jsonStr label)
-    ]
 
 -- | Show a Double with enough precision
 showF :: Double -> String

@@ -17,6 +17,7 @@ import Flag.Construction.Types (Point)
 import Flag.Construction.Interpreter (Step, steps, evalCollectRadicals)
 import Flag.Construction.Optimize (optimize)
 import Flag.Construction.Radical (Radical, isNatural, isInteger, radicands)
+import Flag.Construction.Tree (evalTree)
 import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
 import Flag.Definition (Flag(..))
 import Flag.Registry (allCountryFlags)
@@ -31,7 +32,14 @@ main = do
   copyDirRecursive "data" "out"
   buildHtml
   writeDebugViewer
-  mapM_ writeConstructionJson allCountryFlags
+  mapM_ writeConstructionJsonForFlag allCountryFlags
+
+writeConstructionJsonForFlag :: Flag (Sourced : '[]) -> IO ()
+writeConstructionJsonForFlag flag = do
+  let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
+      input = ((0, 0), (1, 0)) :: (Point, Point)
+      (_, tree) = evalTree flagArrow input
+  writeConstructionJson (flagName flag) (flagIsoCode flag) input tree
 
 -- ---------------------------------------------------------------------------
 -- HTML index build
