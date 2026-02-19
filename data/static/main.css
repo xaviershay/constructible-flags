@@ -21,7 +21,7 @@ ul { margin: 0; padding-left: 20px; }
 .source-screenshot img { width: 100%; height: auto; border: 1px solid #eee; border-radius: 2px; }
 .pantone-chips { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
 .pantone-chip { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.pantone-chip img { width: 40px; height: auto; border: 1px solid #eee; border-radius: 2px; }
+.pantone-chip img { width: 80px; height: auto; border: 1px solid #eee; border-radius: 2px; }
 .pantone-chip span { font-size: 0.8em; color: #666; }
 @media (min-width: 1000px) {
   body { max-width: 1200px; }
