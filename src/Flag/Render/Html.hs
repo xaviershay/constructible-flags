@@ -65,8 +65,10 @@ generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
 -- ---------------------------------------------------------------------------
 
 -- | Generate a show page for a single flag
-generateShowPage :: (String, String, String, String, [SourcedElement], [Step], String) -> String
-generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, field) =
+-- Now includes editorNote as last field
+-- (svgFile, name, desc, isoCode, sources, constructionSteps, field, editorNote)
+generateShowPage :: (String, String, String, String, [SourcedElement], [Step], String, String) -> String
+generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, field, editorNote) =
   let isoLower = map toLower isoCode
   in renderHtml $ docTypeHtml $ H.html $ do
     H.head $ do
@@ -87,6 +89,11 @@ generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, fiel
         H.div ! A.class_ (toValue "flag-info") $ do
           H.h1 $ H.toHtml $ escapeHtml name
           H.div ! A.class_ (toValue "description") $ H.toHtml $ escapeHtml desc
+          if not (null editorNote) then
+            H.div ! A.class_ (toValue "editor-note") $ do
+              H.i $ H.toHtml "Editor's note: "
+              H.toHtml $ escapeHtml editorNote
+          else mempty
       H.h2 $ toHtml "Construction"
       H.div ! A.class_ (toValue "construction") $ do
         H.div $ do
@@ -97,7 +104,6 @@ generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, fiel
       H.preEscapedToHtml $ formatSourceCards sources
       H.h2 $ toHtml "Provenance"
       H.div ! A.style (toValue "overflow:hidden;border:1px solid #ddd;background:#fafafa;cursor:grab") $ H.preEscapedToHtml "<svg id=\"prov-hier\" width=\"880\" height=\"500\"></svg>"
-      -- Call initProv with the provenance file path
       H.script $ H.preEscapedToHtml $ "initProv(\"" ++ isoLower ++ "-prov.xml\");"
 
 -- ---------------------------------------------------------------------------

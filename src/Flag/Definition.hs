@@ -3,8 +3,9 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Flag.Definition
-    ( Flag(flagIsoCode, flagName, flagDescription, flagDesign)
+    ( Flag(flagIsoCode, flagName, flagDescription, flagDesign, flagEditorNote)
     , mkCountryFlag
+    , editorNote
     ) where
 
 import Effectful
@@ -17,6 +18,7 @@ data Flag es = CountryFlag
   , flagName        :: String
   , flagDescription :: Eff es String
   , flagDesign      :: Eff es (FlagA (Point, Point) Drawing)
+  , flagEditorNote  :: String
   }
 
 mkCountryFlag
@@ -30,4 +32,7 @@ mkCountryFlag isoCode name desc design = CountryFlag
   , flagName        = name
   , flagDescription = desc
   , flagDesign      = design
+  , flagEditorNote  = ""
   }
+
+editorNote x f = f { flagEditorNote = x }

@@ -45,6 +45,11 @@ writeConstructionJsonForFlag flag = do
 -- HTML index build
 -- ---------------------------------------------------------------------------
 
+-- Helper to drop the editor note for index page
+-- (a,b,c,d,e,f,g,h) -> (a,b,c,d,e,f,g)
+dropEditorNote :: (a,b,c,d,e,f,g,h) -> (a,b,c,d,e,f,g)
+dropEditorNote (a,b,c,d,e,f,g,_) = (a,b,c,d,e,f,g)
+
 buildHtml :: IO ()
 buildHtml = do
   createDirectoryIfMissing True "out"
@@ -53,13 +58,13 @@ buildHtml = do
   flagData <- mapM processFlag allCountryFlags
   
   -- Generate show pages for each flag
-  mapM_ (\fd@(_, _, _, iso, _, _, _) -> do
+  mapM_ (\fd@(_, _, _, iso, _, _, _, _) -> do
     let showHtml = generateShowPage fd
         showPath = "out/" ++ map toLower iso ++ ".html"
     writeFile showPath showHtml) flagData
 
   -- Generate index.html
-  let html = generateIndex flagData
+  let html = generateIndex (map dropEditorNote flagData)
   writeFile "out/index.html" html
   
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
@@ -85,7 +90,7 @@ copyDirRecursive src dst = do
     putStrLn $ "Copied " ++ src ++ " -> " ++ dst
 
 -- | Process a single flag: render SVG, generate PROV XML, and extract metadata
-processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, [SourcedElement], [Step], String)
+processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, [SourcedElement], [Step], String, String)
 processFlag flag = do
   let isoLower = map toLower (flagIsoCode flag)
       svgFile = isoLower ++ ".svg"
@@ -122,7 +127,7 @@ processFlag flag = do
 
   putStrLn $ "Generated " ++ svgFile ++ " (" ++ flagName flag ++ ")"
 
-  pure (svgFile, flagName flag, description, flagIsoCode flag, allSources, constructionSteps, fieldStr)
+  pure (svgFile, flagName flag, description, flagIsoCode flag, allSources, constructionSteps, fieldStr, flagEditorNote flag)
 
 -- | Classify the number field required by all intermediate construction points.
 classifyField :: [Radical] -> String

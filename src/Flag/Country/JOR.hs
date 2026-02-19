@@ -14,11 +14,15 @@ import Effectful
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
-import Flag.Definition (Flag, mkCountryFlag)
+import Flag.Definition (Flag, mkCountryFlag, editorNote)
 import Flag.Pantone
 
 jordan :: Sourced :> es => Flag es
-jordan = mkCountryFlag
+jordan = editorNote (
+    "Many other constructions use a lighter red. The darker hue used here is" ++
+    " the latest I can find specified by a government source ... and I also happen to like it better."
+  )
+  $ mkCountryFlag
   "JOR"
   "Jordan"
   ( reference "Description" constitution
