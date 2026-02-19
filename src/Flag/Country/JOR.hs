@@ -14,14 +14,14 @@ import Effectful
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
-import Flag.Definition (Flag(..))
+import Flag.Definition (Flag, mkCountryFlag)
 import Flag.Pantone
 
 jordan :: Sourced :> es => Flag es
-jordan = CountryFlag
-  { flagIsoCode = "JOR"
-  , flagName = "Jordan"
-  , flagDescription = reference "Description" constitution
+jordan = mkCountryFlag
+  "JOR"
+  "Jordan"
+  ( reference "Description" constitution
     ( "Its length shall be twice its width. "
     ++ "It shall be divided horizontally into three parallel equal stripes, "
     ++ "the uppermost of which shall be black; the center, white; and the "
@@ -36,23 +36,17 @@ jordan = CountryFlag
     ++ "angles of the triangle, and the axis running through one of its "
     ++ "points shall be parallel to the base of the triangle."
     )
-  , flagDesign = design
-  }
+  )
+  design
 
   where
     constructedAt = "2026-02-18"
     gov = mkAgentOrg "bgd_gov" "King of Jordan"
 
-    flagElements = attributeTo gov $ mkEntity
+    flagElements = screenshot "2026-02-19" "jor/flag-elements.png" $ attributeTo gov $ mkEntity
       "The Jordanian Flag Basic Elements"
       ""
       -- Issued 2007
-
-    references =
-      [ screenshot constructedAt "jor/fotw.png" $ mkEntity
-          "Jordan (Flags of the World)"
-          "https://www.crwflags.com/fotw/flags/jo.html"
-      ]
 
     constitution = screenshot constructedAt "jor/constitution.png" $ attributeTo gov $ mkEntity
       "Jordan Constitution, Article 4"
@@ -61,11 +55,11 @@ jordan = CountryFlag
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        (greenPms, redPms) <- unsightedReference "Pantone Colors" flagElements references ("356-C", "200-C")
-        blackC <- reference "Black" constitution (sRGB24 0 0 0)
-        whiteC <- reference "White" constitution (sRGB24 255 255 255)
-        greenC <- pantoneToRGB greenPms
-        redC <- pantoneToRGB redPms
+        blackC <- reference "Black" flagElements (cmyk 0 0 0 100)
+        whiteC <- reference "White" flagElements (sRGB24 255 255 255)
+        greenC <- reference "Green" flagElements (cmyk 100 0 91 27.5)
+        redC <- reference "Red" flagElements (cmyk 0 100 65 15)
+
         proportions <- reference "Stripe Heights" constitution [1, 1, 1]
         _ <- reference "Triangle Dimenstions" constitution ()
         (sn, sd) <- reference "Star Specification" constitution (1, 14)

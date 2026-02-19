@@ -14,21 +14,20 @@ import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
 import Flag.Pantone
-import Flag.Definition (Flag(..))
+import Flag.Definition (Flag, mkCountryFlag)
 
 botswana :: Sourced :> es => Flag es
-botswana = CountryFlag
-  { flagIsoCode = "BWA"
-  , flagName = "Botswana"
-  , flagDescription = reference "Description" law
+botswana = mkCountryFlag
+  "BWA"
+  "Botswana"
+  ( reference "Description" law
       ( "Five horizontal stripes having colour and width as follows, that is to say taken from the top \8212\n"
      ++ "1st Stripe \8212 azure blue having a width equal to 9/24ths of the total depth of the flag.\n"
      ++ "2nd Stripe \8212 white having a width equal to 1/24th of such depth.\n"
      ++ "3rd Stripe \8212 black having a width equal to 4/24ths of such depth.\n"
      ++ "4th Stripe \8212 white having a width equal to 1/24th of such depth.\n"
-     ++ "5th Stripe \8212 azure blue having a width equal to 9/24ths of such depth." )
-  , flagDesign = design
-  }
+     ++ "5th Stripe \8212 azure blue having a width equal to 9/24ths of such depth." ) )
+  design
 
   where
     constructedAt = "2026-02-13"

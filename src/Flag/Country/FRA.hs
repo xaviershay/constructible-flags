@@ -14,15 +14,14 @@ import Effectful
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
-import Flag.Definition (Flag(..))
+import Flag.Definition (Flag, mkCountryFlag)
 
 france :: Sourced :> es => Flag es
-france = CountryFlag
-  { flagIsoCode = "FRA"
-  , flagName = "France"
-  , flagDescription = reference "Description" constitution "A tricolour flag, blue, white, red."
-  , flagDesign = design
-  }
+france = mkCountryFlag
+  "FRA"
+  "France"
+  (reference "Description" constitution "A tricolour flag, blue, white, red.")
+  design
 
   where
     constructedAt = "2026-02-14"

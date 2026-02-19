@@ -3,14 +3,15 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Flag.Pantone
-    ( pantoneToRGB
-    , pantoneAgent
-    ) where
+  ( pantoneToRGB
+  , pantoneAgent
+  , cmyk
+  ) where
 
 import Flag.Source
 
 import Data.Colour
-import Data.Colour.SRGB (sRGB24)
+import Data.Colour.SRGB (sRGB24, sRGB)
 import Data.List (stripPrefix)
 import Data.Maybe (fromMaybe)
 import Effectful
@@ -42,3 +43,18 @@ pantoneToRGB key =
           in reference "RGB Conversion" chipEntity (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
         Nothing -> reference "RGB Conversion" pantone (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
     Nothing -> error $ "pantoneToRGB: unknown Pantone key: " ++ key
+
+
+-- | Convert CMYK percentages (0-100) to an sRGB `Colour Double`.
+-- Uses the standard subtractive-to-additive conversion: r = (1-C)*(1-K),
+-- g = (1-M)*(1-K), b = (1-Y)*(1-K).
+cmyk :: Double -> Double -> Double -> Double -> Colour Double
+cmyk c m y k =
+  let cf = c / 100
+      mf = m / 100
+      yf = y / 100
+      kf = k / 100
+      r = (1 - cf) * (1 - kf)
+      g = (1 - mf) * (1 - kf)
+      b = (1 - yf) * (1 - kf)
+  in sRGB r g b

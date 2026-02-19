@@ -15,21 +15,20 @@ import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
 import Flag.Pantone
-import Flag.Definition (Flag(..))
+import Flag.Definition (Flag, mkCountryFlag)
 
 bangladesh :: Sourced :> es => Flag es
-bangladesh = CountryFlag
-  { flagIsoCode = "BGD"
-  , flagName = "Bangladesh"
-  , flagDescription = reference "Description" flagRules
+bangladesh = mkCountryFlag
+  "BGD"
+  "Bangladesh"
+  ( reference "Description" flagRules
       ( "The ‘National Flag’ will be in bottle green and rectangular in size in the "
      ++ "proportion of length to width 10: 6 bearing a red circle on the body of the green. "
      ++ "The red circle will have a radius of one-fifth of the length of the flag. Its center will be "
      ++ "placed on the intersecting point of the perpendicular drawn from the nine-twentieth "
      ++ "part of the length of the flag and the horizontal line drawn through the middle of its "
-     ++ "width." )
-  , flagDesign = design
-  }
+     ++ "width." ) )
+  design
 
   where
     constructedAt = "2026-02-13"
