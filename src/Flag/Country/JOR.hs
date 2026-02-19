@@ -19,8 +19,10 @@ import Flag.Pantone
 
 jordan :: Sourced :> es => Flag es
 jordan = editorNote (
-    "Many other constructions use a lighter red. The darker hue used here is" ++
-    " the latest I can find specified by a government source ... and I also happen to like it better."
+    "Many other constructions use a lighter red. The darker hue used here is " ++
+    "the latest I can find specified by a government source ... and I also happen " ++
+    "to like it better. Interestingly, using approximations for the Pantone " ++
+    "specifications better match the colors in the document than converting from the given CMYK."
   )
   $ mkCountryFlag
   "JOR"
@@ -59,10 +61,12 @@ jordan = editorNote (
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
+        greenP <- reference "Green Pantone" flagElements "356-C"
+        redP <- reference "Red Pantone" flagElements "200-C"
         blackC <- reference "Black" flagElements (cmyk 0 0 0 100)
         whiteC <- reference "White" flagElements (sRGB24 255 255 255)
-        greenC <- reference "Green" flagElements (cmyk 100 0 91 27.5)
-        redC <- reference "Red" flagElements (cmyk 0 100 65 15)
+        greenC <- pantoneToRGB greenP
+        redC <- pantoneToRGB redP
 
         proportions <- reference "Stripe Heights" constitution [1, 1, 1]
         _ <- reference "Triangle Dimenstions" constitution ()
