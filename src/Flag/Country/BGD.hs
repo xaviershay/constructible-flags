@@ -44,12 +44,11 @@ bangladesh = mkCountryFlag
     design = do
         (w, h) <- reference "Proportion" flagRules (10, 6)
         (pr, qr) <- reference "Disc/Length Ratio" flagRules (1, 5)
-        _ <- reference "Procion Colors" flagRules ("Procion Brilliant Green H-2RS 50/1000", "Procion Brilliant Orange H-2RS 60/1000")
-        (greenPms, redPms) <- editorial "Pantone Colors" references ("342-C", "485-C")
-
-        -- Third: convert Pantone to RGB using the Pantone module
-        greenColor <- pantoneToRGB greenPms
-        redColor   <- pantoneToRGB redPms
+        (pc, qc) <- reference "Disc Centre" flagRules (9, 20)
+        _ <- reference "Green Dye" flagRules "Procion Brilliant Green H-2RS 50/1000"
+        _ <- reference "Red Dye"   flagRules "Procion Brilliant Orange H-2RS 60/1000"
+        greenColor <- approximationPantoneAsRGB "Green Dye" references ("Green", "342-C")
+        redColor   <- approximationPantoneAsRGB "Red Dye"   references ("Red",   "485-C")
 
 
         pure $ proc origin -> do
@@ -58,7 +57,7 @@ bangladesh = mkCountryFlag
             leftMid  <- midpoint -< (tl, bl)
             rightMid <- midpoint -< (tr, br)
 
-            topNineTwentieth <- rationalMult 9 20 -< (tl, tr)
+            topNineTwentieth <- rationalMult pc qc -< (tl, tr)
 
             p <- perpendicular -< (topNineTwentieth, tr)
             discCenter <- intersectLL -< (p, (leftMid, rightMid))

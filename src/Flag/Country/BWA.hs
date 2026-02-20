@@ -50,9 +50,8 @@ botswana = mkCountryFlag
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        -- azureP <- sourced "Azure Pantone" standards 
-        azureP <- unsightedReference "Azure Pantone" standards references "15-4225-TCX"
-        azureC <- pantoneToRGB azureP
+        azureP <- unsightedReference "Azure" standards references "15-4225-TCX"
+        azureC <- pantoneToRGB "Azure" azureP
         whiteC <- unsightedReference "White" standards references (sRGB24 255 255 255)
         blackC   <- unsightedReference "Black"  standards references (sRGB24 0 0 0)
         proportions <- reference "Stripe Heights" law [9, 1, 4, 1, 9]

@@ -8,9 +8,9 @@ import Data.Aeson.Key (fromString)
 import Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Char (toLower)
-import Data.List (nub, isPrefixOf)
+import Data.List (nub)
 
-import Flag.Source (Source(..), Entity(..), Agent(..), SourcedElement)
+import Flag.Source (Source(..), Entity(..), Agent(..), SourcedElement(..))
 
 -- | Generate a W3C PROV-JSON document for a flag's provenance.
 generateProvJson :: String -> String -> [SourcedElement] -> String
@@ -41,29 +41,34 @@ generateProvJson isoCode flagName' sources =
     -- -------------------------------------------------------------------------
 
     allEntities :: [Entity]
-    allEntities = nub [e | (_, src) <- sources, e <- sourceEntities src]
+    allEntities = nub [e | se <- sources, e <- sourceEntities se]
 
-    sourceEntities :: Source -> [Entity]
-    sourceEntities (SourceReference e)              = [e]
-    sourceEntities (SourceImpliedReference e)       = [e]
-    sourceEntities (SourceUnsightedReference e refs) = e : refs
-    sourceEntities (SourceEditorial refs)            = refs
+    sourceEntities :: SourcedElement -> [Entity]
+    sourceEntities (SourcedAttr _ (SourceReference e))              = [e]
+    sourceEntities (SourcedAttr _ (SourceImpliedReference e))       = [e]
+    sourceEntities (SourcedAttr _ (SourceUnsightedReference e refs)) = e : refs
+    sourceEntities (SourcedAttr _ (SourceEditorial refs))            = refs
+    sourceEntities (SourcedAttr _ (SourceApproximation _ refs))      = refs
+    sourceEntities (DerivedAttr _ _ e)                               = [e]
 
-    -- The primary source entity for an attribute (Nothing for editorial)
+    -- The primary source entity for a directly-sourced attribute (Nothing for editorial)
     primaryEntity :: Source -> Maybe Entity
-    primaryEntity (SourceReference e)           = Just e
-    primaryEntity (SourceImpliedReference e)    = Just e
+    primaryEntity (SourceReference e)            = Just e
+    primaryEntity (SourceImpliedReference e)     = Just e
     primaryEntity (SourceUnsightedReference e _) = Just e
     primaryEntity (SourceEditorial _)            = Nothing
+    primaryEntity (SourceApproximation _ _)      = Nothing
 
     allAgents :: [Agent]
-    allAgents = nub [a | (_, src) <- sources, a <- sourceAgents src]
+    allAgents = nub [a | se <- sources, a <- sourceAgents se]
 
-    sourceAgents :: Source -> [Agent]
-    sourceAgents (SourceReference e)              = maybeAgent e
-    sourceAgents (SourceImpliedReference e)       = maybeAgent e
-    sourceAgents (SourceUnsightedReference e refs) = maybeAgent e ++ concatMap maybeAgent refs
-    sourceAgents (SourceEditorial refs)            = concatMap maybeAgent refs
+    sourceAgents :: SourcedElement -> [Agent]
+    sourceAgents (SourcedAttr _ (SourceReference e))              = maybeAgent e
+    sourceAgents (SourcedAttr _ (SourceImpliedReference e))       = maybeAgent e
+    sourceAgents (SourcedAttr _ (SourceUnsightedReference e refs)) = maybeAgent e ++ concatMap maybeAgent refs
+    sourceAgents (SourcedAttr _ (SourceEditorial refs))            = concatMap maybeAgent refs
+    sourceAgents (SourcedAttr _ (SourceApproximation _ refs))      = concatMap maybeAgent refs
+    sourceAgents (DerivedAttr _ _ e)                               = maybeAgent e
 
     maybeAgent :: Entity -> [Agent]
     maybeAgent e = maybe [] (:[]) (entityAgent e)
@@ -71,10 +76,9 @@ generateProvJson isoCode flagName' sources =
     hasTranslations :: Bool
     hasTranslations = any ((/= Nothing) . entityTranslated) allEntities
 
-    -- Pantone source entities (used for color-sample activities)
-    pantoneEntities :: [Entity]
-    pantoneEntities = nub
-      [e | (_, SourceReference e) <- sources, "PMS" `isPrefixOf` entityTitle e]
+    -- Entities that are the via-entity in a DerivedAttr (trigger color-sample activities)
+    derivedEntities :: [Entity]
+    derivedEntities = nub [e | DerivedAttr _ _ e <- sources]
 
     -- -------------------------------------------------------------------------
     -- ID helpers
@@ -144,14 +148,19 @@ generateProvJson isoCode flagName' sources =
     allEntityEntries :: [(String, Value)]
     allEntityEntries =
       [ (flagEntityId, object
-          [ "prov:label" .= flagName'
+          [ "prov:label" .= ("Flag of " ++ flagName')
           , "prov:type"  .= qname "cf:Flag" ]) ] ++
       concatMap buildSourceEntityEntries allEntities ++
-      -- Attribute entities (derived from source entities)
+      -- Attribute entities (one per sourced or derived attribute; nub on name to
+      -- avoid duplicates when the same label appears more than once, e.g. BGD's
+      -- two "Pantone Colors (RGB)" conversions sharing a parent label)
       [ (cf (attrId name), object
           [ "prov:label" .= name
           , "prov:type"  .= qname "cf:Attribute" ])
-        | (name, _) <- sources ]
+        | name <- nub [ n | se <- sources
+                          , let n = case se of
+                                  SourcedAttr n' _ -> n'
+                                  DerivedAttr n' _ _ -> n' ] ]
 
     -- -------------------------------------------------------------------------
     -- Activities
@@ -160,7 +169,7 @@ generateProvJson isoCode flagName' sources =
     allActivityEntries :: [(String, Value)]
     allActivityEntries =
       [ (constructionId, object
-          [ "prov:label" .= ("Construction of " ++ flagName' ++ " flag")
+          [ "prov:label" .= ("Construction" :: String)
           , "prov:type"  .= qname "cf:Construction" ]) ] ++
       -- View activities (one per entity that has a screenshot)
       [ (viewActivityId e, object
@@ -176,11 +185,11 @@ generateProvJson isoCode flagName' sources =
           , "prov:startTime" .= (date ++ "T00:00:00")
           , "prov:endTime"   .= (date ++ "T00:00:00") ])
         | e <- allEntities, Just date <- [entityTranslated e] ] ++
-      -- Color-sample activities (one per unique pantone entity)
+      -- Color-sample activities (one per unique derived entity)
       [ (colorSampleActivityId e, object
-          [ "prov:label" .= ("color-sample " ++ entityTitle e)
+          [ "prov:label" .= ("Sample" :: String)
           , "prov:type"  .= qname "cf:color-sample" ])
-        | e <- pantoneEntities ]
+        | e <- derivedEntities ]
 
     -- -------------------------------------------------------------------------
     -- Relations
@@ -194,21 +203,31 @@ generateProvJson isoCode flagName' sources =
       -- Screenshot wasGeneratedBy view
       [ object ["prov:entity" .= cf (screenshotIdStr e), "prov:activity" .= viewActivityId e]
         | e <- allEntities, Just _ <- [entityScreenshot e] ] ++
-      -- Attribute wasGeneratedBy translate (translate activity bridges source to attribute)
+      -- SourcedAttr wasGeneratedBy translate (translate activity bridges source to attribute)
       [ object ["prov:entity" .= cf (attrId name), "prov:activity" .= translateActivityId e]
-        | (name, src) <- sources
+        | SourcedAttr name src <- sources
         , Just e <- [primaryEntity src]
         , Just _ <- [entityTranslated e] ] ++
-      -- Pantone attribute wasGeneratedBy color-sample
+      -- DerivedAttr wasGeneratedBy color-sample
       [ object ["prov:entity" .= cf (attrId name), "prov:activity" .= colorSampleActivityId e]
-        | (name, SourceReference e) <- sources, "PMS" `isPrefixOf` entityTitle e ]
+        | DerivedAttr name _ e <- sources ]
+
+    -- SourcedAttr names that are consumed by a DerivedAttr or approximated by a
+    -- SourceApproximation (i.e. intermediates, not directly used by the construction).
+    intermediateNames :: [String]
+    intermediateNames =
+      [from    | DerivedAttr _ from _ <- sources] ++
+      [approxOf | SourcedAttr _ (SourceApproximation approxOf _) <- sources]
 
     -- used
     usedRels :: [Value]
     usedRels =
-      -- Construction used each attribute entity
+      -- Construction used directly-sourced attrs that aren't consumed by a DerivedAttr ...
       [ object ["prov:activity" .= constructionId, "prov:entity" .= cf (attrId name)]
-        | (name, _) <- sources ] ++
+        | SourcedAttr name _ <- sources, name `notElem` intermediateNames ] ++
+      -- ... plus derived attrs (the terminal converted values, e.g. "Green Pantone (RGB)")
+      [ object ["prov:activity" .= constructionId, "prov:entity" .= cf (attrId name)]
+        | DerivedAttr name _ _ <- sources ] ++
       -- View used source entity
       [ object ["prov:activity" .= viewActivityId e, "prov:entity" .= cf (entityIdStr e)]
         | e <- allEntities, Just _ <- [entityScreenshot e] ] ++
@@ -216,9 +235,9 @@ generateProvJson isoCode flagName' sources =
       [ object ["prov:activity" .= translateActivityId e
                ,"prov:entity"   .= cf (entityIdStr e)]
         | e <- allEntities, Just _ <- [entityTranslated e] ] ++
-      -- Color-sample used pantone entity
+      -- Color-sample used its via-entity
       [ object ["prov:activity" .= colorSampleActivityId e, "prov:entity" .= cf (entityIdStr e)]
-        | e <- pantoneEntities ]
+        | e <- derivedEntities ]
 
     -- wasDerivedFrom
     wdfRels :: [Value]
@@ -231,12 +250,16 @@ generateProvJson isoCode flagName' sources =
       concatMap attrWasDerivedFrom sources
 
     attrWasDerivedFrom :: SourcedElement -> [Value]
-    attrWasDerivedFrom (name, SourceReference e) =
+    attrWasDerivedFrom (SourcedAttr name (SourceReference e)) =
       [ object ["prov:generatedEntity" .= cf (attrId name)
                ,"prov:usedEntity"      .= cf (entityIdStr e)] ]
-    attrWasDerivedFrom (name, SourceUnsightedReference e _) =
+    attrWasDerivedFrom (SourcedAttr name (SourceUnsightedReference e _)) =
       [ object ["prov:generatedEntity" .= cf (attrId name)
                ,"prov:usedEntity"      .= cf (entityIdStr e)] ]
+    -- DerivedAttr: attr-to-attr link (e.g. "RGB Conversion" wasDerivedFrom "Green Pantone")
+    attrWasDerivedFrom (DerivedAttr name from _) =
+      [ object ["prov:generatedEntity" .= cf (attrId name)
+               ,"prov:usedEntity"      .= cf (attrId from)] ]
     attrWasDerivedFrom _ = []
 
     -- wasAttributedTo
@@ -245,9 +268,10 @@ generateProvJson isoCode flagName' sources =
       -- Source entity attributed to its agent
       [ object ["prov:entity" .= cf (entityIdStr e), "prov:agent" .= cf (agentId a)]
         | e <- allEntities, Just a <- [entityAgent e] ] ++
-      -- Editorial attribute attributed to editor
+      -- Editorial and approximation attributes attributed to editor
       [ object ["prov:entity" .= cf (attrId name), "prov:agent" .= cf "editor"]
-        | (name, SourceEditorial _) <- sources ]
+        | SourcedAttr name src <- sources
+        , case src of { SourceEditorial _ -> True; SourceApproximation _ _ -> True; _ -> False } ]
 
     -- wasAssociatedWith
     wawRels :: [Value]
@@ -264,21 +288,29 @@ generateProvJson isoCode flagName' sources =
         [e | e <- allEntities, Just _ <- [entityTranslated e]] ++
       -- Color-sample associated with editor
       [ object ["prov:activity" .= colorSampleActivityId e, "prov:agent" .= cf "editor"]
-        | e <- pantoneEntities ]
+        | e <- derivedEntities ]
 
     -- wasInfluencedBy
     wibRels :: [Value]
     wibRels = concatMap attrWasInfluencedBy sources
 
     attrWasInfluencedBy :: SourcedElement -> [Value]
-    attrWasInfluencedBy (name, SourceImpliedReference e) =
+    attrWasInfluencedBy (SourcedAttr name (SourceImpliedReference e)) =
       [ object ["prov:influencee" .= cf (attrId name)
                ,"prov:influencer" .= cf (entityIdStr e)] ]
-    attrWasInfluencedBy (name, SourceUnsightedReference _ refs) =
+    attrWasInfluencedBy (SourcedAttr name (SourceUnsightedReference _ refs)) =
       [ object ["prov:influencee" .= cf (attrId name)
                ,"prov:influencer" .= cf (entityIdStr e)]
         | e <- refs ]
-    attrWasInfluencedBy (name, SourceEditorial refs) =
+    attrWasInfluencedBy (SourcedAttr name (SourceEditorial refs)) =
+      [ object ["prov:influencee" .= cf (attrId name)
+               ,"prov:influencer" .= cf (entityIdStr e)]
+        | e <- refs ]
+    attrWasInfluencedBy (SourcedAttr name (SourceApproximation approxOf refs)) =
+      -- attr-to-attr: this attribute was chosen to approximate a previously-sourced attribute
+      [ object ["prov:influencee" .= cf (attrId name)
+               ,"prov:influencer" .= cf (attrId approxOf)] ] ++
+      -- attr-to-docs: supporting references consulted when making the choice
       [ object ["prov:influencee" .= cf (attrId name)
                ,"prov:influencer" .= cf (entityIdStr e)]
         | e <- refs ]

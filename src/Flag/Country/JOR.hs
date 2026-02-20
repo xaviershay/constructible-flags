@@ -61,12 +61,10 @@ jordan = editorNote (
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        greenP <- reference "Green Pantone" flagElements "356-C"
-        redP <- reference "Red Pantone" flagElements "200-C"
+        greenC <- referencePantoneAsRGB flagElements ("Green", "356-C")
+        redC   <- referencePantoneAsRGB flagElements ("Red",   "200-C")
         blackC <- reference "Black" flagElements (cmyk 0 0 0 100)
         whiteC <- reference "White" flagElements (sRGB24 255 255 255)
-        greenC <- pantoneToRGB greenP
-        redC <- pantoneToRGB redP
 
         proportions <- reference "Stripe Heights" constitution [1, 1, 1]
         _ <- reference "Triangle Dimenstions" constitution ()

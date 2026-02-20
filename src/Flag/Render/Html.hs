@@ -19,7 +19,7 @@ import Text.Blaze.Html5 (docTypeHtml, (!), toValue, toHtml, preEscapedToHtml)
 import qualified Text.Blaze.Html5.Attributes as A
 import Text.Blaze.Html.Renderer.String (renderHtml)
 
-import Flag.Source (Source(..), Entity(..), Agent(..), SourcedElement)
+import Flag.Source (Source(..), Entity(..), Agent(..), SourcedElement, elementDisplayPair)
 import Flag.Construction.Interpreter (Step(..))
 
 -- ---------------------------------------------------------------------------
@@ -117,8 +117,9 @@ generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, fiel
 formatSourceCards :: [SourcedElement] -> String
 formatSourceCards [] = "<em>None</em>"
 formatSourceCards elems =
-  let -- Pass 1: group elements by identical Source
-      bySource = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) elems
+  let pairs = map elementDisplayPair elems
+      -- Pass 1: group elements by identical Source
+      bySource = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) pairs
       -- Each group becomes (elementNames, [sources])
       sourceGroups = [ (nub $ map fst grp, [snd (head grp)])
                      | grp <- bySource ]
@@ -139,9 +140,8 @@ formatMergedCard :: ([String], [Source]) -> String
 formatMergedCard (names, srcs) =
   let elementsStr = escapeHtml (joinElements names)
       headings = intercalate ", " $ map formatSourceHeading srcs
-      -- Collect all entities across all sources
-      allEntities = nub $ concatMap sourceEntitiesFlat srcs
-      screenshotEntities = [ e | e <- allEntities, entityScreenshot e /= Nothing ]
+      screenshotEntities = [ e | e <- nub (concatMap screenshotableEntities srcs)
+                               , entityScreenshot e /= Nothing ]
       isPantone e = case entityAgent e of
         Just a  -> agentId a == "pantone"
         Nothing -> False
@@ -162,6 +162,7 @@ formatSourceHeading (SourceReference e) = formatEntityLink e
 formatSourceHeading (SourceImpliedReference e) = formatEntityLink e ++ " (implied)"
 formatSourceHeading (SourceUnsightedReference e _) = formatEntityLink e ++ " (unsighted)"
 formatSourceHeading (SourceEditorial _) = "Editorial decision"
+formatSourceHeading (SourceApproximation approxOf _) = "Approximation of <em>" ++ escapeHtml approxOf ++ "</em>"
 
 -- | Render a regular (non-Pantone) screenshot as a block-level image.
 renderScreenshot :: Entity -> String
@@ -188,12 +189,24 @@ renderPantoneChips chips =
         ++ "</div>"
       Nothing -> ""
 
--- | Get all entities from a Source (flat list).
+-- | Get all entities from a Source (flat list), for link/reference display.
 sourceEntitiesFlat :: Source -> [Entity]
 sourceEntitiesFlat (SourceReference e) = [e]
 sourceEntitiesFlat (SourceImpliedReference e) = [e]
 sourceEntitiesFlat (SourceUnsightedReference e refs) = e : refs
 sourceEntitiesFlat (SourceEditorial refs) = refs
+sourceEntitiesFlat (SourceApproximation _ refs) = refs
+
+-- | Entities whose screenshots should be displayed in the sources view.
+-- Screenshots are shown for directly-cited and corroborating sources, but not
+-- for editorial or approximation supporting refs (which are influences, not
+-- primary evidence).
+screenshotableEntities :: Source -> [Entity]
+screenshotableEntities (SourceReference e)               = [e]
+screenshotableEntities (SourceImpliedReference e)        = [e]
+screenshotableEntities (SourceUnsightedReference e refs) = e : refs
+screenshotableEntities (SourceEditorial _)               = []
+screenshotableEntities (SourceApproximation _ _)         = []
 
 -- ---------------------------------------------------------------------------
 -- Shared formatting helpers
@@ -223,7 +236,8 @@ formatSteps ss =
 formatSources :: [SourcedElement] -> String
 formatSources [] = "<em>None</em>"
 formatSources elems =
-  let grouped = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) elems
+  let pairs = map elementDisplayPair elems
+      grouped = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) pairs
   in "<ul>" ++ concatMap formatSourceGroup grouped ++ "</ul>"
 
 sourceKey :: Source -> String
@@ -231,8 +245,9 @@ sourceKey (SourceReference e) = "1" ++ entityTitle e
 sourceKey (SourceImpliedReference e) = "2" ++ entityTitle e
 sourceKey (SourceUnsightedReference e _) = "3" ++ entityTitle e
 sourceKey (SourceEditorial _) = "4"
+sourceKey (SourceApproximation approxOf _) = "5" ++ approxOf
 
-formatSourceGroup :: [SourcedElement] -> String
+formatSourceGroup :: [(String, Source)] -> String
 formatSourceGroup [] = ""
 formatSourceGroup grp@((_, src):_) =
   let elementNames = map fst grp
@@ -251,6 +266,8 @@ formatSourceWithElements (SourceUnsightedReference e _) elems =
   "<li>" ++ formatEntityLink e ++ " (unsighted) " ++ elems ++ "</li>"
 formatSourceWithElements (SourceEditorial _) elems =
   "<li>Editorial decision " ++ elems ++ "</li>"
+formatSourceWithElements (SourceApproximation approxOf _) elems =
+  "<li>Approximation of <em>" ++ escapeHtml approxOf ++ "</em> " ++ elems ++ "</li>"
 
 formatEntityLink :: Entity -> String
 formatEntityLink e

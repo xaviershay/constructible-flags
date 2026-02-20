@@ -4,6 +4,8 @@
 
 module Flag.Pantone
   ( pantoneToRGB
+  , referencePantoneAsRGB
+  , approximationPantoneAsRGB
   , pantoneAgent
   , cmyk
   ) where
@@ -26,12 +28,12 @@ pantoneAgent = mkAgentOrg "pantone" "Pantone"
 pantone :: Entity
 pantone = mkEntity "Pantone" "https://www.pantone.com/"
 
--- | Lookup by string key (compiled from data/pantone.json). When available
--- the generated module provides a sourceUrl for the chip; in that case we
--- attribute a chip-specific entity to the Pantone agent so provenance can
--- show the chip image and a later `color-sample` activity can be emitted.
-pantoneToRGB :: Sourced :> es => String -> Eff es (Colour Double)
-pantoneToRGB key =
+-- | Convert a Pantone key to an sRGB colour, recording the derivation in
+-- provenance. @fromLabel@ must match the attribute name used when the
+-- Pantone code was sourced (e.g. @"Green Pantone"@), so the PROV graph can
+-- emit a @wasDerivedFrom@ link from the RGB attribute back to that attribute.
+pantoneToRGB :: Sourced :> es => String -> String -> Eff es (Colour Double)
+pantoneToRGB fromLabel key =
   case generatedPantoneRGB key of
     Just (r,g,b) ->
       case generatedPantoneSourceUrl key of
@@ -40,10 +42,27 @@ pantoneToRGB key =
               chipEntity = case lookup key generatedPantoneList of
                 Just (_, _, _, path, _) -> screenshot "" (fromMaybe path (stripPrefix "images/" path)) baseEntity
                 Nothing                -> baseEntity
-          in reference "RGB Conversion" chipEntity (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
-        Nothing -> reference "RGB Conversion" pantone (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
+          in derivedFrom (fromLabel ++ " (RGB)") fromLabel chipEntity (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
+        Nothing -> derivedFrom (fromLabel ++ " (RGB)") fromLabel pantone (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
     Nothing -> error $ "pantoneToRGB: unknown Pantone key: " ++ key
 
+
+-- | Source a Pantone colour code from an entity and immediately convert it to
+-- an sRGB colour. Combines 'reference' and 'pantoneToRGB' for the common case
+-- where both steps share the same label.
+referencePantoneAsRGB :: Sourced :> es => Entity -> (String, String) -> Eff es (Colour Double)
+referencePantoneAsRGB entity (name, key) = do
+  _ <- reference name entity key
+  pantoneToRGB name key
+
+-- | Choose a Pantone code as an editorial approximation of a previously-sourced
+-- attribute (e.g. a dye name in a spec), and convert it to RGB.
+-- @approxOf@ must match the attribute name used when the approximated value
+-- was sourced, so the PROV graph emits a @wasInfluencedBy@ link between them.
+approximationPantoneAsRGB :: Sourced :> es => String -> [Entity] -> (String, String) -> Eff es (Colour Double)
+approximationPantoneAsRGB approxOf refs (name, key) = do
+  _ <- approximation name approxOf refs key
+  pantoneToRGB name key
 
 -- | Convert CMYK percentages (0-100) to an sRGB `Colour Double`.
 -- Uses the standard subtractive-to-additive conversion: r = (1-C)*(1-K),
