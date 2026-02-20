@@ -23,7 +23,7 @@ import Flag.Definition (Flag(..))
 import Flag.Registry (allCountryFlags)
 import Flag.Render.Diagram (drawingToDiagram)
 import Flag.Render.Html (generateIndex, generateShowPage)
-import Flag.Render.Prov (generateProvXml)
+import Flag.Render.Prov (generateProvJson)
 import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
 
 main :: IO ()
@@ -113,11 +113,11 @@ processFlag flag = do
   let (_, descSources) = runPureEff $ runSourcedCollect $ flagDescription flag
   let allSources = nub (designSources ++ descSources)
 
-  -- Generate PROV XML
-  let provFile = isoLower ++ "-prov.xml"
+  -- Generate PROV JSON
+  let provFile = isoLower ++ "-prov.json"
       provPath = "out/" ++ provFile
-      provXml = generateProvXml (flagIsoCode flag) (flagName flag) allSources
-  writeFile provPath provXml
+      provJson = generateProvJson (flagIsoCode flag) (flagName flag) allSources
+  writeFile provPath provJson
 
   -- Extract construction steps from the FlagA arrow
   let constructionSteps = steps flagArrow

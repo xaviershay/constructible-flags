@@ -58,7 +58,7 @@ generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
         -- H.preEscapedToHtml $ "<div style=\"text-align:center\">$" ++ field ++"$</div>"
       H.td $ do
         H.preEscapedToHtml $ formatSources sources
-        H.preEscapedToHtml $ "<div style=\"margin-top:8px;font-size:0.85em\"><a href=\"" ++ map toLower isoCode ++ "-prov.xml\">[PROV]</a></div>"
+        H.preEscapedToHtml $ "<div style=\"margin-top:8px;font-size:0.85em\"><a href=\"" ++ map toLower isoCode ++ "-prov.json\">[PROV]</a></div>"
 
 -- ---------------------------------------------------------------------------
 -- Show page
@@ -104,7 +104,7 @@ generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, fiel
       H.preEscapedToHtml $ formatSourceCards sources
       H.h2 $ toHtml "Provenance"
       H.div ! A.style (toValue "overflow:hidden;border:1px solid #ddd;background:#fafafa;cursor:grab") $ H.preEscapedToHtml "<svg id=\"prov-hier\" width=\"880\" height=\"500\"></svg>"
-      H.script $ H.preEscapedToHtml $ "initProv(\"" ++ isoLower ++ "-prov.xml\");"
+      H.script $ H.preEscapedToHtml $ "initProv(\"" ++ isoLower ++ "-prov.json\");"
 
 -- ---------------------------------------------------------------------------
 -- Source cards (grouped sources with inline screenshots)
@@ -185,7 +185,6 @@ renderPantoneChips chips =
       Just (_, path) ->
         "<div class=\"pantone-chip\">"
         ++ "<img src=\"/images/" ++ escapeHtml path ++ "\">"
-        ++ "<span>" ++ escapeHtml (entityTitle entity) ++ "</span>"
         ++ "</div>"
       Nothing -> ""
 
