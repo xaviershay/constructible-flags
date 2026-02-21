@@ -42,25 +42,31 @@ unitedKingdom = mkCountryFlag
         -- TODO: source dimensions from flagSpec
         blueC <- impliedReference "White" flagSpec (sRGB24 0 0 255)
         redC <- impliedReference "White" flagSpec (sRGB24 255 0 0)
+        let mkDiagLines = proc (corner, center', n2, n3) -> do
+                (_, a) <- intersectLC -< ((corner, center'), (corner, n3))
+                (b, b') <- perpendicular -< (a, corner)
+                top <- parallel -< ((corner, a), b)
+                bottom <- parallel -< ((corner, a), b')
+                (_, c) <- intersectLC -< ((corner, center'), (corner, n2))
+                (d, d') <- perpendicular -< (c, corner)
+                midTop <- parallel -< ((corner, a), d)
+                midBottom <- parallel -< ((corner, a), d')
+                returnA -< (top, bottom, midTop, midBottom)
         pure $ proc (origin, unit) -> do
             -- TODO: implement actual flag design
             (tl, tr, br, bl) <- boxNatural 50 30 -< (origin, unit)
-            center <- intersectLL -< ((tl, br), (tr, bl))
+            let diagNWtoSE = (tl, br)
+            center <- intersectLL -< (diagNWtoSE, (tr, bl))
             (_, unitDown) <- perpendicular -< (origin, unit)
 
             topMid <- midpoint -< (tl, tr)
             leftMid <- midpoint -< (tl, bl)
 
-            three <- naturalMult 3 -< (origin, unit)
 
-            (_, a) <- intersectLC -< ((tl, center), (origin, three))
-            (b, _) <- perpendicular -< (a, origin)
             --(c, _) <- intersectLC -< ((a, b), (a, origin))
-            c <- parallel -< ((origin, a), b)
 
-            d <- intersectLL -< ((tl, tr), c)
-
-            --11'oclock blue triangle
+            
+           -- Middle vertical stripe
             v4' <- naturalMult 5 -< (origin, unit)
             (_, v4) <- translate -< ((origin, v4'), topMid)
             (_, v4Down) <- parallel -< ((tl, bl), v4)
@@ -68,9 +74,6 @@ unitedKingdom = mkCountryFlag
             (v1, _) <- intersectLC -< ((origin, topMid), (topMid, v4))
             (_, v1Down) <- parallel -< ((tl, bl), v1)
 
-            t1 <- intersectLL -< ((v1, v1Down), c)
-
-           -- Middle vertical stripe
             v3' <- naturalMult 3 -< (origin, unit)
             (_, v3) <- translate -< ((origin, v3'), topMid)
             (_, v3Down) <- parallel -< ((tl, bl), v3)
@@ -92,16 +95,86 @@ unitedKingdom = mkCountryFlag
 
             (_, h4) <- intersectLC -< ((origin, leftMid), (leftMid, h1))
             (_, h4Down) <- parallel -< ((tl, tr), h4)
-            _ <- arr tracePoints -< [h1, h2, h3, h4]
 
-            --4'oclock blue triangle
-            t4 <- intersectLL -< ((h4, h4Down), c)
-            t4' <- intersectLL -< ((tr, br), c)
-            b4 <- fillTriangle blueC -< (t4, h4Down, t4')
+            -- NW to SE diagonal guide lines
+            two <- naturalMult 2 -< (origin, unit)
+            three <- naturalMult 3 -< (origin, unit)
+            (topLineNWtoSE, bottomLineNWtoSE, midTopLineNWtoSE, midBottomLineNWtoSE) <- mkDiagLines -< (tl, center, two, three)
 
-            -- Triangles
+            -- NE to SW diagonal guide lines
+            let diagNEtoSW = (tr, bl)
+            (_, twoFromTR) <- translate -< ((origin, two), tr)
+            (_, threeFromTR) <- translate -< ((origin, three), tr)
+            (bottomLineNEtoSW, topLineNEtoSW, midBottomLineNEtoSW, midTopLineNEtoSW) <- mkDiagLines -< (tr, center, twoFromTR, threeFromTR)
+
+            -- Stripe boundary edge crossings
+            h1_x_right <- intersectLL -< ((h1, h1Down), (tr, br))
+            h4_x_right <- intersectLL -< ((h4, h4Down), (tr, br))
+            v1_x_bottom <- intersectLL -< ((v1, v1Down), (bl, br))
+            v4_x_bottom <- intersectLL -< ((v4, v4Down), (bl, br))
+
+            -- Red Stripes
             rVert <- fillRectangle redC -< (v2, v3, v3Down, v2Down)
-            b11 <- fillTriangle blueC -< (t1, v1, d)
             rHorz <- fillRectangle redC -< (h2, h3, h3Down, h2Down)
-            --s1 <- fillTriangle redC -< (tl, d, a)
-            returnA -< b4 <> b11 <> rVert <> rHorz
+
+            -- === NW corner (NW→SE diagonal) ===
+            topLineNWtoSE_x_top <- intersectLL -< ((tl, tr), topLineNWtoSE)
+            bottomLineNWtoSE_x_left <- intersectLL -< ((tl, bl), bottomLineNWtoSE)
+            topLineNWtoSE_x_v1 <- intersectLL -< ((v1, v1Down), topLineNWtoSE)
+            bottomLineNWtoSE_x_h1 <- intersectLL -< (bottomLineNWtoSE, (h1, h1Down))
+            midBottomLineNWtoSE_x_left <- intersectLL -< (midBottomLineNWtoSE, (tl, bl))
+            midBottomLineNWtoSE_x_h1 <- intersectLL -< (midBottomLineNWtoSE, (h1, h1Down))
+            diagNWtoSE_x_h1 <- intersectLL -< (diagNWtoSE, (h1, h1Down))
+
+            bNWBig <- fillTriangle blueC -< (bottomLineNWtoSE_x_left, bottomLineNWtoSE_x_h1, h1)
+            bNWSmall <- fillTriangle blueC -< (topLineNWtoSE_x_v1, v1, topLineNWtoSE_x_top)
+            rNW <- fillRectangle redC -< (origin, diagNWtoSE_x_h1, midBottomLineNWtoSE_x_h1, midBottomLineNWtoSE_x_left)
+
+            -- === SE corner (NW→SE diagonal) ===
+            topLineNWtoSE_x_right <- intersectLL -< ((tr, br), topLineNWtoSE)
+            topLineNWtoSE_x_h4 <- intersectLL -< ((h4, h4Down), topLineNWtoSE)
+            bottomLineNWtoSE_x_v4 <- intersectLL -< ((v4, v4Down), bottomLineNWtoSE)
+            bottomLineNWtoSE_x_bottom <- intersectLL -< (bottomLineNWtoSE, (bl, br))
+            midTopLineNWtoSE_x_right <- intersectLL -< (midTopLineNWtoSE, (tr, br))
+            midTopLineNWtoSE_x_h4 <- intersectLL -< (midTopLineNWtoSE, (h4, h4Down))
+            diagNWtoSE_x_h4 <- intersectLL -< (diagNWtoSE, (h4, h4Down))
+
+            bSEBig <- fillTriangle blueC -< (topLineNWtoSE_x_right, topLineNWtoSE_x_h4, h4_x_right)
+            bSESmall <- fillTriangle blueC -< (bottomLineNWtoSE_x_v4, v4_x_bottom, bottomLineNWtoSE_x_bottom)
+            rSE <- fillRectangle redC -< (br, diagNWtoSE_x_h4, midTopLineNWtoSE_x_h4, midTopLineNWtoSE_x_right)
+
+            -- === NE corner (NE→SW diagonal) ===
+            topLineNEtoSW_x_top <- intersectLL -< ((tl, tr), topLineNEtoSW)
+            topLineNEtoSW_x_v4 <- intersectLL -< ((v4, v4Down), topLineNEtoSW)
+
+            bottomLineNEtoSW_x_v4 <- intersectLL -< ((v4, v4Down), bottomLineNEtoSW)
+            bottomLineNEtoSW_x_h1 <- intersectLL -< (bottomLineNEtoSW, (h1, h1Down))
+            bottomLineNEtoSW_x_right <- intersectLL -< (bottomLineNEtoSW, (tr, br))
+            midTopLineNEtoSW_x_h1 <- intersectLL -< (midTopLineNEtoSW, (h1, h1Down))
+            midTopLineNEtoSW_x_top <- intersectLL -< (midTopLineNEtoSW, (tl, tr))
+            diagNEtoSW_x_h1 <- intersectLL -< (diagNEtoSW, (h1, h1Down))
+
+            bNEBig <- fillTriangle blueC -< (topLineNEtoSW_x_top, topLineNEtoSW_x_v4, v4)
+            bNESmall <- fillTriangle blueC -< (bottomLineNEtoSW_x_h1, h1Down, bottomLineNEtoSW_x_right)
+
+            -- TODO: Need to crop the end of this red triangle for 3:5 proportions
+            rNE <- fillRectangle redC -< (tr, diagNEtoSW_x_h1, midTopLineNEtoSW_x_h1, midTopLineNEtoSW_x_top)
+
+            -- === SW corner (NE→SW diagonal) ===
+            topLineNEtoSW_x_left <- intersectLL -< ((tl, bl), topLineNEtoSW)
+            topLineNEtoSW_x_h4 <- intersectLL -< ((h4, h4Down), topLineNEtoSW)
+            bottomLineNEtoSW_x_v1 <- intersectLL -< ((v1, v1Down), bottomLineNEtoSW)
+            bottomLineNEtoSW_x_bottom <- intersectLL -< (bottomLineNEtoSW, (bl, br))
+            midBottomLineNEtoSW_x_bottom <- intersectLL -< (midBottomLineNEtoSW, (bl, br))
+            midBottomLineNEtoSW_x_h4 <- intersectLL -< (midBottomLineNEtoSW, (h4, h4Down))
+            diagNEtoSW_x_h4 <- intersectLL -< (diagNEtoSW, (h4, h4Down))
+
+            bSWBig <- fillTriangle blueC -< (topLineNEtoSW_x_left, topLineNEtoSW_x_h4, h4)
+            bSWSmall <- fillTriangle blueC -< (bottomLineNEtoSW_x_v1, v1_x_bottom, bottomLineNEtoSW_x_bottom)
+            rSW <- fillRectangle redC -< (bl, diagNEtoSW_x_h4, midBottomLineNEtoSW_x_h4, midBottomLineNEtoSW_x_bottom)
+
+            returnA -< rVert <> rHorz
+                <> bNWBig <> bNWSmall <> rNW
+                <> bSEBig <> bSESmall <> rSE
+                <> bNEBig <> bNESmall <> rNE
+                <> bSWBig <> bSWSmall <> rSW
