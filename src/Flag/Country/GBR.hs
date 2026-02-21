@@ -33,13 +33,17 @@ unitedKingdom = mkCountryFlag
         "TODO: add official flag specification title"
         "TODO: add URL"
 
+    -- TODO: Move this into proper spot
+
+    -- | Trace a list of points to stderr as KaTeX expressions.
+    -- Usage in proc: @_ <- arr tracePoints -< [p1, p2, ...]@
     tracePoints :: [Point] -> [Point]
     tracePoints pts = trace (unwords (map showPt pts)) pts
       where showPt (x, y) = "(" ++ toKaTeX x ++ ", " ++ toKaTeX y ++ ")"
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        -- TODO: source dimensions from flagSpec
+        -- TODO: source dimensions and colors from flagSpec
         blueC <- impliedReference "White" flagSpec (sRGB24 0 0 255)
         redC <- impliedReference "White" flagSpec (sRGB24 255 0 0)
         let mkDiagLines = proc (corner, center', n2, n3) -> do
@@ -53,7 +57,7 @@ unitedKingdom = mkCountryFlag
                 midBottom <- parallel -< ((corner, a), d')
                 returnA -< (top, bottom, midTop, midBottom)
         pure $ proc (origin, unit) -> do
-            -- TODO: implement actual flag design
+            -- TODO: Source integers
             (tl, tr, br, bl) <- boxNatural 50 30 -< (origin, unit)
             let diagNWtoSE = (tl, br)
             center <- intersectLL -< (diagNWtoSE, (tr, bl))
@@ -62,10 +66,6 @@ unitedKingdom = mkCountryFlag
             topMid <- midpoint -< (tl, tr)
             leftMid <- midpoint -< (tl, bl)
 
-
-            --(c, _) <- intersectLC -< ((a, b), (a, origin))
-
-            
            -- Middle vertical stripe
             v4' <- naturalMult 5 -< (origin, unit)
             (_, v4) <- translate -< ((origin, v4'), topMid)
@@ -151,14 +151,17 @@ unitedKingdom = mkCountryFlag
             bottomLineNEtoSW_x_h1 <- intersectLL -< (bottomLineNEtoSW, (h1, h1Down))
             bottomLineNEtoSW_x_right <- intersectLL -< (bottomLineNEtoSW, (tr, br))
             midTopLineNEtoSW_x_h1 <- intersectLL -< (midTopLineNEtoSW, (h1, h1Down))
+            midTopLineNEtoSW_x_v4 <- intersectLL -< (midTopLineNEtoSW, (v4, v4Down))
             midTopLineNEtoSW_x_top <- intersectLL -< (midTopLineNEtoSW, (tl, tr))
             diagNEtoSW_x_h1 <- intersectLL -< (diagNEtoSW, (h1, h1Down))
+            v4_x_h1 <- intersectLL -< ((v4, v4Down), (h1, h1Down))
 
             bNEBig <- fillTriangle blueC -< (topLineNEtoSW_x_top, topLineNEtoSW_x_v4, v4)
             bNESmall <- fillTriangle blueC -< (bottomLineNEtoSW_x_h1, h1Down, bottomLineNEtoSW_x_right)
 
-            -- TODO: Need to crop the end of this red triangle for 3:5 proportions
-            rNE <- fillRectangle redC -< (tr, diagNEtoSW_x_h1, midTopLineNEtoSW_x_h1, midTopLineNEtoSW_x_top)
+            -- TODO: Think about how to make this resilient to proportion changes
+            rNE1 <- fillRectangle redC -< (tr, diagNEtoSW_x_h1, v4_x_h1, midTopLineNEtoSW_x_top)
+            rNE2 <- fillTriangle redC -< (v4_x_h1, midTopLineNEtoSW_x_v4, midTopLineNEtoSW_x_top)
 
             -- === SW corner (NE→SW diagonal) ===
             topLineNEtoSW_x_left <- intersectLL -< ((tl, bl), topLineNEtoSW)
@@ -167,14 +170,18 @@ unitedKingdom = mkCountryFlag
             bottomLineNEtoSW_x_bottom <- intersectLL -< (bottomLineNEtoSW, (bl, br))
             midBottomLineNEtoSW_x_bottom <- intersectLL -< (midBottomLineNEtoSW, (bl, br))
             midBottomLineNEtoSW_x_h4 <- intersectLL -< (midBottomLineNEtoSW, (h4, h4Down))
+            midBottomLineNEtoSW_x_v1 <- intersectLL -< (midBottomLineNEtoSW, (v1, v1Down))
+            diagNEtoSW_x_v1 <- intersectLL -< (diagNEtoSW, (v1, v1Down))
             diagNEtoSW_x_h4 <- intersectLL -< (diagNEtoSW, (h4, h4Down))
+            v1_x_h4 <- intersectLL -< ((v1, v1Down), (h4, h4Down))
 
             bSWBig <- fillTriangle blueC -< (topLineNEtoSW_x_left, topLineNEtoSW_x_h4, h4)
             bSWSmall <- fillTriangle blueC -< (bottomLineNEtoSW_x_v1, v1_x_bottom, bottomLineNEtoSW_x_bottom)
-            rSW <- fillRectangle redC -< (bl, diagNEtoSW_x_h4, midBottomLineNEtoSW_x_h4, midBottomLineNEtoSW_x_bottom)
+            rSW1 <- fillRectangle redC -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_bottom)
+            rSW2 <- fillTriangle redC -< (v1_x_h4, midBottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_bottom)
 
             returnA -< rVert <> rHorz
                 <> bNWBig <> bNWSmall <> rNW
                 <> bSEBig <> bSESmall <> rSE
-                <> bNEBig <> bNESmall <> rNE
-                <> bSWBig <> bSWSmall <> rSW
+                <> bNEBig <> bNESmall <> rNE1 <> rNE2
+                <> bSWBig <> bSWSmall <> rSW1 -- <> rSW2
