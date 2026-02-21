@@ -14,27 +14,50 @@ import Effectful
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
-import Flag.Definition (Flag, mkCountryFlag)
+import Flag.Definition (Flag, mkCountryFlag, editorNote)
 
 unitedKingdom :: Sourced :> es => Flag es
-unitedKingdom = mkCountryFlag
+unitedKingdom = editorNote (
+       "A 5:3 proportion is used here for a flag to be flown on land. "
+    ++ "2:1 would also be appropriate for one to be flown at sea. "
+    ++ "This is potentially a controversial choice, 2:1 is often quoted as the \"official\" proportions ... by non-official sources. "
+    ++ "The Flag Institute could have been a compelling alternate source, being the "
+    ++ "origin of a 2008 bill (not passed) to better formalise the flag in law. "
+    ++ "It specifies slightly different RGB approximations of the same "
+    ++ "Pantone colors, but proscribes the same 5:3 proportions for use on land."
+  ) $ mkCountryFlag
   "GBR"
   "United Kingdom"
-  (reference "Description" flagSpec "TODO: add official flag description")
+  (do
+    p1 <- reference "Description" gazette "\"And that the Union Flag shall be Azure, the Crosses Saltires of St. Andrew and St. Patrick Quarterly per Saltire, counterchanged Argent and Gules; the latter fimbriated of the Second, surmounted by the Cross of St. George of the Third, fimbriated as the Saltire.\""
+    p2 <- reference "Description" flagInstitute "The Union Flag comprises three crosses on a royal blue background: a red St George's cross a white St Andrew's saltire a red St Patrick's saltire."
+    return (p1 ++ "\n\n" ++ p2)
+  )
   design
 
   where
-    gov = mkAgentOrg "gbr_gov" "Government of United Kingdom"
+    constructedAt = "2026-02-22"
 
-    flagSpec = attributeTo gov $ mkEntity
-        "TODO: add official flag specification title"
-        "TODO: add URL"
+    flagInstitute = screenshot constructedAt "gbr/flag-institute.png" $ mkEntity
+      "The Flag Institute"
+      "https://www.flaginstitute.org/wp/uk-flags/union-flag-specification/"
+
+    gazette = screenshot constructedAt "gbr/gazette.png" $ mkEntity
+      "King's Proclamation, reported in The London Gazette"
+      "https://www.thegazette.co.uk/London/issue/15324/page/3"
+      -- Dec 30, 1800
+
+    flagSpec = screenshot constructedAt "gbr/construction-sheet.png" $ mkEntity
+        "College of Arms"
+        "https://www.college-of-arms.gov.uk/images/downloads/Union_Flag_5-3_guide_v3.pdf"
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        -- TODO: source dimensions and colors from flagSpec
-        blueC <- impliedReference "White" flagSpec (sRGB24 0 0 255)
-        redC <- impliedReference "White" flagSpec (sRGB24 255 0 0)
+        (w, h, bigWide, mediumWide) <- reference "Dimensions" flagSpec (50, 30, 3, 2)
+        blueC <- reference "Royal Blue" flagSpec (sRGB24 1 33 105)
+        redC <- reference "Red" flagSpec (sRGB24 200 16 46)
+        whiteC <- reference "White" flagSpec (sRGB24 255 255 255)
+
         let mkDiagLines = proc (corner, center', n2, n3) -> do
                 (_, a) <- intersectLC -< ((corner, center'), (corner, n3))
                 (b, b') <- perpendicular -< (a, corner)
@@ -46,8 +69,7 @@ unitedKingdom = mkCountryFlag
                 midBottom <- parallel -< ((corner, a), d')
                 returnA -< (top, bottom, midTop, midBottom)
         pure $ proc (origin, unit) -> do
-            -- TODO: Source integers
-            (tl, tr, br, bl) <- boxNatural 50 30 -< (origin, unit)
+            (tl, tr, br, bl) <- boxNatural w h -< (origin, unit)
             let diagNWtoSE = (tl, br)
             center <- intersectLL -< (diagNWtoSE, (tr, bl))
             (_, unitDown) <- perpendicular -< (origin, unit)
@@ -78,7 +100,7 @@ unitedKingdom = mkCountryFlag
             (_, h2) <- intersectLC -< ((origin, leftMid), (leftMid, h3))
             (_, h2Down) <- parallel -< ((tl, tr), h2)
 
-            h1' <- naturalMult 5 -< (origin, unitDown)
+            h1' <- naturalMult (bigWide + mediumWide) -< (origin, unitDown)
             (_, h1) <- translate -< ((origin, h1'), leftMid)
             (_, h1Down) <- parallel -< ((tl, tr), h1)
 
@@ -86,8 +108,8 @@ unitedKingdom = mkCountryFlag
             (_, h4Down) <- parallel -< ((tl, tr), h4)
 
             -- NW to SE diagonal guide lines
-            two <- naturalMult 2 -< (origin, unit)
-            three <- naturalMult 3 -< (origin, unit)
+            two <- naturalMult mediumWide -< (origin, unit)
+            three <- naturalMult bigWide -< (origin, unit)
             (topLineNWtoSE, bottomLineNWtoSE, midTopLineNWtoSE, midBottomLineNWtoSE) <- mkDiagLines -< (tl, center, two, three)
 
             -- NE to SW diagonal guide lines
@@ -164,7 +186,9 @@ unitedKingdom = mkCountryFlag
             rSW1 <- fillRectangle redC -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_bottom)
             rSW2 <- fillTriangle redC -< (v1_x_h4, midBottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_bottom)
 
-            returnA -< rVert <> rHorz
+            bg <- fillRectangle whiteC -< (tl, tr, br, bl)
+
+            returnA -< bg <> rVert <> rHorz
                 <> bNWBig <> bNWSmall <> rNW
                 <> bSEBig <> bSESmall <> rSE
                 <> bNEBig <> bNESmall <> rNE1 <> rNE2

@@ -90,7 +90,7 @@ generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, fiel
         H.a ! A.href (toValue svgFile) $ H.img ! A.src (toValue svgFile) ! A.alt (toValue $ escapeHtml name)
         H.div ! A.class_ (toValue "flag-info") $ do
           H.h1 $ H.toHtml $ escapeHtml name
-          H.div ! A.class_ (toValue "description") $ H.toHtml $ escapeHtml desc
+          H.div ! A.class_ (toValue "description") $ H.toHtml $ desc
           if not (null editorNote) then
             H.div ! A.class_ (toValue "editor-note") $ do
               H.i $ H.toHtml "Editor's note: "
