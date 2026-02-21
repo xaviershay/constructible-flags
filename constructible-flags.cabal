@@ -49,6 +49,7 @@ library
       Flag.Country.BTN
       Flag.Country.BWA
       Flag.Country.FRA
+      Flag.Country.GBR
       Flag.Country.JOR
       Flag.Country.JPN
       Flag.Definition
