@@ -13,6 +13,7 @@ import Effectful
 
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
+import Data.Ratio ((%))
 import Flag.Source
 import Flag.Definition (Flag, mkCountryFlag)
 
@@ -34,7 +35,7 @@ japan = mkCountryFlag
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
         (h, w) <- reference "2:3 proportion" flagLaw (2, 3)
-        (n, d) <- reference "Disc height" flagLaw (3, 5)
+        discRatio <- reference "Disc height" flagLaw (3 % 5)
         whiteColor <- impliedReference "White" flagLaw (sRGB24 255 255 255)
         redColor   <- impliedReference "Crimson" flagLaw (sRGB24 188 0 45)
         pure $ proc origin -> do
@@ -42,7 +43,7 @@ japan = mkCountryFlag
 
             center <- intersectLL -< ((tl, br), (tr, bl))
             top <- midpoint -< (tl, tr)
-            edge <- rationalMult n d -< (center, top)
+            edge <- rationalMult discRatio -< (center, top)
 
             bg <- fillRectangle whiteColor -< (tl, tr, br, bl)
             disc <- fillCircle redColor -< (center, edge)

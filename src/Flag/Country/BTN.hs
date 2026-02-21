@@ -13,6 +13,7 @@ import Effectful
 
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
+import Data.Ratio ((%))
 import Flag.Source
 import Flag.Pantone
 import Flag.Definition (Flag, mkCountryFlag, editorNote)
@@ -58,8 +59,7 @@ bhutan = editorNote "The dragon design used here is not the most common on the i
         orangeC <- referencePantoneAsRGB loc ("Orange", "165-C")
         yellowC <- referencePantoneAsRGB loc ("Yellow", "116-C")
         dragonDesign <- reference "Dragon Design" commons "data/images/btn/dragon.svg"
-        (ps, qs) <- editorial "Dragon" [toc, commons, fotw] (3, 4)
-
+        dragonScale <- editorial "Dragon" [toc, commons, fotw] (3 % 4)
 
         pure $ proc origin -> do
             (tl, tr, br, bl) <- boxNatural w h -< origin
@@ -72,7 +72,7 @@ bhutan = editorNote "The dragon design used here is not the most common on the i
 
             center <- intersectLL -< ((tl, br), (tr, bl))
 
-            scale <- rationalMult ps qs -< (center, tr)
+            scale <- rationalMult dragonScale -< (center, tr)
             dragon <- overlaySVG dragonDesign -< (center, scale)
 
 

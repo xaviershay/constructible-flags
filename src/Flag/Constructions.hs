@@ -37,6 +37,7 @@ module Flag.Constructions
 
 import Control.Arrow (returnA, arr)
 import Data.Colour
+import Data.Ratio (Ratio, numerator, denominator)
 
 import Flag.Construction.Types
 
@@ -360,20 +361,24 @@ midpoint = group "Midpoint" $ proc (a, b) -> do
 -- Thales' theorem construction.  Marks @q@ units on an auxiliary line,
 -- connects the @q@th mark to @b@, then constructs a parallel through
 -- the @p@th mark to find the desired point on @(a, b)@.
-rationalMult :: Int -> Int -> FlagA (Point, Point) Point
-rationalMult p q
-  | p == q    = group (show p ++ "/" ++ show q) $ Arr "snd" snd
-  | otherwise = group (show p ++ "/" ++ show q) $ proc (a, b) -> do
-      -- Get a perpendicular direction for the auxiliary line
-      (c, _) <- perpendicular -< (a, b)
-      qPt <- naturalMult q -< (a, c)
-      pPt <- naturalMult p -< (a, c)
+rationalMult :: Ratio Int -> FlagA (Point, Point) Point
+rationalMult r
+  | r == 1    = let p = numerator r
+                    q = denominator r
+                in group (show p ++ "/" ++ show q) $ Arr "snd" snd
+  | otherwise = let p = numerator r
+                    q = denominator r
+                in group (show p ++ "/" ++ show q) $ proc (a, b) -> do
+                     -- Get a perpendicular direction for the auxiliary line
+                     (c, _) <- perpendicular -< (a, b)
+                     qPt <- naturalMult q -< (a, c)
+                     pPt <- naturalMult p -< (a, c)
 
-      (_, target) <- translate -< ((qPt, b), pPt)
+                     (_, target) <- translate -< ((qPt, b), pPt)
 
-      -- Intersect that parallel with the original line (a, b)
-      result <- intersectLL -< ((pPt, target), (a, b))
-      returnA -< result
+                     -- Intersect that parallel with the original line (a, b)
+                     result <- intersectLL -< ((pPt, target), (a, b))
+                     returnA -< result
 
 boxNatural :: Int -> Int -> FlagA (Point, Point) (Point, Point, Point, Point)
 boxNatural w h = proc (tl, b) -> do

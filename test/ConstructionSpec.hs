@@ -11,7 +11,7 @@ import Flag.Construction.Interpreter (eval)
 import Flag.Construction.Types (Point)
 import Flag.Construction.Geometry (dist)
 import Flag.Construction.Radical (Radical(..), toDouble)
-import Data.Ratio ((%))
+import Data.Ratio (Ratio, (%))
 import ArbitraryRadical ()
 
 -- | Approximate equality for points, converting Radical to Double.
@@ -46,8 +46,8 @@ evalTrans = eval translate
 evalMid :: (Point, Point) -> Point
 evalMid = eval midpoint
 
-evalRM :: Int -> Int -> (Point, Point) -> Point
-evalRM p q = eval (rationalMult p q)
+evalRM :: Ratio Int -> (Point, Point) -> Point
+evalRM r = eval (rationalMult r)
 
 constructionTests :: TestTree
 constructionTests = testGroup "Constructions"
@@ -219,19 +219,19 @@ constructionTests = testGroup "Constructions"
     ]
   , testGroup "rationalMult"
     [ testCase "p=q returns second point" $
-        evalRM 3 3 ((0, 0), (1, 0)) @?= (1, 0)
+        evalRM (3 % 3) ((0, 0), (1, 0)) @?= (1, 0)
 
     , testCase "1/2 on horizontal unit segment" $
-        approxEqual "1/2" (0.5, 0) (evalRM 1 2 ((0, 0), (1, 0)))
+        approxEqual "1/2" (0.5, 0) (evalRM (1 % 2) ((0, 0), (1, 0)))
 
     , testCase "1/3 on horizontal unit segment" $
-        approxEqual "1/3" (1/3, 0) (evalRM 1 3 ((0, 0), (1, 0)))
+        approxEqual "1/3" (1/3, 0) (evalRM (1 % 3) ((0, 0), (1, 0)))
 
     , testCase "1/2 on vertical segment" $
-        approxEqual "1/2 vertical" (0, 0.5) (evalRM 1 2 ((0, 0), (0, 1)))
+        approxEqual "1/2 vertical" (0, 0.5) (evalRM (1 % 2) ((0, 0), (0, 1)))
 
     , testCase "1/2 with non-origin start" $
-        approxEqual "1/2 offset" (2, 0) (evalRM 1 2 ((1, 0), (3, 0)))
+        approxEqual "1/2 offset" (2, 0) (evalRM (1 % 2) ((1, 0), (3, 0)))
     ]
   , testGroup "translate"
     [ testProperty "result passes through the given point" $

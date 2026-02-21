@@ -13,6 +13,7 @@ import Effectful
 
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
+import Data.Ratio ((%))
 import Flag.Source
 import Flag.Definition (Flag, mkCountryFlag, editorNote)
 import Flag.Pantone
@@ -68,7 +69,7 @@ jordan = editorNote (
 
         proportions <- reference "Stripe Heights" constitution [1, 1, 1]
         _ <- reference "Triangle Dimenstions" constitution ()
-        (sn, sd) <- reference "Star Specification" constitution (1, 14)
+        starRatio <- reference "Star Specification" constitution (1 % 14)
 
         let colors = [blackC, whiteC, greenC]
         pure $ proc (a, b) -> do
@@ -83,7 +84,7 @@ jordan = editorNote (
             b2 <- bisectAngle -< (center, (tl, bl))
             triangleCenter <- intersectLL -< (b1, b2)
 
-            r <- rationalMult sn (sd * 2) -< (tl, tr)
+            r <- rationalMult (starRatio / 2) -< (tl, tr)
             (_, r') <- perpendicular -< (tl, r)
             starEdge <- translate -< ((tl, r'), triangleCenter)
 

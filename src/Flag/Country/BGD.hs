@@ -13,6 +13,7 @@ import Effectful
 
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
+import Data.Ratio ((%))
 import Flag.Source
 import Flag.Pantone
 import Flag.Definition (Flag, mkCountryFlag)
@@ -43,8 +44,8 @@ bangladesh = mkCountryFlag
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
         (w, h) <- reference "Proportion" flagRules (10, 6)
-        (pr, qr) <- reference "Disc/Length Ratio" flagRules (1, 5)
-        (pc, qc) <- reference "Disc Centre" flagRules (9, 20)
+        discRatio <- reference "Disc/Length Ratio" flagRules (1 % 5)
+        centerRatio <- reference "Disc Centre" flagRules (9 % 20)
         _ <- reference "Green Dye" flagRules "Procion Brilliant Green H-2RS 50/1000"
         _ <- reference "Red Dye"   flagRules "Procion Brilliant Orange H-2RS 60/1000"
         greenColor <- approximationPantoneAsRGB "Green Dye" references ("Green", "342-C")
@@ -57,11 +58,11 @@ bangladesh = mkCountryFlag
             leftMid  <- midpoint -< (tl, bl)
             rightMid <- midpoint -< (tr, br)
 
-            topNineTwentieth <- rationalMult pc qc -< (tl, tr)
+            topNineTwentieth <- rationalMult centerRatio -< (tl, tr)
 
             p <- perpendicular -< (topNineTwentieth, tr)
             discCenter <- intersectLL -< (p, (leftMid, rightMid))
-            radiusPoint <- rationalMult pr qr -< (leftMid, rightMid)
+            radiusPoint <- rationalMult discRatio -< (leftMid, rightMid)
             (_, edgePoint) <- translate -< ((leftMid, radiusPoint), discCenter)
 
             bg   <- fillRectangle greenColor -< (tl, tr, br, bl)
