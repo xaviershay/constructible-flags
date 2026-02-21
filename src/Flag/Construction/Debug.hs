@@ -5,8 +5,12 @@
 -- making it easy to spot where a construction goes wrong.
 module Flag.Construction.Debug
     ( trace
+    , tracePoints
     ) where
 
+import qualified Debug.Trace as DT
+
+import Flag.Construction.Radical (toKaTeX)
 import Flag.Construction.Types
 import Flag.Construction.Geometry
 import Flag.Construction.Optimize
@@ -58,3 +62,10 @@ trace fa input = do
     go n (Group label f) a = do
         putStrLn $ indent n ++ ">> " ++ label
         go (n + 1) f a
+
+-- | Trace a list of points to stderr as KaTeX expressions, returning
+-- the list unchanged. For use in proc blocks:
+-- @_ <- arr tracePoints -< [p1, p2, ...]@
+tracePoints :: [Point] -> [Point]
+tracePoints pts = DT.trace (unwords (map showPt pts)) pts
+  where showPt (x, y) = "(" ++ toKaTeX x ++ ", " ++ toKaTeX y ++ ")"

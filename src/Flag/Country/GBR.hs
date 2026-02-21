@@ -8,14 +8,12 @@ module Flag.Country.GBR
     ) where
 
 import Data.Colour.SRGB (sRGB24)
-import Control.Arrow (returnA, arr)
-import Debug.Trace (trace)
+import Control.Arrow (returnA)
 import Effectful
 
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
-import Flag.Construction.Radical (toKaTeX)
 import Flag.Definition (Flag, mkCountryFlag)
 
 unitedKingdom :: Sourced :> es => Flag es
@@ -26,20 +24,11 @@ unitedKingdom = mkCountryFlag
   design
 
   where
-    constructedAt = "2026-02-21"
     gov = mkAgentOrg "gbr_gov" "Government of United Kingdom"
 
     flagSpec = attributeTo gov $ mkEntity
         "TODO: add official flag specification title"
         "TODO: add URL"
-
-    -- TODO: Move this into proper spot
-
-    -- | Trace a list of points to stderr as KaTeX expressions.
-    -- Usage in proc: @_ <- arr tracePoints -< [p1, p2, ...]@
-    tracePoints :: [Point] -> [Point]
-    tracePoints pts = trace (unwords (map showPt pts)) pts
-      where showPt (x, y) = "(" ++ toKaTeX x ++ ", " ++ toKaTeX y ++ ")"
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
@@ -108,7 +97,6 @@ unitedKingdom = mkCountryFlag
             (bottomLineNEtoSW, topLineNEtoSW, midBottomLineNEtoSW, midTopLineNEtoSW) <- mkDiagLines -< (tr, center, twoFromTR, threeFromTR)
 
             -- Stripe boundary edge crossings
-            h1_x_right <- intersectLL -< ((h1, h1Down), (tr, br))
             h4_x_right <- intersectLL -< ((h4, h4Down), (tr, br))
             v1_x_bottom <- intersectLL -< ((v1, v1Down), (bl, br))
             v4_x_bottom <- intersectLL -< ((v4, v4Down), (bl, br))
@@ -147,10 +135,8 @@ unitedKingdom = mkCountryFlag
             topLineNEtoSW_x_top <- intersectLL -< ((tl, tr), topLineNEtoSW)
             topLineNEtoSW_x_v4 <- intersectLL -< ((v4, v4Down), topLineNEtoSW)
 
-            bottomLineNEtoSW_x_v4 <- intersectLL -< ((v4, v4Down), bottomLineNEtoSW)
             bottomLineNEtoSW_x_h1 <- intersectLL -< (bottomLineNEtoSW, (h1, h1Down))
             bottomLineNEtoSW_x_right <- intersectLL -< (bottomLineNEtoSW, (tr, br))
-            midTopLineNEtoSW_x_h1 <- intersectLL -< (midTopLineNEtoSW, (h1, h1Down))
             midTopLineNEtoSW_x_v4 <- intersectLL -< (midTopLineNEtoSW, (v4, v4Down))
             midTopLineNEtoSW_x_top <- intersectLL -< (midTopLineNEtoSW, (tl, tr))
             diagNEtoSW_x_h1 <- intersectLL -< (diagNEtoSW, (h1, h1Down))
@@ -169,9 +155,7 @@ unitedKingdom = mkCountryFlag
             bottomLineNEtoSW_x_v1 <- intersectLL -< ((v1, v1Down), bottomLineNEtoSW)
             bottomLineNEtoSW_x_bottom <- intersectLL -< (bottomLineNEtoSW, (bl, br))
             midBottomLineNEtoSW_x_bottom <- intersectLL -< (midBottomLineNEtoSW, (bl, br))
-            midBottomLineNEtoSW_x_h4 <- intersectLL -< (midBottomLineNEtoSW, (h4, h4Down))
             midBottomLineNEtoSW_x_v1 <- intersectLL -< (midBottomLineNEtoSW, (v1, v1Down))
-            diagNEtoSW_x_v1 <- intersectLL -< (diagNEtoSW, (v1, v1Down))
             diagNEtoSW_x_h4 <- intersectLL -< (diagNEtoSW, (h4, h4Down))
             v1_x_h4 <- intersectLL -< ((v1, v1Down), (h4, h4Down))
 
