@@ -236,6 +236,8 @@ layerGeomSvg (LayerCircle _ cc ce) =
     let (cx,cy) = toDP cc
     in  svgCircleOutline cx cy (toD (pointDist cc ce))
 
+layerGeomSvg (LayerSVGOverlay _ _ _) = ""
+
 -- | Generate the persistent fill SVG for a layer
 layerFillSvg :: ConstructionLayer -> String
 layerFillSvg (LayerTriangle col p1 p2 p3) =

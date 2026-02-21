@@ -21,10 +21,11 @@ import Flag.Construction.Tree (evalTree)
 import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
 import Flag.Definition (Flag(..))
 import Flag.Registry (allCountryFlags)
-import Flag.Render.Diagram (drawingToDiagram)
+import Flag.Render.Diagram (drawingToDiagramWith)
 import Flag.Render.Html (generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
 import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
+import Flag.Render.SVGOverlay (loadOverlays)
 
 main :: IO ()
 main = do
@@ -102,7 +103,9 @@ processFlag flag = do
   -- Evaluate the arrow on a unit input to get the Drawing
   let flagInput = ((0, 0), (1, 0)) :: (Point, Point)
       (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
-      diagram = drawingToDiagram (optimize drawing)
+      optimized = optimize drawing
+  overlayMap <- loadOverlays optimized
+  let diagram = drawingToDiagramWith overlayMap optimized
   renderSVG svgPath (mkWidth 300) diagram
 
   -- Get description

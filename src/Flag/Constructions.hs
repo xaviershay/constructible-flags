@@ -14,6 +14,9 @@ module Flag.Constructions
     , fillStar7x3
     , ngonVertex
 
+      -- * SVG overlay
+    , overlaySVG
+
       -- * Grouping
     , group
 
@@ -205,6 +208,12 @@ fillStar7x3 col = group "Fill {7/3} star" $ proc (o, a) -> do
 -- | Fill a circle defined by its center and an edge point
 fillCircle :: Colour Double -> FlagA (Point, Point) Drawing
 fillCircle = FillCircle
+
+-- | Overlay an external SVG file, scaled to fit within a bounding circle
+-- defined by its center and an edge point. The SVG's native aspect ratio
+-- is preserved.
+overlaySVG :: FilePath -> FlagA (Point, Point) Drawing
+overlaySVG = OverlaySVG
 
 -- | Group a sub-computation under a label for documentation / debugging
 group :: String -> FlagA a b -> FlagA a b

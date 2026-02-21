@@ -26,6 +26,7 @@ data Drawing
   = DrawTriangle (Colour Double) Point Point Point
   | DrawPath (Colour Double) [Point]  -- ^ A closed polygon as an ordered list of vertices
   | DrawCircle (Colour Double) Point Radical  -- ^ A filled circle: colour, center, radius
+  | DrawSVGOverlay FilePath Point Point  -- ^ An external SVG overlay: file path, center, edge
   | Overlay Drawing Drawing
   | EmptyDrawing
   
@@ -43,6 +44,7 @@ formatDrawing n d = unlines (go n d)
     go _ (DrawTriangle col p1 p2 p3) = ["DrawTriangle " ++ show col ++ " " ++ showPoint p1 ++ " " ++ showPoint p2 ++ " " ++ showPoint p3]
     go _ (DrawPath col pts) = ["DrawPath " ++ show col ++ " " ++ show (map showPoint pts)]
     go _ (DrawCircle col center r) = ["DrawCircle " ++ show col ++ " " ++ showPoint center ++ " r=" ++ showDbl r]
+    go _ (DrawSVGOverlay path center edge) = ["DrawSVGOverlay " ++ show path ++ " " ++ showPoint center ++ " " ++ showPoint edge]
     go _ (Overlay a b) = go 0 a ++ go 0 b
     go _ EmptyDrawing = ["EmptyDrawing"]
 
@@ -92,6 +94,7 @@ data FlagA a b where
   -- Drawing primitives
   FillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
   FillCircle   :: Colour Double -> FlagA (Point, Point) Drawing  -- ^ (center, edgePoint)
+  OverlaySVG   :: FilePath -> FlagA (Point, Point) Drawing  -- ^ (center, edgePoint)
 
   -- Grouping (label a sub-computation for documentation / debugging)
   Group :: String -> FlagA a b -> FlagA a b
@@ -122,6 +125,7 @@ showFlagA n fa = indent n ++ case fa of
   NGonVertex _ _  -> "NGonVertex"
   FillTriangle _  -> "FillTriangle"
   FillCircle _    -> "FillCircle"
+  OverlaySVG p    -> "OverlaySVG " ++ show p
   Group label f   -> "Group " ++ show label ++ "\n" ++ showFlagA (n+2) f
   where
     indent i = replicate i ' '
@@ -139,5 +143,7 @@ drawingRadicals (DrawPath _ pts) =
   concatMap (\(x, y) -> [x, y]) pts
 drawingRadicals (DrawCircle _ (cx, cy) r) =
   [cx, cy, r]
+drawingRadicals (DrawSVGOverlay _ (cx, cy) (ex, ey)) =
+  [cx, cy, ex, ey]
 drawingRadicals (Overlay a b) =
   drawingRadicals a ++ drawingRadicals b

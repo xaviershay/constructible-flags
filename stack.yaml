@@ -42,6 +42,7 @@ packages:
 #
 extra-deps:
 - webp-0.1.2.0@sha256:d7c850577627529b73857af71ff9a7af98ae178d6c0b05aa7fec4030d82a38d7,2426
+- diagrams-input-0.1.5@sha256:135104e3b5c4b912f30b8d863e9d4e40783ad4c296e2d516533bb92df14291d5,2239
 
 # Override default flag values for project packages and extra-deps
 # flags: {}

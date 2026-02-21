@@ -1,7 +1,9 @@
 module Flag.GeneratedPantone (generatedPantoneRGB, generatedPantoneSourceUrl, generatedPantoneList) where
 
 generatedPantoneRGB :: String -> Maybe (Int, Int, Int)
+generatedPantoneRGB "116-C" = Just (255,205,0)
 generatedPantoneRGB "15-4225-TCX" = Just (111,168,210)
+generatedPantoneRGB "165-C" = Just (255,104,30)
 generatedPantoneRGB "200-C" = Just (186,11,47)
 generatedPantoneRGB "342-C" = Just (2,102,71)
 generatedPantoneRGB "356-C" = Just (1,123,57)
@@ -11,7 +13,9 @@ generatedPantoneRGB "REFLEX-BLUE-C" = Just (1,20,139)
 generatedPantoneRGB _ = Nothing
 
 generatedPantoneSourceUrl :: String -> Maybe String
+generatedPantoneSourceUrl "116-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-116-c.webp"
 generatedPantoneSourceUrl "15-4225-TCX" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-15-4225-tcx.webp"
+generatedPantoneSourceUrl "165-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-165-c.webp"
 generatedPantoneSourceUrl "200-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-200-c.webp"
 generatedPantoneSourceUrl "342-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-342-c.webp"
 generatedPantoneSourceUrl "356-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-356-c.webp"
@@ -22,7 +26,9 @@ generatedPantoneSourceUrl _ = Nothing
 
 generatedPantoneList :: [(String, (Int, Int, Int, String, String))]
 generatedPantoneList = [
+    ("116-C", (255,205,0,"images/pantone/116-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-116-c.webp")),
     ("15-4225-TCX", (111,168,210,"images/pantone/15-4225-TCX.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-15-4225-tcx.webp")),
+    ("165-C", (255,104,30,"images/pantone/165-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-165-c.webp")),
     ("200-C", (186,11,47,"images/pantone/200-c.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-200-c.webp")),
     ("342-C", (2,102,71,"images/pantone/342-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-342-c.webp")),
     ("356-C", (1,123,57,"images/pantone/356-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-356-c.webp")),

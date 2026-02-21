@@ -19,6 +19,7 @@ import Flag.Construction.Types (Point)
 expectedCosts :: [(String, Int)]
 expectedCosts =
   [ ("BGD", 55)
+  , ("BTN", 29)
   , ("BWA", 78)
   , ("FRA", 35)
   , ("JOR", 102)

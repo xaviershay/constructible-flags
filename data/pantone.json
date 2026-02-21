@@ -1,4 +1,15 @@
 {
+    "116-C": {
+        "chip": "images/pantone/116-C.webp",
+        "label": "116-C",
+        "rgb": [
+            255,
+            205,
+            0
+        ],
+        "sampledAt": "2026-02-20T22:20:06Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-116-c.webp"
+    },
     "15-4225-TCX": {
         "chip": "images/pantone/15-4225-TCX.webp",
         "label": "15-4225-TCX",
@@ -9,6 +20,17 @@
         ],
         "sampledAt": "2026-02-15T23:49:29Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-15-4225-tcx.webp"
+    },
+    "165-C": {
+        "chip": "images/pantone/165-C.webp",
+        "label": "165-C",
+        "rgb": [
+            255,
+            104,
+            30
+        ],
+        "sampledAt": "2026-02-20T22:20:11Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-165-c.webp"
     },
     "200-C": {
         "chip": "images/pantone/200-c.webp",

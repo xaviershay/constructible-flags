@@ -35,6 +35,7 @@ data ConstructionLayer
       [Point]           -- ^ Result point
   | LayerTriangle (Colour Double) Point Point Point  -- ^ A filled triangle
   | LayerCircle (Colour Double) Point Point  -- ^ A filled circle (center, edge)
+  | LayerSVGOverlay FilePath Point Point  -- ^ An external SVG overlay (path, center, edge)
   deriving (Show)
 
 -- | The points consumed as inputs by a construction layer.
@@ -45,6 +46,7 @@ layerInputPoints (LayerIntersectCC c1 e1 c2 e2 _)   = [c1, e1, c2, e2]
 layerInputPoints (LayerNGonVertex c e _)              = [c, e]
 layerInputPoints (LayerTriangle _ p1 p2 p3)          = [p1, p2, p3]
 layerInputPoints (LayerCircle _ center edge)         = [center, edge]
+layerInputPoints (LayerSVGOverlay _ center edge)     = [center, edge]
 
 -- | The points produced as outputs by a construction layer.
 layerOutputPoints :: ConstructionLayer -> [Point]
@@ -54,6 +56,7 @@ layerOutputPoints (LayerIntersectCC _ _ _ _ pts) = pts
 layerOutputPoints (LayerNGonVertex _ _ pts)      = pts
 layerOutputPoints (LayerTriangle _ _ _ _)        = []
 layerOutputPoints (LayerCircle _ _ _)            = []
+layerOutputPoints (LayerSVGOverlay _ _ _)        = []
 
 -- | Euclidean distance (exported for rendering code that derives radii).
 pointDist :: Point -> Point -> Radical
@@ -87,4 +90,6 @@ evalLayers (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
 evalLayers (FillCircle col) (center, edge) =
     (DrawCircle col center (dist center edge), [LayerCircle col center edge])
+evalLayers (OverlaySVG path) (center, edge) =
+    (DrawSVGOverlay path center edge, [LayerSVGOverlay path center edge])
 evalLayers (Group _ f)        x = evalLayers f x

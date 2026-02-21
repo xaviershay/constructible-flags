@@ -59,6 +59,7 @@ drawingToDiagramRaster (DrawPath col pts@(_:_)) =
         # lwG 0
         # moveTo (p2 (x0, y0))
 drawingToDiagramRaster (DrawPath _ []) = mempty
+drawingToDiagramRaster (DrawSVGOverlay _ _ _) = mempty
 drawingToDiagramRaster (DrawCircle col center rd) =
   let (cx, cy) = toDP center
       r = toD rd

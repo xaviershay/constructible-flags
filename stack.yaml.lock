@@ -11,6 +11,13 @@ packages:
       size: 862
   original:
     hackage: webp-0.1.2.0@sha256:d7c850577627529b73857af71ff9a7af98ae178d6c0b05aa7fec4030d82a38d7,2426
+- completed:
+    hackage: diagrams-input-0.1.5@sha256:135104e3b5c4b912f30b8d863e9d4e40783ad4c296e2d516533bb92df14291d5,2239
+    pantry-tree:
+      sha256: ccb9bc1fa502019a41f60b94f6723030547737bd3293c83869a167fed7363e99
+      size: 825
+  original:
+    hackage: diagrams-input-0.1.5@sha256:135104e3b5c4b912f30b8d863e9d4e40783ad4c296e2d516533bb92df14291d5,2239
 snapshots:
 - completed:
     sha256: 72cdd5851794184138551f43f0897c28f1a5acdda303b266aa9e910461103b3c

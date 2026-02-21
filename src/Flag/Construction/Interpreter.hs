@@ -35,6 +35,7 @@ steps IntersectCC      = [StepIntersectCC]
 steps (NGonVertex _ _) = [StepNGonVertex]
 steps (FillTriangle _) = [StepFillTriangle]
 steps (FillCircle _)   = [StepFillCircle]
+steps (OverlaySVG _)   = []
 steps (Group _ f)      = steps f
 
 -- | Evaluate a construction arrow to produce a concrete function.
@@ -51,6 +52,7 @@ eval IntersectCC      = evalIntersectCC'
 eval (NGonVertex n k) = evalNGonVertex n k
 eval (FillTriangle c) = \(p1, p2, p3) -> DrawTriangle c p1 p2 p3
 eval (FillCircle c)   = \(center, edge) -> DrawCircle c center (dist center edge)
+eval (OverlaySVG path) = \(center, edge) -> DrawSVGOverlay path center edge
 eval (Group _ f)      = eval f
 
 -- | Evaluate a construction arrow, collecting all 'Radical' values
@@ -84,4 +86,6 @@ evalCollectRadicals (FillTriangle c) (p1, p2, p3) =
   (DrawTriangle c p1 p2 p3, [])
 evalCollectRadicals (FillCircle c) (center, edge) =
   (DrawCircle c center (dist center edge), [])
+evalCollectRadicals (OverlaySVG path) (center, edge) =
+  (DrawSVGOverlay path center edge, [])
 evalCollectRadicals (Group _ f) a = evalCollectRadicals f a
