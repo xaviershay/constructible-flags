@@ -19,6 +19,7 @@ data Step
   | StepFillTriangle
   | StepFillCircle
   | StepNGonVertex
+  | StepSVGOverlay   -- ^ an external SVG overlay counts as a single cost
   deriving (Show, Eq)
 
 -- | Extract the flat list of geometric construction steps, in order.
@@ -35,7 +36,7 @@ steps IntersectCC      = [StepIntersectCC]
 steps (NGonVertex _ _) = [StepNGonVertex]
 steps (FillTriangle _) = [StepFillTriangle]
 steps (FillCircle _)   = [StepFillCircle]
-steps (OverlaySVG _)   = []
+steps (OverlaySVG _)   = [StepSVGOverlay]
 steps (Group _ f)      = steps f
 
 -- | Evaluate a construction arrow to produce a concrete function.

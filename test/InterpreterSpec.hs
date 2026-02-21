@@ -10,7 +10,7 @@ import Data.Colour.SRGB (sRGB24)
 
 import Flag.Construction.Types (FlagA(..), Drawing)
 import Flag.Constructions (fillTriangle, intersectLL, intersectCC)
-import Flag.Construction.Interpreter (evalCollectRadicals)
+import Flag.Construction.Interpreter (evalCollectRadicals, Step(..), steps)
 import Flag.Construction.Radical (radicands)
 
 white :: Colour Double
@@ -70,4 +70,6 @@ interpreterTests = testGroup "evalCollectRadicals"
       assertBool
         ("Expected radicals from transitively used intersection, but got: " ++ show allRadicands)
         (not (null allRadicands))
+  , testCase "steps records SVG overlay" $ do
+      steps (OverlaySVG "foo") @?= [StepSVGOverlay]
   ]

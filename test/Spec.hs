@@ -11,6 +11,7 @@ import ConstructionCostSpec (constructionCostTests)
 import InterpreterSpec (interpreterTests)
 import OptimizeSpec (optimizeTests)
 import qualified SVGOverlaySpec
+import qualified HtmlSpec
 
 main :: IO ()
 main = defaultMain $ localOption (mkTimeout 2000000) $ testGroup "All Tests"
@@ -18,6 +19,7 @@ main = defaultMain $ localOption (mkTimeout 2000000) $ testGroup "All Tests"
   , GeometrySpec.geometryTests
   , RadicalSpec.radicalTests
   , NGonVertexSpec.ngonVertexTests
+  , HtmlSpec.htmlTests
   , imageGoldenTests
   , constructionCostTests
   , interpreterTests
