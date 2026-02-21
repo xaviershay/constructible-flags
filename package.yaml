@@ -39,7 +39,6 @@ dependencies:
 - diagrams-svg
 - directory
 - effectful-core
-- diagrams-rasterific
 - JuicyPixels
 - blaze-html
 - filepath
@@ -124,3 +123,4 @@ tests:
     - tasty-hunit
     - tasty-quickcheck
     - QuickCheck
+    - process

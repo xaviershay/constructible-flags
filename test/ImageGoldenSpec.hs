@@ -10,8 +10,12 @@ import Test.Tasty.HUnit
 import Effectful (runPureEff)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((</>))
+import System.Process (callProcess)
 
 import Codec.Picture
+
+import Diagrams.Backend.SVG (renderSVG)
+import Diagrams.Prelude (mkWidth)
 
 import Flag.Registry (allCountryFlags)
 import Flag.Definition (Flag(..))
@@ -19,7 +23,7 @@ import Flag.Construction.Types (Point)
 import Flag.Construction.Interpreter (eval)
 import Flag.Construction.Optimize (optimize)
 import Flag.Source (runSourcedPure, Sourced)
-import Flag.Render.Raster (renderDrawingPNG)
+import Flag.Render.Diagram (drawingToDiagram)
 
 -- | Tests that render each flag to a PNG and compare to a golden PNG.
 imageGoldenTests :: TestTree
@@ -46,25 +50,27 @@ goldenTestFor flag = do
   createDirectoryIfMissing True tmpDir
 
   let iso = map toLower (flagIsoCode flag)
-      goldenPath = goldenDir </> (iso ++ ".png")
-      tmpPath    = tmpDir </> (iso ++ ".png")
+      goldenPath  = goldenDir </> (iso ++ ".png")
+      tmpSvgPath  = tmpDir </> (iso ++ ".svg")
+      tmpPath     = tmpDir </> (iso ++ ".png")
       failurePath = failureDir </> (iso ++ "-diff.png")
       -- Render width (match SVG width used elsewhere)
-      width = 300
+      svgWidth    = 300 :: Double
 
   -- Resolve the FlagA arrow and evaluate on unit input
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       flagInput = ((0, 0), (1, 0)) :: (Point, Point)
       drawing = eval flagArrow flagInput
 
-  -- Render to temporary png
-  renderDrawingPNG tmpPath width (optimize drawing)
+  -- Render to SVG then convert to PNG
+  let diagram = drawingToDiagram (optimize drawing)
+  renderSVG tmpSvgPath (mkWidth svgWidth) diagram
+  callProcess "convert" [tmpSvgPath, tmpPath]
 
   goldenExists <- doesFileExist goldenPath
   if not goldenExists
     then do
       -- First run: write golden and fail the test so user can review and commit
-      -- Note: we move tmp -> golden to preserve exact raster output
       imgE <- readPng tmpPath
       case imgE of
         Left err -> assertFailure $ "Failed reading generated PNG: " ++ err

@@ -10,6 +10,20 @@ Instructions for each flag are defined inside an effect, that allows inspection 
 
 Sources and source types are included so that quality can be assessed.
 
+## Dependencies
+
+### `convert` (ImageMagick)
+
+Golden tests convert SVG output to PNG using the `convert` command from [ImageMagick](https://imagemagick.org/). Install it before running tests:
+
+```bash
+# Debian/Ubuntu
+sudo apt install imagemagick
+
+# macOS
+brew install imagemagick
+```
+
 ## Regenerating golden tests
 
 Each flag has a pixel-exact golden image in `test/golden/`. To regenerate after visual changes (e.g. updated Pantone colours):
