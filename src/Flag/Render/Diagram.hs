@@ -1,6 +1,5 @@
 module Flag.Render.Diagram
     ( drawingToDiagram
-    , drawingToDiagramWith
     , renderConstructionGeom
     , renderFill
     , renderLayer
@@ -9,8 +8,6 @@ module Flag.Render.Diagram
     , renderDots
     ) where
 
-import qualified Data.Map.Strict as Map
-import Data.Map.Strict (Map)
 import Diagrams.Prelude hiding (trace, radius)
 import Diagrams.Backend.SVG
 
@@ -31,16 +28,13 @@ toD = toDouble
 -- Drawing → Diagram B
 -- ---------------------------------------------------------------------------
 
--- | Convert a 'Drawing' to a renderable 'Diagram B', without any SVG overlays.
+-- | Convert a 'Drawing' to a renderable 'Diagram B'.
+-- SVG overlays are skipped here; they are injected as raw SVG in a
+-- post-processing step (see 'Flag.Render.SVGOverlay.injectOverlays').
 drawingToDiagram :: Drawing -> Diagram B
-drawingToDiagram = drawingToDiagramWith Map.empty
-
--- | Convert a 'Drawing' to a renderable 'Diagram B', compositing any
--- 'DrawSVGOverlay' elements from the supplied pre-loaded diagram map.
-drawingToDiagramWith :: Map FilePath (Diagram B) -> Drawing -> Diagram B
-drawingToDiagramWith _ EmptyDrawing = mempty
-drawingToDiagramWith m (Overlay a b) = drawingToDiagramWith m b <> drawingToDiagramWith m a
-drawingToDiagramWith _ (DrawTriangle col pt1 pt2 pt3) =
+drawingToDiagram EmptyDrawing = mempty
+drawingToDiagram (Overlay a b) = drawingToDiagram b <> drawingToDiagram a
+drawingToDiagram (DrawTriangle col pt1 pt2 pt3) =
     let (x1, y1) = toDP pt1
         (x2, y2) = toDP pt2
         (x3, y3) = toDP pt3
@@ -51,7 +45,7 @@ drawingToDiagramWith _ (DrawTriangle col pt1 pt2 pt3) =
           # lc col
           # lwG 0.02
           # moveTo (p2 (x1, y1))
-drawingToDiagramWith _ (DrawPath col pts@(_:_)) =
+drawingToDiagram (DrawPath col pts@(_:_)) =
     let dpts = map toDP pts
         (x0, y0) = head dpts
         offsets = zipWith (\(ax, ay) (bx, by) -> r2 (bx - ax, by - ay))
@@ -61,29 +55,15 @@ drawingToDiagramWith _ (DrawPath col pts@(_:_)) =
           # fcA (col `withOpacity` 1.0)
           # lwG 0
           # moveTo (p2 (x0, y0))
-drawingToDiagramWith _ (DrawPath _ []) = mempty
-drawingToDiagramWith _ (DrawCircle col center rd) =
+drawingToDiagram (DrawPath _ []) = mempty
+drawingToDiagram (DrawCircle col center rd) =
     let (cx, cy) = toDP center
         r = toD rd
     in  circle r
           # fcA (col `withOpacity` 1.0)
           # lwG 0
           # moveTo (p2 (cx, cy))
-drawingToDiagramWith m (DrawSVGOverlay path center edge) =
-    case Map.lookup path m of
-        Nothing -> mempty
-        Just overlayDiag ->
-            let (cx, cy) = toDP center
-                (ex, ey) = toDP edge
-                r = sqrt ((ex - cx) ^ (2 :: Int) + (ey - cy) ^ (2 :: Int))
-                w = width overlayDiag
-                h = height overlayDiag
-                diag = sqrt (w * w + h * h)
-                s = 2 * r / diag
-            in  overlayDiag
-                  # scale s
-                  # centerXY
-                  # moveTo (p2 (cx, cy))
+drawingToDiagram (DrawSVGOverlay _ _ _) = mempty
 
 -- ---------------------------------------------------------------------------
 -- Construction geometry rendering

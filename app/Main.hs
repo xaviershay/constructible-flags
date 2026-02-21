@@ -6,8 +6,10 @@ module Main (main) where
 import Data.Char (toLower)
 import Data.List (intercalate, nub, sort)
 import Data.Ratio (numerator, denominator)
+import qualified Data.Text.IO as TIO
 import Diagrams.Backend.SVG (renderSVG)
-import Diagrams.Prelude (mkWidth)
+import Diagrams.BoundingBox (boundingBox, getCorners)
+import Diagrams.Prelude (mkWidth, width, unp2)
 import Effectful (runPureEff)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory, copyFile)
 import System.FilePath ((</>), takeDirectory)
@@ -21,11 +23,11 @@ import Flag.Construction.Tree (evalTree)
 import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
 import Flag.Definition (Flag(..))
 import Flag.Registry (allCountryFlags)
-import Flag.Render.Diagram (drawingToDiagramWith)
+import Flag.Render.Diagram (drawingToDiagram)
 import Flag.Render.Html (generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
 import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
-import Flag.Render.SVGOverlay (loadOverlays)
+import Flag.Render.SVGOverlay (loadOverlaySources, extractOverlayPlacements, injectOverlays)
 
 main :: IO ()
 main = do
@@ -104,9 +106,23 @@ processFlag flag = do
   let flagInput = ((0, 0), (1, 0)) :: (Point, Point)
       (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
       optimized = optimize drawing
-  overlayMap <- loadOverlays optimized
-  let diagram = drawingToDiagramWith overlayMap optimized
-  renderSVG svgPath (mkWidth 300) diagram
+  let diagram = drawingToDiagram optimized
+      svgOutputWidth = 300 :: Double
+      diagramW = width diagram
+      placements = extractOverlayPlacements optimized
+      bb = boundingBox diagram
+      (bbMinX, bbMinY, bbMaxY) = case getCorners bb of
+          Just (lo, hi) -> let (lx, ly) = unp2 lo
+                               (_,  hy) = unp2 hi
+                           in (lx, ly, hy)
+          Nothing -> (0, 0, 0)
+  overlaySources <- loadOverlaySources optimized
+  renderSVG svgPath (mkWidth svgOutputWidth) diagram
+  -- Post-process: inject raw SVG overlays
+  when (not (null placements)) $ do
+      svgText <- TIO.readFile svgPath
+      let result = injectOverlays svgText overlaySources placements (bbMinX, bbMinY, bbMaxY) diagramW svgOutputWidth
+      TIO.writeFile svgPath result
 
   -- Get description
   let description = runPureEff $ runSourcedPure $ flagDescription flag

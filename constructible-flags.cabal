@@ -77,7 +77,6 @@ library
     , bytestring
     , colour
     , containers
-    , diagrams-input
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
@@ -110,7 +109,6 @@ executable bench-json
     , colour
     , constructible-flags
     , containers
-    , diagrams-input
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
@@ -143,7 +141,6 @@ executable constructible-flags-exe
     , colour
     , constructible-flags
     , containers
-    , diagrams-input
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
@@ -176,7 +173,6 @@ executable debug-flag
     , colour
     , constructible-flags
     , containers
-    , diagrams-input
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
@@ -209,7 +205,6 @@ executable pantone-sample
     , colour
     , constructible-flags
     , containers
-    , diagrams-input
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg
@@ -246,7 +241,6 @@ test-suite constructible-flags-test
     , colour
     , constructible-flags
     , containers
-    , diagrams-input
     , diagrams-lib
     , diagrams-rasterific
     , diagrams-svg

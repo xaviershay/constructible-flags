@@ -51,7 +51,6 @@ dependencies:
 - webp
 - bytestring
 - unordered-containers
-- diagrams-input
 
 ghc-options:
 - -Wall
