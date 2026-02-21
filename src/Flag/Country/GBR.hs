@@ -184,4 +184,4 @@ unitedKingdom = mkCountryFlag
                 <> bNWBig <> bNWSmall <> rNW
                 <> bSEBig <> bSESmall <> rSE
                 <> bNEBig <> bNESmall <> rNE1 <> rNE2
-                <> bSWBig <> bSWSmall <> rSW1 -- <> rSW2
+                <> bSWBig <> bSWSmall <> rSW1 <> rSW2
