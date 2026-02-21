@@ -7,6 +7,7 @@ module ImageGoldenSpec (imageGoldenTests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Control.Monad (when)
 import Effectful (runPureEff)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((</>))
@@ -14,13 +15,12 @@ import System.Process (callProcess)
 
 import Codec.Picture
 
-import Diagrams.Backend.SVG (renderSVG)
-import Diagrams.Prelude (mkWidth)
+import Flag.Render.SVGOverlay (renderOptimizedDrawingToSVG)
 
 import Flag.Registry (allCountryFlags)
 import Flag.Definition (Flag(..))
 import Flag.Construction.Types (Point)
-import Flag.Construction.Interpreter (eval)
+import Flag.Construction.Interpreter (eval, evalCollectRadicals)
 import Flag.Construction.Optimize (optimize)
 import Flag.Source (runSourcedPure, Sourced)
 import Flag.Render.Diagram (drawingToDiagram)
@@ -60,11 +60,13 @@ goldenTestFor flag = do
   -- Resolve the FlagA arrow and evaluate on unit input
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       flagInput = ((0, 0), (1, 0)) :: (Point, Point)
-      drawing = eval flagArrow flagInput
+      --drawing = eval flagArrow flagInput
+      (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
 
-  -- Render to SVG then convert to PNG
-  let diagram = drawingToDiagram (optimize drawing)
-  renderSVG tmpSvgPath (mkWidth svgWidth) diagram
+  -- Render to SVG (with overlays) and convert to PNG using the
+  -- same pipeline employed by the main executable.
+  let optimizedDrawing = optimize drawing
+  renderOptimizedDrawingToSVG tmpSvgPath svgWidth optimizedDrawing
   callProcess "convert" [tmpSvgPath, tmpPath]
 
   goldenExists <- doesFileExist goldenPath

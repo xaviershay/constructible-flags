@@ -1,6 +1,7 @@
 * This is a haskell project managed with `stack`. Always use `stack` for build and test operations — never `cabal`.
 * Use `stack build` to build the project.
 * Tests use the tasty framework. Run with `./bin/test`.
+* NEVER try to use ghci or a repl.
 
 ## Project intent — do not optimise away constructions
 

@@ -7,9 +7,6 @@ import Data.Char (toLower)
 import Data.List (intercalate, nub, sort)
 import Data.Ratio (numerator, denominator)
 import qualified Data.Text.IO as TIO
-import Diagrams.Backend.SVG (renderSVG)
-import Diagrams.BoundingBox (boundingBox, getCorners)
-import Diagrams.Prelude (mkWidth, width, unp2)
 import Effectful (runPureEff)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory, copyFile)
 import System.FilePath ((</>), takeDirectory)
@@ -27,7 +24,7 @@ import Flag.Render.Diagram (drawingToDiagram)
 import Flag.Render.Html (generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
 import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
-import Flag.Render.SVGOverlay (loadOverlaySources, extractOverlayPlacements, injectOverlays)
+import Flag.Render.SVGOverlay (renderOptimizedDrawingToSVG)
 
 main :: IO ()
 main = do
@@ -106,23 +103,12 @@ processFlag flag = do
   let flagInput = ((0, 0), (1, 0)) :: (Point, Point)
       (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
       optimized = optimize drawing
-  let diagram = drawingToDiagram optimized
       svgOutputWidth = 300 :: Double
-      diagramW = width diagram
-      placements = extractOverlayPlacements optimized
-      bb = boundingBox diagram
-      (bbMinX, bbMinY, bbMaxY) = case getCorners bb of
-          Just (lo, hi) -> let (lx, ly) = unp2 lo
-                               (_,  hy) = unp2 hi
-                           in (lx, ly, hy)
-          Nothing -> (0, 0, 0)
-  overlaySources <- loadOverlaySources optimized
-  renderSVG svgPath (mkWidth svgOutputWidth) diagram
-  -- Post-process: inject raw SVG overlays
-  when (not (null placements)) $ do
-      svgText <- TIO.readFile svgPath
-      let result = injectOverlays svgText overlaySources placements (bbMinX, bbMinY, bbMaxY) diagramW svgOutputWidth
-      TIO.writeFile svgPath result
+
+  -- render the optimized drawing using the shared pipeline (including
+  -- SVG overlay injection) so that tests and the main executable stay in
+  -- sync.
+  renderOptimizedDrawingToSVG svgPath svgOutputWidth optimized
 
   -- Get description
   let description = runPureEff $ runSourcedPure $ flagDescription flag

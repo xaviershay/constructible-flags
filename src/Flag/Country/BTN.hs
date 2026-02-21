@@ -18,7 +18,7 @@ import Flag.Pantone
 import Flag.Definition (Flag, mkCountryFlag, editorNote)
 
 bhutan :: Sourced :> es => Flag es
-bhutan = editorNote "The dragon design used here is not common, but appears to be closest to that actually used in official capacities since 2018."
+bhutan = editorNote "The dragon design used here is not the most common on the internet, but better matches designs used in official capacities recently (e.g. the Olympics)."
   $ mkCountryFlag
   "BTN"
   "Bhutan"
@@ -35,6 +35,11 @@ bhutan = editorNote "The dragon design used here is not common, but appears to b
     gov = mkAgentOrg "bgd_gov" "Government of Bhutan"
 
     locEntity = mkAgentOrg "loc2012" "London Organising Committee of the Olympic Games and Paralympic Games Limited"
+    tocEntity = mkAgentOrg "toc2020" "Tokyo Organising Committee of the Olympic and Paralympic Games"
+
+    toc = screenshot constructedAt "btn/toc.png" $ attributeTo tocEntity $ mkEntity
+      "Flagns and Anthems Manual, Tokyo 2020"
+      "https://library.olympics.com/Default/doc/SYRACUSE/1568069/flags-and-anthems-manual-tokyo-2020-the-tokyo-organising-committee-of-the-olympic-and-paralympic-gam?_lg=en-GB"
 
     loc = screenshot constructedAt "btn/loc.png" $ attributeTo locEntity $ mkEntity
       "Flags and Anthems Manual, London 2012"
@@ -45,6 +50,7 @@ bhutan = editorNote "The dragon design used here is not common, but appears to b
         "https://oag.gov.bt/wp-content/uploads/2011/02/National-Flag-Rules-1972-English.pdf"
 
     commons = mkEntity "Flag of Bhutan alternate (Wikimedia Commons)" "https://commons.wikimedia.org/wiki/File:Flag_of_Bhutan_alternate.svg"
+    fotw = mkEntity "Bhutan: Specifications Discussions (Flags of the World)" "https://www.fotw.info/flags/bt'.html#var"
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
@@ -52,7 +58,7 @@ bhutan = editorNote "The dragon design used here is not common, but appears to b
         orangeC <- referencePantoneAsRGB loc ("Orange", "165-C")
         yellowC <- referencePantoneAsRGB loc ("Yellow", "116-C")
         dragonDesign <- reference "Dragon Design" commons "data/images/btn/dragon.svg"
-        (ps, qs) <- editorial "Dragon Size" [] (2, 3)
+        (ps, qs) <- editorial "Dragon" [toc, commons, fotw] (3, 4)
 
 
         pure $ proc origin -> do

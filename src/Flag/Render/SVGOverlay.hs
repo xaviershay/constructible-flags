@@ -6,6 +6,11 @@ module Flag.Render.SVGOverlay
     , loadOverlaySources
     , extractOverlayPlacements
     , injectOverlays
+    -- *Rendering helpers (used by app/Main and tests)
+    , renderOptimizedDrawingToSVG
+    , renderDrawingToSVG
+    -- *Internal helpers (exported for tests)
+    , parseSVG
     ) where
 
 import Data.List (nub)
@@ -17,21 +22,26 @@ import qualified Data.Text.Read as TR
 import Numeric (showFFloat)
 
 import Flag.Construction.Types (Drawing(..))
+import Control.Monad (when)
 import Flag.Construction.Radical (toDouble)
+import Flag.Construction.Optimize (optimize)
+import Flag.Render.Diagram (drawingToDiagram)
+import Diagrams.Backend.SVG (renderSVG)
+import Diagrams.Prelude (mkWidth, width, boundingBox, getCorners, unp2)
 
 -- | Parsed SVG overlay source: raw inner content plus original dimensions.
 data OverlaySource = OverlaySource
     { overlayContent :: T.Text   -- ^ Inner SVG content (xml decl and outer <svg> stripped)
     , overlayWidth   :: Double   -- ^ Original width from the SVG root element
     , overlayHeight  :: Double   -- ^ Original height from the SVG root element
-    }
+    } deriving (Show)
 
 -- | Placement info for an overlay extracted from the Drawing tree.
 data OverlayPlacement = OverlayPlacement
     { opFilePath :: FilePath
     , opCenter   :: (Double, Double)  -- ^ Center point in diagram coordinates
     , opEdge     :: (Double, Double)  -- ^ Edge point in diagram coordinates (defines radius)
-    }
+    } deriving (Show)
 
 -- ---------------------------------------------------------------------------
 -- Loading overlay sources
@@ -42,17 +52,22 @@ data OverlayPlacement = OverlayPlacement
 -- warning.
 loadOverlaySources :: Drawing -> IO (Map FilePath OverlaySource)
 loadOverlaySources drawing = do
+    -- We deliberately treat any failure to read or parse an overlay as a
+    -- fatal error.  Previously we would warn and skip the overlay, which meant
+    -- that a typo in a filename or a malformed SVG could silently disappear
+    -- from the output.  That behaviour confused users (see issue with
+    -- "dragon-optimized.svg" which has no explicit width/height); now we
+    -- raise an exception so the caller can see the problem immediately.
     let paths = nub (extractPaths drawing)
-    pairs <- mapM loadOne paths
-    pure (Map.fromList [(p, s) | (p, Just s) <- pairs])
+    sources <- mapM loadOne paths
+    pure (Map.fromList sources)
   where
     loadOne path = do
-        result <- tryLoadSVG path
-        case result of
-            Left err -> do
-                putStrLn $ "Warning: could not load SVG overlay " ++ show path ++ ": " ++ err
-                pure (path, Nothing)
-            Right src -> pure (path, Just src)
+        txt <- TIO.readFile path
+        case parseSVG txt of
+            Left err ->
+                ioError $ userError $ "could not parse SVG overlay " ++ path ++ ": " ++ err
+            Right src -> pure (path, src)
 
     extractPaths :: Drawing -> [FilePath]
     extractPaths EmptyDrawing = []
@@ -60,27 +75,53 @@ loadOverlaySources drawing = do
     extractPaths (DrawSVGOverlay path _ _) = [path]
     extractPaths _ = []
 
--- | Try to load and parse an SVG file into an OverlaySource.
-tryLoadSVG :: FilePath -> IO (Either String OverlaySource)
-tryLoadSVG path = do
-    txt <- TIO.readFile path
-    pure $ parseSVG txt
 
 -- | Parse SVG text: extract width/height from root <svg> and inner content.
+--
+-- Historically we expected the root <svg> element to have explicit
+-- "width" and "height" attributes.  Many tools will
+-- omit them and rely solely on a "viewBox" attribute instead; the
+-- example at "data/images/btn/dragon-optimized.svg" falls into this
+-- category.  The previous implementation returned a parsing error in that
+-- case and the overlay was silently skipped.  We now fall back to the
+-- width and height encoded in the viewBox when the explicit attributes are
+-- missing.  Any remaining failure (missing viewBox or bad numbers) is
+-- reported as an error so the program can fail fast.
 parseSVG :: T.Text -> Either String OverlaySource
 parseSVG txt = do
     let stripped = stripXmlDecl (stripDoctype txt)
     (svgTag, rest) <- findSvgTag stripped
-    w <- extractAttr "width" svgTag
-    h <- extractAttr "height" svgTag
-    wVal <- parseDouble w
-    hVal <- parseDouble h
+    -- try width/height attributes first; fall back to viewBox
+    wVal <- case maybeAttr "width" svgTag of
+               Just w -> parseDouble w
+               Nothing -> parseViewBoxDim svgTag 2
+    hVal <- case maybeAttr "height" svgTag of
+               Just h -> parseDouble h
+               Nothing -> parseViewBoxDim svgTag 3
     let inner = stripInkscapeMetadata (extractInnerContent rest)
     Right OverlaySource
         { overlayContent = inner
         , overlayWidth   = wVal
         , overlayHeight  = hVal
         }
+
+-- | Look for an attribute in a tag and return 'Nothing' if not present.
+maybeAttr :: T.Text -> T.Text -> Maybe T.Text
+maybeAttr name tag =
+    case extractAttr name tag of
+        Right v -> Just v
+        Left _  -> Nothing
+
+-- | Extract a specific dimension from the viewBox attribute.  The index
+-- indicates which field to parse: 0=min-x, 1=min-y, 2=width, 3=height.
+parseViewBoxDim :: T.Text -> Int -> Either String Double
+parseViewBoxDim tag idx = do
+    vb <- extractAttr "viewBox" tag
+    -- split on whitespace, allow multiple spaces
+    let parts = T.words vb
+    if length parts == 4
+      then parseDouble (parts !! idx)
+      else Left $ "viewBox does not have four components: " ++ T.unpack vb
 
 -- | Strip XML declaration (<?xml ... ?>)
 stripXmlDecl :: T.Text -> T.Text
@@ -265,17 +306,52 @@ renderOverlay sources scaleFactor minX maxY placement =
                 -- Top-left corner
                 x_svg = cx_svg - dispW_svg / 2
                 y_svg = cy_svg - dispH_svg / 2
-                -- viewBox from original dimensions
-                viewBox = "0 0 " <> showT ow <> " " <> showT oh
-            in [ "\n<svg x=\"" <> showT x_svg
-                 <> "\" y=\"" <> showT y_svg
-                 <> "\" width=\"" <> showT dispW_svg
-                 <> "\" height=\"" <> showT dispH_svg
-                 <> "\" viewBox=\"" <> viewBox
-                 <> "\" xmlns=\"http://www.w3.org/2000/svg\">\n"
+                -- scale factors for original dimensions
+                sx = dispW_svg / ow
+                sy = dispH_svg / oh
+            in [ "\n<g transform=\"translate(" <> showT x_svg
+                 <> "," <> showT y_svg
+                 <> ") scale(" <> showT sx <> "," <> showT sy
+                 <> ")\">\n"
                  <> overlayContent src
-                 <> "\n</svg>\n"
+                 <> "\n</g>\n"
                ]
+
+-- | Render an already-optimized 'Drawing' to an SVG file, injecting any
+-- SVG overlays found in the drawing.  This is the same pipeline used in
+-- the @app/Main.hs@ executable when generating the SVG for a flag.
+--
+-- The caller is responsible for choosing a suitable output width; the
+-- diagrams library will scale the diagram to that width.
+renderOptimizedDrawingToSVG
+    :: FilePath    -- ^ output path
+    -> Double      -- ^ SVG width (pixels)
+    -> Drawing     -- ^ optimized drawing (typically produced by 'optimize')
+    -> IO ()
+renderOptimizedDrawingToSVG outPath svgOutputWidth optimizedDrawing = do
+    let diagram     = drawingToDiagram optimizedDrawing
+        diagramW    = width diagram
+        placements  = extractOverlayPlacements optimizedDrawing
+        bb          = boundingBox diagram
+        (bbMinX, bbMinY, bbMaxY) = case getCorners bb of
+            Just (lo, hi) -> let (lx, ly) = unp2 lo
+                                 (_,  hy) = unp2 hi
+                             in (lx, ly, hy)
+            Nothing -> (0, 0, 0)
+    overlaySources <- loadOverlaySources optimizedDrawing
+    renderSVG outPath (mkWidth svgOutputWidth) diagram
+    when (not (null placements)) $ do
+        svgText <- TIO.readFile outPath
+        let result = injectOverlays svgText overlaySources placements
+                      (bbMinX, bbMinY, bbMaxY) diagramW svgOutputWidth
+        TIO.writeFile outPath result
+
+-- | Convenience wrapper that takes an arbitrary 'Drawing' and optimizes it
+-- before rendering.  Useful when you don't already have the optimized
+-- result on hand (e.g. in a test suite).
+renderDrawingToSVG :: FilePath -> Double -> Drawing -> IO ()
+renderDrawingToSVG outPath svgWidth drawing =
+    renderOptimizedDrawingToSVG outPath svgWidth (optimize drawing)
 
 -- | Show a Double with reasonable precision for SVG attributes.
 showT :: Double -> T.Text

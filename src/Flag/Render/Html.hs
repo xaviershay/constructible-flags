@@ -221,6 +221,7 @@ formatSteps ss =
       ftCount = length [() | StepFillTriangle <- ss]
       fcCount = length [() | StepFillCircle <- ss]
       ngonCount = length [() | StepNGonVertex <- ss]
+      --svgCount = length [() | StepSVGOverlay <- ss]
       rows = concat
         [ if llCount > 0 then ["\\text{\9472}\\!\\cap\\!\\text{\9472} &\\times " ++ show llCount] else []
         , if lcCount > 0 then ["\\text{\9472}\\!\\cap\\!\\bigcirc &\\times " ++ show lcCount] else []
@@ -228,6 +229,7 @@ formatSteps ss =
         , if ftCount > 0 then ["\\blacktriangle &\\times " ++ show ftCount] else []
         , if fcCount > 0 then ["\\bullet &\\times " ++ show fcCount] else []
         , if ngonCount > 0 then ["\\star &\\times " ++ show ngonCount] else []
+        --, if svgCount > 0 then ["\\plus &\\times " ++ show svgCount] else []
         ]
   in if null rows
      then "<em>None</em>"

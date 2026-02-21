@@ -112,6 +112,7 @@ tests:
     - ConstructionCostSpec
     - PantoneSpec
     - PantoneCliSpec
+    - SVGOverlaySpec
     ghc-options:
     - -threaded
     - -rtsopts

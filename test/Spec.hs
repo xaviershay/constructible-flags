@@ -10,6 +10,7 @@ import ImageGoldenSpec (imageGoldenTests)
 import ConstructionCostSpec (constructionCostTests)
 import InterpreterSpec (interpreterTests)
 import OptimizeSpec (optimizeTests)
+import qualified SVGOverlaySpec
 
 main :: IO ()
 main = defaultMain $ localOption (mkTimeout 2000000) $ testGroup "All Tests"
@@ -21,4 +22,5 @@ main = defaultMain $ localOption (mkTimeout 2000000) $ testGroup "All Tests"
   , constructionCostTests
   , interpreterTests
   , optimizeTests
+  , SVGOverlaySpec.svgOverlayTests
   ]
