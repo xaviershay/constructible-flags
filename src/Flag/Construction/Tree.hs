@@ -19,7 +19,7 @@ data ConstructionTree
 
 -- | Evaluate a construction arrow into a tree that preserves group labels.
 evalTree :: FlagA a b -> a -> (b, [ConstructionTree])
-evalTree (Arr _ f)        x     = (f x, [])
+evalTree (Arr _ f)        x     = let b = f x in b `seq` (b, [])
 evalTree (Compose f g)    x     = let (mid, t1) = evalTree f x
                                       (res, t2) = evalTree g mid
                                   in  (res, t1 ++ t2)

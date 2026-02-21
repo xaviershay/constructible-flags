@@ -24,7 +24,7 @@ trace fa input = do
 
     go :: Int -> FlagA a b -> a -> IO b
     go _ (Arr _ f) a =
-        pure (f a)
+        let b = f a in b `seq` pure b
     go n (Compose f g) a = do
         b <- go n f a
         go n g b

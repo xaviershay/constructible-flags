@@ -43,7 +43,7 @@ steps (Group _ f)      = steps f
 -- This is one possible interpreter; others could generate SVG, trace
 -- steps, validate, etc.
 eval :: FlagA a b -> a -> b
-eval (Arr _ f)        = f
+eval (Arr _ f)        = \a -> let b = f a in b `seq` b
 eval (Compose f g)    = eval g . eval f
 eval (First f)        = \(a, c) -> (eval f a, c)
 eval (Par f g)        = \(a, c) -> (eval f a, eval g c)
@@ -59,7 +59,7 @@ eval (Group _ f)      = eval f
 -- | Evaluate a construction arrow, collecting all 'Radical' values
 -- produced by intersection operations (intermediate construction points).
 evalCollectRadicals :: FlagA a b -> a -> (b, [Radical])
-evalCollectRadicals (Arr _ f) a = (f a, [])
+evalCollectRadicals (Arr _ f) a = let b = f a in b `seq` (b, [])
 evalCollectRadicals (Compose f g) a =
   let (b, r1) = evalCollectRadicals f a
       (c, r2) = evalCollectRadicals g b

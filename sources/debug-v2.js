@@ -214,28 +214,6 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
   const maxVisibleIndex = Math.max(0, ...visibleSet);
   const viewBoxStr = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
 
-  // Compute per-leaf opacity: newer layers (near hi) are opaque, older (near lo) fade out
-  const leafOpacity = useMemo(() => {
-    const opMap = new Map();
-    const MIN_OPACITY = 0.15;
-    const windowSize = hi - lo;
-    for (let vi = 0; vi < virtualLayers.length; vi++) {
-      for (const leafIdx of virtualLayers[vi]) {
-        if (vi > hi || vi < lo) {
-          // Outside the window: fills below get min opacity
-          opMap.set(leafIdx, MIN_OPACITY);
-        } else if (windowSize <= 1) {
-          opMap.set(leafIdx, 1.0);
-        } else {
-          // Linear fade: hi → 1.0, lo → MIN_OPACITY
-          const t = (vi - lo) / windowSize;
-          opMap.set(leafIdx, MIN_OPACITY + t * (1.0 - MIN_OPACITY));
-        }
-      }
-    }
-    return opMap;
-  }, [lo, hi, virtualLayers]);
-
   // Fixed screen-size hitbox: ~10px worth of viewBox units
   const svgEl = svgRef.current;
   const svgScreenW = svgEl ? svgEl.clientWidth || 600 : 600;
@@ -254,13 +232,12 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
         ${allLeaves.map(leaf => {
           const isVisible = visibleSet.has(leaf.index);
           const showFill = leaf.index <= maxVisibleIndex;
-          const opacity = leafOpacity.get(leaf.index) ?? 1.0;
           return html`
             <g key=${leaf.index}>
               ${showFill && leaf.fillSvg && html`
                 <g dangerouslySetInnerHTML=${{ __html: leaf.fillSvg }} />
               `}
-              <g style=${{ opacity }}>
+              <g>
                 ${isVisible && leaf.geomSvg && html`
                   <g class="geom-layer" dangerouslySetInnerHTML=${{ __html: leaf.geomSvg }} />
                 `}

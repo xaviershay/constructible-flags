@@ -2,6 +2,8 @@ module RadicalSpec (radicalTests) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck (testProperty, forAll, elements, oneof, frequency, (==>))
+import Test.QuickCheck (Gen)
 
 import Data.Ratio ((%))
 
@@ -688,4 +690,94 @@ consolidationTests = testGroup "consolidateRadicands"
           r = (e1 * e1) / e2
       in do assertBool ("size <= 20, got " ++ show (radSize r)) (radSize r <= 20)
             approxD "value" (toDouble e1 ** 2 / toDouble e2) (toDouble r)
+
+  , testCase "three-level consolidation: √3+√3+√3 = 3√3" $
+      -- Ext(Ext(Ext(0,1,3,2), 1, 3, 2), 1, 3, 2) — three nested √3 layers
+      let expr = normalize $
+            Ext (Ext (Ext (rat 0) (rat 1) (rat 3) 2) (rat 1) (rat 3) 2)
+                (rat 1) (rat 3) 2
+      in do radDepth expr @?= 1
+            approxD "value" (3 * sqrt 3) (toDouble expr)
+
+  , testCase "different radicands don't merge: √2+√3 stays depth 2" $
+      -- √2 and √3 are distinct radicands; consolidation must not spuriously merge them
+      let expr = normalize (Ext (Ext (rat 0) (rat 1) (rat 2) 2) (rat 1) (rat 3) 2)
+      in do assertBool ("depth should be 2, got " ++ show (radDepth expr)) (radDepth expr == 2)
+            approxD "value" (sqrt 2 + sqrt 3) (toDouble expr)
+
+  , testCase "consolidation: √r - √r = 0" $
+      -- Ext(0, 1, 5, 2) - Ext(0, 1, 5, 2) must consolidate to 0
+      let e = Ext (rat 0) (rat 1) (rat 5) 2
+          r = e - e
+      in approxD "value" 0.0 (toDouble r)
+
+  , testCase "rationalisation: (2+√3)·(2-√3) = 1" $
+      -- Multiplying conjugates should consolidate to a rational
+      let pos = Ext (rat 2) (rat 1) (rat 3) 2
+          neg = Ext (rat 2) (rat (-1)) (rat 3) 2
+          r   = pos * neg
+      in do assertBool "result should be rational" (isRational r)
+            approxD "value" 1.0 (toDouble r)
+
+  , testCase "consolidation after division: (√3+√3)/√3 = 2" $
+      -- (√3+√3) = 2√3, so (√3+√3)/√3 = 2
+      let num   = Ext (Ext (rat 0) (rat 1) (rat 3) 2) (rat 1) (rat 3) 2
+          denom = Ext (rat 0) (rat 1) (rat 3) 2
+          r     = num / denom
+      in do assertBool "result should be rational" (isRational r)
+            approxD "value" 2.0 (toDouble r)
+
+  , testProperty "normalize is value-preserving" $
+      forAll genSimpleRadical $ \x ->
+        let d1 = toDouble x
+            d2 = toDouble (normalize x)
+        in not (isNaN d1 || isNaN d2 || isInfinite d1 || isInfinite d2) ==>
+           abs (d1 - d2) < 1e-9
+
+  , testProperty "x + x has correct value" $
+      forAll genSimpleRadical $ \x ->
+        let d  = toDouble x
+            r  = x + x
+        in not (isNaN d || isInfinite d) ==>
+           abs (toDouble r - 2 * d) < 1e-9
+
+  , testProperty "x + x stays compact" $
+      forAll genSimpleRadical $ \x ->
+        radSize (x + x) <= radSize x * 2 + 4
+
+  , testProperty "x * x has correct value" $
+      forAll genSimpleRadical $ \x ->
+        let d = toDouble x
+            r = x * x
+        in not (isNaN d || isInfinite d) ==>
+           abs (toDouble r - d * d) < 1e-6
+
+  , testProperty "x * x stays compact" $
+      forAll genSimpleRadical $ \x ->
+        radSize (x * x) <= 30
+  ]
+
+-- | Generator for simple Radical values suitable for consolidation property tests.
+-- Produces rationals and single/double square-root extensions with small coefficients.
+genSimpleRadical :: Gen Radical
+genSimpleRadical = frequency
+  [ (3, fmap rat genSmallRat)
+  , (4, do a <- fmap rat genSmallRat
+           b <- fmap rat genSmallRat
+           r <- elements [2, 3, 5, 6, 7]
+           return (Ext a b (rat r) 2))
+  , (3, do a1 <- fmap rat genSmallRat
+           b1 <- fmap rat genSmallRat
+           r1 <- elements [2, 3, 5]
+           b2 <- fmap rat genSmallRat
+           r2 <- elements [2, 3, 5]
+           return (Ext (Ext a1 b1 (rat r1) 2) b2 (rat r2) 2))
+  ]
+
+genSmallRat :: Gen Rational
+genSmallRat = oneof
+  [ fmap fromIntegral (elements ([-3..3] :: [Int]))
+  , do n <- elements ([1..4] :: [Int])
+       d <- elements ([1..4] :: [Int])
+       return (fromIntegral n % fromIntegral d)
   ]
