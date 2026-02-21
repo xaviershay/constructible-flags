@@ -24,7 +24,7 @@ import Flag.Render.Diagram (drawingToDiagram)
 import Flag.Render.Html (generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
 import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
-import Flag.Render.SVGOverlay (renderOptimizedDrawingToSVG)
+import Flag.Render.SVGOverlay (renderDrawingToSVG)
 
 main :: IO ()
 main = do
@@ -102,13 +102,12 @@ processFlag flag = do
   -- Evaluate the arrow on a unit input to get the Drawing
   let flagInput = ((0, 0), (1, 0)) :: (Point, Point)
       (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
-      optimized = optimize drawing
       svgOutputWidth = 300 :: Double
 
   -- render the optimized drawing using the shared pipeline (including
   -- SVG overlay injection) so that tests and the main executable stay in
   -- sync.
-  renderOptimizedDrawingToSVG svgPath svgOutputWidth optimized
+  renderDrawingToSVG svgPath svgOutputWidth drawing
 
   -- Get description
   let description = runPureEff $ runSourcedPure $ flagDescription flag

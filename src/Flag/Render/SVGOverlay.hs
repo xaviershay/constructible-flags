@@ -6,8 +6,6 @@ module Flag.Render.SVGOverlay
     , loadOverlaySources
     , extractOverlayPlacements
     , injectOverlays
-    -- *Rendering helpers (used by app/Main and tests)
-    , renderOptimizedDrawingToSVG
     , renderDrawingToSVG
     -- *Internal helpers (exported for tests)
     , parseSVG

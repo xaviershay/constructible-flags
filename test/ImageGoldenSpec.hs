@@ -15,7 +15,7 @@ import System.Process (callProcess)
 
 import Codec.Picture
 
-import Flag.Render.SVGOverlay (renderOptimizedDrawingToSVG)
+import Flag.Render.SVGOverlay (renderDrawingToSVG)
 
 import Flag.Registry (allCountryFlags)
 import Flag.Definition (Flag(..))
@@ -63,10 +63,7 @@ goldenTestFor flag = do
       --drawing = eval flagArrow flagInput
       (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
 
-  -- Render to SVG (with overlays) and convert to PNG using the
-  -- same pipeline employed by the main executable.
-  let optimizedDrawing = optimize drawing
-  renderOptimizedDrawingToSVG tmpSvgPath svgWidth optimizedDrawing
+  renderDrawingToSVG tmpSvgPath svgWidth drawing
   callProcess "convert" [tmpSvgPath, tmpPath]
 
   goldenExists <- doesFileExist goldenPath
