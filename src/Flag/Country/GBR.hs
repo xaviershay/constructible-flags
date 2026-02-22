@@ -68,6 +68,28 @@ unitedKingdom = editorNote (
                 midTop <- parallel -< ((corner, a), d)
                 midBottom <- parallel -< ((corner, a), d')
                 returnA -< (top, bottom, midTop, midBottom)
+
+            -- Statically selected based on flag proportions: narror flags
+            -- have the mid-line intersect h1 before v4, requiring a rectangle + triangle;
+            -- wider flags use a single rectangle.
+            rNEArrow
+              | w == 50 && h == 30 = proc (tr', diag_x_h1, v4_h1, mid_x_v4, mid_x_h1, mid_x_top) -> do
+                  r1 <- fillRectangle redC -< (tr', diag_x_h1, v4_h1, mid_x_top)
+                  r2 <- fillTriangle redC -< (v4_h1, mid_x_v4, mid_x_top)
+                  returnA -< r1 <> r2
+              | w == 60 && h == 30 = proc (tr', diag_x_h1, _v4_h1, _mid_x_v4, mid_x_h1, mid_x_top) ->
+                  fillRectangle redC -< (tr', diag_x_h1, mid_x_h1, mid_x_top)
+              | otherwise = error "Unsupported proportions"
+
+            rSWArrow
+              | w == 50 && h == 30 = proc (bl', diag_x_h4, v1_h4, mid_x_v1, mid_x_bottom) -> do
+                  r1 <- fillRectangle redC -< (bl', diag_x_h4, v1_h4, mid_x_bottom)
+                  r2 <- fillTriangle redC -< (v1_h4, mid_x_v1, mid_x_bottom)
+                  returnA -< r1 <> r2
+              | w == 60 && h == 30 = proc (bl', diag_x_h4, _v1_h4, mid_x_v1, mid_x_bottom) ->
+                  fillRectangle redC -< (bl', diag_x_h4, mid_x_v1, mid_x_bottom)
+              | otherwise = error "Unsupported proportions"
+
         pure $ proc (origin, unit) -> do
             (tl, tr, br, bl) <- boxNatural w h -< (origin, unit)
             let diagNWtoSE = (tl, br)
@@ -162,6 +184,7 @@ unitedKingdom = editorNote (
             bottomLineNEtoSW_x_h1 <- intersectLL -< (bottomLineNEtoSW, (h1, h1Down))
             bottomLineNEtoSW_x_right <- intersectLL -< (bottomLineNEtoSW, (tr, br))
             midTopLineNEtoSW_x_v4 <- intersectLL -< (midTopLineNEtoSW, (v4, v4Down))
+            midTopLineNEtoSW_x_h1 <- intersectLL -< (midTopLineNEtoSW, (h1, h1Down))
             midTopLineNEtoSW_x_top <- intersectLL -< (midTopLineNEtoSW, (tl, tr))
             diagNEtoSW_x_h1 <- intersectLL -< (diagNEtoSW, (h1, h1Down))
             v4_x_h1 <- intersectLL -< ((v4, v4Down), (h1, h1Down))
@@ -169,9 +192,9 @@ unitedKingdom = editorNote (
             bNEBig <- fillTriangle blueC -< (topLineNEtoSW_x_top, topLineNEtoSW_x_v4, v4)
             bNESmall <- fillTriangle blueC -< (bottomLineNEtoSW_x_h1, h1Down, bottomLineNEtoSW_x_right)
 
-            -- TODO: Think about how to make this resilient to proportion changes
-            rNE1 <- fillRectangle redC -< (tr, diagNEtoSW_x_h1, v4_x_h1, midTopLineNEtoSW_x_top)
-            rNE2 <- fillTriangle redC -< (v4_x_h1, midTopLineNEtoSW_x_v4, midTopLineNEtoSW_x_top)
+            rNE <- rNEArrow -< (tr, diagNEtoSW_x_h1, v4_x_h1, midTopLineNEtoSW_x_v4, midTopLineNEtoSW_x_h1, midTopLineNEtoSW_x_top)
+
+
 
             -- === SW corner (NE→SW diagonal) ===
             topLineNEtoSW_x_left <- intersectLL -< ((tl, bl), topLineNEtoSW)
@@ -179,18 +202,17 @@ unitedKingdom = editorNote (
             bottomLineNEtoSW_x_v1 <- intersectLL -< ((v1, v1Down), bottomLineNEtoSW)
             bottomLineNEtoSW_x_bottom <- intersectLL -< (bottomLineNEtoSW, (bl, br))
             midBottomLineNEtoSW_x_bottom <- intersectLL -< (midBottomLineNEtoSW, (bl, br))
-            midBottomLineNEtoSW_x_v1 <- intersectLL -< (midBottomLineNEtoSW, (v1, v1Down))
+            midBottomLineNEtoSW_x_h4 <- intersectLL -< (midBottomLineNEtoSW, (h4, h4Down))
             diagNEtoSW_x_h4 <- intersectLL -< (diagNEtoSW, (h4, h4Down))
             v1_x_h4 <- intersectLL -< ((v1, v1Down), (h4, h4Down))
 
             bSWBig <- fillTriangle blueC -< (topLineNEtoSW_x_left, topLineNEtoSW_x_h4, h4)
             bSWSmall <- fillTriangle blueC -< (bottomLineNEtoSW_x_v1, v1_x_bottom, bottomLineNEtoSW_x_bottom)
-            rSW1 <- fillRectangle redC -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_bottom)
-            rSW2 <- fillTriangle redC -< (v1_x_h4, midBottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_bottom)
+            rSW <- rSWArrow -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_h4, midBottomLineNEtoSW_x_bottom)
 
 
             returnA -< bg <> rVert <> rHorz
                 <> bNWBig <> bNWSmall <> rNW
                 <> bSEBig <> bSESmall <> rSE
-                <> bNEBig <> bNESmall <> rNE1 <> rNE2
-                <> bSWBig <> bSWSmall <> rSW1 <> rSW2
+                <> bNEBig <> bNESmall <> rNE
+                <> bSWBig <> bSWSmall <> rSW
