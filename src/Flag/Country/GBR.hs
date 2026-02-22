@@ -11,7 +11,7 @@ import Effectful
 
 import Flag.Source
 import Flag.Definition (Flag, mkCountryFlag, editorNote)
-import Flag.Design.UnionJack (unionJack5to3, unionJackGazette, unionJackFlagInstitute, unionJackFlagSpec, unionJackBlueRGB, unionJackRedRGB)
+import Flag.Design.UnionJack (unionJack5to3, unionJackGazette, unionJackFlagInstitute, unionJackFlagSpec53, unionJackBlueRGB, unionJackRedRGB)
 
 unitedKingdom :: Sourced :> es => Flag es
 unitedKingdom = editorNote (
@@ -31,7 +31,7 @@ unitedKingdom = editorNote (
     return (p1 ++ "\n\n" ++ p2)
   )
   (do
-    blueC <- reference "Royal Blue" unionJackFlagSpec unionJackBlueRGB
-    redC  <- reference "Red"        unionJackFlagSpec unionJackRedRGB
+    blueC <- reference "Royal Blue" unionJackFlagSpec53 unionJackBlueRGB
+    redC  <- reference "Red"        unionJackFlagSpec53 unionJackRedRGB
     unionJack5to3 blueC redC
   )

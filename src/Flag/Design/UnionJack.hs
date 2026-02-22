@@ -8,7 +8,8 @@ module Flag.Design.UnionJack
     , unionJack2to1
     , unionJackGazette
     , unionJackFlagInstitute
-    , unionJackFlagSpec
+    , unionJackFlagSpec53
+    , unionJackFlagSpec21
     , unionJackBlueRGB
     , unionJackRedRGB
     ) where
@@ -40,24 +41,33 @@ unionJackGazette = screenshot constructedAt "gbr/gazette.png" $ mkEntity
     "https://www.thegazette.co.uk/London/issue/15324/page/3"
     -- Dec 30, 1800
 
-unionJackFlagSpec :: Entity
-unionJackFlagSpec = screenshot constructedAt "gbr/construction-sheet.png" $ mkEntity
+unionJackFlagSpec53 :: Entity
+unionJackFlagSpec53 = screenshot constructedAt "gbr/construction-sheet.png" $ mkEntity
     "College of Arms"
     "https://www.college-of-arms.gov.uk/images/downloads/Union_Flag_5-3_guide_v3.pdf"
 
+unionJackFlagSpec21 :: Entity
+unionJackFlagSpec21 = screenshot constructedAt "gbr/college-of-arms-21.png" $ mkEntity
+    "College of Arms"
+    "https://www.college-of-arms.gov.uk/images/downloads/Union_Flag_2-1_guide_v3.pdf"
+
 -- | The Union Jack in 5:3 proportions (for use on land).
 unionJack5to3 :: Sourced :> es => Colour Double -> Colour Double -> Eff es (FlagA (Point, Point) Drawing)
-unionJack5to3 blue red = mkUnionJack 50 30 blue red
+unionJack5to3 blue red = mkUnionJack unionJackFlagSpec53 50 30 blue red
 
 -- | The Union Jack in 2:1 proportions (for use at sea, or embedded in cantons).
 unionJack2to1 :: Sourced :> es => Colour Double -> Colour Double -> Eff es (FlagA (Point, Point) Drawing)
-unionJack2to1 blue red = mkUnionJack 60 30 blue red
+unionJack2to1 blue red = mkUnionJack unionJackFlagSpec21 60 30 blue red
 
-mkUnionJack :: Sourced :> es => Int -> Int -> Colour Double -> Colour Double -> Eff es (FlagA (Point, Point) Drawing)
-mkUnionJack w h blueC redC = do
-    (bigWide, mediumWide) <- reference "Stripe Widths" unionJackFlagSpec (3 :: Int, 2 :: Int)
-    whiteC <- reference "White" unionJackFlagSpec (sRGB24 255 255 255)
+mkUnionJack :: Sourced :> es => Entity -> Int -> Int -> Colour Double -> Colour Double -> Eff es (FlagA (Point, Point) Drawing)
+mkUnionJack spec w h blueC redC = do
+    (bigWide, mediumWide) <- reference "Stripe Widths" spec (3 :: Int, 2 :: Int)
+    whiteC <- reference "White" spec (sRGB24 255 255 255)
 
+    let
+        prop53 = w == 50 && h == 30
+        prop21 = w == 60 && h == 30
+    
     let mkDiagLines = proc (corner, center', n2, n3) -> do
             (_, a) <- intersectLC -< ((corner, center'), (corner, n3))
             (b, b') <- perpendicular -< (a, corner)
@@ -73,11 +83,11 @@ mkUnionJack w h blueC redC = do
         -- have the mid-line intersect h1 before v4, requiring a rectangle + triangle;
         -- wider flags use a single rectangle.
         rNEArrow
-          | w == 50 && h == 30 = proc (tr', diag_x_h1, v4_h1, mid_x_v4, _, mid_x_top) -> do
+          | prop53 = proc (tr', diag_x_h1, v4_h1, mid_x_v4, _, mid_x_top) -> do
               r1 <- fillRectangle redC -< (tr', diag_x_h1, v4_h1, mid_x_top)
               r2 <- fillTriangle redC -< (v4_h1, mid_x_v4, mid_x_top)
               returnA -< r1 <> r2
-          | w == 60 && h == 30 = proc (tr', diag_x_h1, _v4_h1, _mid_x_v4, mid_x_h1, mid_x_top) ->
+          | prop21 = proc (tr', diag_x_h1, _v4_h1, _mid_x_v4, mid_x_h1, mid_x_top) ->
               fillRectangle redC -< (tr', diag_x_h1, mid_x_h1, mid_x_top)
           | otherwise = error "Unsupported proportions"
 

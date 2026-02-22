@@ -11,7 +11,6 @@ module Flag.Pantone
   ) where
 
 import Flag.Source
-import Flag.Design.UnionJack (unionJackFlagSpec)
 
 import Data.Colour
 import Data.Colour.SRGB (sRGB24, sRGB)

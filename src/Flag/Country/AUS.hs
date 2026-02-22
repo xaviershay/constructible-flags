@@ -17,11 +17,11 @@ import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
 import Flag.Definition (Flag, mkCountryFlag, editorNote)
-import Flag.Design.UnionJack (unionJack2to1, unionJackFlagSpec, unionJackBlueRGB, unionJackRedRGB)
+import Flag.Design.UnionJack (unionJack2to1, unionJackFlagSpec21, unionJackBlueRGB, unionJackRedRGB)
 
 australia :: Sourced :> es => Flag es
 australia = editorNote """
-    For consistency, the Pantone approximations provided by Union Jack source are used rather than the Pantone sourced ones typically used.
+    For consistency with GBR, the Pantone approximations provided by the College of Arms are used rather than the Pantone sourced ones typically used.
    """ $ mkCountryFlag
   "AUS"
   "Australia"
@@ -55,9 +55,9 @@ australia = editorNote """
 
         let blueRGB = unionJackBlueRGB
             redRGB  = unionJackRedRGB
-        whiteC <- reference "White" unionJackFlagSpec (sRGB24 255 255 255)
-        blueC <- derivedFrom "Royal Blue (RGB)" "Royal Blue" unionJackFlagSpec blueRGB
-        redC  <- derivedFrom "Red (RGB)" "Red" unionJackFlagSpec redRGB
+        whiteC <- reference "White" unionJackFlagSpec21 (sRGB24 255 255 255)
+        blueC <- derivedFrom "Royal Blue (RGB)" "Royal Blue" unionJackFlagSpec21 blueRGB
+        redC  <- derivedFrom "Red (RGB)" "Red" unionJackFlagSpec21 redRGB
 
         jackArrow <- unionJack2to1 blueC redC
 
