@@ -12,6 +12,7 @@ module Flag.Constructions
     , fillFiveStar
     , fillStar7x2
     , fillStar7x3
+    , fillStar7Inner
     , ngonVertex
 
       -- * SVG overlay
@@ -197,6 +198,63 @@ fillStar7x3 col = group "Fill {7/3} star" $ proc (o, a) -> do
 
     -- Fill 7 inner triangles forming the heptagonal core
     -- Fan from i0 to all other inner points
+    c0 <- fillTriangle col -< (i0, i1, i2)
+    c1 <- fillTriangle col -< (i0, i2, i3)
+    c2 <- fillTriangle col -< (i0, i3, i4)
+    c3 <- fillTriangle col -< (i0, i4, i5)
+    c4 <- fillTriangle col -< (i0, i5, i6)
+
+    returnA -< s0 <> s1 <> s2 <> s3 <> s4 <> s5 <> s6
+            <> c0 <> c1 <> c2 <> c3 <> c4
+
+-- | Inscribe a simple seven-pointed star in the given circle
+-- (centre, edge point) and fill it with the given colour.
+--
+-- The outer vertices are the same 7 heptagon points as 'fillStar7x3'.
+-- The inner vertices sit on a concentric circle of radius @scale * R@,
+-- rotated by π/7 (half a heptagon step) so they fall between adjacent
+-- outer vertices.  Adjacent outer and inner vertices are connected in
+-- sequence to form 7 spike triangles; the inner heptagon is then filled
+-- with a 5-triangle fan.
+fillStar7Inner :: Ratio Int -> Colour Double -> FlagA (Point, Point) Drawing
+fillStar7Inner scale col = group "Fill 7-point inner star" $ proc (o, a) -> do
+    -- Generate 7 outer vertices of the regular heptagon
+    let v0 = a
+    v1 <- ngonVertex 7 1 -< (o, a)
+    v2 <- ngonVertex 7 2 -< (o, a)
+    v3 <- ngonVertex 7 3 -< (o, a)
+    v4 <- ngonVertex 7 4 -< (o, a)
+    v5 <- ngonVertex 7 5 -< (o, a)
+    v6 <- ngonVertex 7 6 -< (o, a)
+
+    -- Invert (o, a) to get the antipodal edge point on the outer circle (at angle π).
+    -- This places the inner vertices at the half-step offsets between outer vertices.
+    (opp, _) <- intersectLC -< ((o, a), (o, a))
+    -- Scale to the inner circle radius
+    innerEdge <- rationalMult scale -< (o, opp)
+
+    -- Generate 7 inner vertices on the inner circle, evenly spaced
+    -- starting from innerEdge (at angle π, between v3 and v4).
+    -- Inner vertex k sits between outer vertices (k+3) and (k+4) mod 7.
+    let i0 = innerEdge
+    i1 <- ngonVertex 7 1 -< (o, innerEdge)
+    i2 <- ngonVertex 7 2 -< (o, innerEdge)
+    i3 <- ngonVertex 7 3 -< (o, innerEdge)
+    i4 <- ngonVertex 7 4 -< (o, innerEdge)
+    i5 <- ngonVertex 7 5 -< (o, innerEdge)
+    i6 <- ngonVertex 7 6 -< (o, innerEdge)
+
+    -- Fill 7 spike triangles: each outer vertex with the two flanking inner points.
+    -- i0 sits between v3 and v4, so going around: vj is flanked CW by i_{j+3} and CCW by i_{j+4} (mod 7).
+    s0 <- fillTriangle col -< (v0, i3, i4)
+    s1 <- fillTriangle col -< (v1, i4, i5)
+    s2 <- fillTriangle col -< (v2, i5, i6)
+    s3 <- fillTriangle col -< (v3, i6, i0)
+    s4 <- fillTriangle col -< (v4, i0, i1)
+    s5 <- fillTriangle col -< (v5, i1, i2)
+    s6 <- fillTriangle col -< (v6, i2, i3)
+
+    -- Fill inner heptagonal core with a fan from i0
     c0 <- fillTriangle col -< (i0, i1, i2)
     c1 <- fillTriangle col -< (i0, i2, i3)
     c2 <- fillTriangle col -< (i0, i3, i4)

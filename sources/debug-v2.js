@@ -111,9 +111,29 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
     return { x, y: T - y - h, w, h };
   }, []);
 
-  // Pan/zoom state: store the current viewBox
-  const [vb, setVb] = useState(originalVB);
+  // Pan/zoom state: store the current viewBox, initialised from URL if present
+  const [vb, setVb] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    const vx = parseFloat(p.get('vx'));
+    const vy = parseFloat(p.get('vy'));
+    const vw = parseFloat(p.get('vw'));
+    const vh = parseFloat(p.get('vh'));
+    if ([vx, vy, vw, vh].every(n => !isNaN(n) && isFinite(n))) {
+      return { x: vx, y: vy, w: vw, h: vh };
+    }
+    return originalVB;
+  });
   const panRef = useRef({ isPanning: false, startX: 0, startY: 0, startVb: null });
+
+  // Sync viewBox to URL params
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    p.set('vx', vb.x);
+    p.set('vy', vb.y);
+    p.set('vw', vb.w);
+    p.set('vh', vb.h);
+    history.replaceState(null, '', '?' + p.toString());
+  }, [vb]);
 
   // Convert a screen-space point to SVG viewBox coordinates
   const screenToSvg = useCallback((clientX, clientY) => {
@@ -214,10 +234,13 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
   const maxVisibleIndex = Math.max(0, ...visibleSet);
   const viewBoxStr = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
 
-  // Fixed screen-size hitbox: ~10px worth of viewBox units
+  // Fixed screen-size radii: convert target pixel sizes to viewBox units
   const svgEl = svgRef.current;
   const svgScreenW = svgEl ? svgEl.clientWidth || 600 : 600;
-  const hitRadius = (vb.w / svgScreenW) * 30;
+  const pxToVb = vb.w / svgScreenW;
+  const hitRadius = pxToVb * 30;
+  const dotRadiusOuter = pxToVb * 5;
+  const dotRadiusInner = pxToVb * 4;
 
   return html`
     <svg ref=${svgRef}
@@ -235,7 +258,7 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
           return html`
             <g key=${leaf.index}>
               ${showFill && leaf.fillSvg && html`
-                <g dangerouslySetInnerHTML=${{ __html: leaf.fillSvg }} />
+                <g class="fill-layer" dangerouslySetInnerHTML=${{ __html: leaf.fillSvg }} />
               `}
               <g>
                 ${isVisible && leaf.geomSvg && html`
@@ -250,7 +273,7 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
                               onMouseEnter=${() => setHoveredPoint(pt)}
                               onMouseLeave=${() => setHoveredPoint(null)} />
                       <circle key=${i}
-                              cx=${pt.x} cy=${pt.y} r="0.04"
+                              cx=${pt.x} cy=${pt.y} r=${dotRadiusOuter}
                               fill="black" class="dot"
                               pointer-events="none" />
                     `)}
@@ -261,7 +284,7 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
                               onMouseEnter=${() => setHoveredPoint(pt)}
                               onMouseLeave=${() => setHoveredPoint(null)} />
                       <circle key=${'in' + i}
-                              cx=${pt.x} cy=${pt.y} r="0.03"
+                              cx=${pt.x} cy=${pt.y} r=${dotRadiusInner}
                               fill="#666" class="dot"
                               pointer-events="none" />
                     `)}
@@ -279,7 +302,7 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
                   onMouseEnter=${() => setHoveredPoint(pt)}
                   onMouseLeave=${() => setHoveredPoint(null)} />
           <circle key=${'init' + i}
-                  cx=${pt.x} cy=${pt.y} r="0.04"
+                  cx=${pt.x} cy=${pt.y} r=${dotRadiusOuter}
                   fill="blue" class="dot"
                   pointer-events="none" />
         `)}
@@ -486,8 +509,25 @@ function App() {
   const totalLeaves = allLeaves.length;
 
   const [expandedGroups, setExpandedGroups] = useState(() => collectGroupLabels(DATA.tree));
-  const [lo, setLo] = useState(0);
-  const [hi, setHi] = useState(totalLeaves);
+
+  const [lo, setLo] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    const v = parseInt(p.get('lo'), 10);
+    return isNaN(v) ? 0 : Math.max(0, Math.min(v, totalLeaves));
+  });
+  const [hi, setHi] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    const v = parseInt(p.get('hi'), 10);
+    return isNaN(v) ? totalLeaves : Math.max(0, Math.min(v, totalLeaves));
+  });
+
+  // Sync lo/hi to URL params without adding history entries
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    p.set('lo', lo);
+    p.set('hi', hi);
+    history.replaceState(null, '', '?' + p.toString());
+  }, [lo, hi]);
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
   // Build virtual layers based on expanded groups
@@ -796,6 +836,28 @@ const styles = `
     font-family: 'SF Mono', 'Fira Code', monospace;
     pointer-events: none;
     z-index: 10;
+  }
+
+  /* Construction geometry: scale-invariant strokes */
+  .geom-layer line,
+  .geom-layer circle {
+    vector-effect: non-scaling-stroke;
+    stroke-width: 1.5;
+  }
+
+  .geom-layer line {
+    stroke-dasharray: 5 4;
+  }
+
+  .geom-layer circle {
+    stroke-dasharray: 8 5;
+  }
+
+  /* Fill layer outlines: scale-invariant */
+  .fill-layer polygon,
+  .fill-layer circle {
+    vector-effect: non-scaling-stroke;
+    stroke-width: 1;
   }
 
   /* Dot hover */

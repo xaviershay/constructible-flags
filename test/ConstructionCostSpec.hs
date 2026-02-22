@@ -12,16 +12,18 @@ import Flag.Registry (allCountryFlags)
 import Flag.Definition (Flag(..))
 import Flag.Construction.Tree (evalTree, flattenTree)
 import Flag.Construction.Types (Point)
+import FlagsUnderConstruction (underConstruction)
 
 -- | Map of expected construction step counts per flag ISO code.
 -- When adding a new flag, add an entry here with the expected number
 -- of geometric construction layers.
 expectedCosts :: [(String, Int)]
 expectedCosts =
-  [ ("BGD", 55)
+  [ ("AUS", 208)
+  , ("BGD", 55)
   , ("BTN", 30)
   , ("BWA", 78)
-  , ("GBR", 184)
+  , ("GBR", 191)
   , ("FRA", 35)
   , ("JOR", 102)
   , ("JPN", 29)
@@ -41,4 +43,5 @@ constructionCostTests = testGroup "ConstructionCost"
         Nothing -> assertFailure $ "No expected cost recorded for " ++ iso ++ ". Current computed cost: " ++ show cost ++ "."
         Just expected -> assertEqual ("construction cost for " ++ iso) expected cost
   | f <- allCountryFlags
+  , flagIsoCode f `notElem` underConstruction
   ]

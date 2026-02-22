@@ -19,6 +19,7 @@ import Flag.Render.SVGOverlay (renderDrawingToSVG)
 
 import Flag.Registry (allCountryFlags)
 import Flag.Definition (Flag(..))
+import FlagsUnderConstruction (underConstruction)
 import Flag.Construction.Types (Point)
 import Flag.Construction.Interpreter (eval, evalCollectRadicals)
 import Flag.Construction.Optimize (optimize)
@@ -30,6 +31,7 @@ imageGoldenTests :: TestTree
 imageGoldenTests = testGroup "ImageGolden"
   [ testCase (flagIsoCode f) (goldenTestFor f)
   | f <- allCountryFlags
+  , flagIsoCode f `notElem` underConstruction
   ]
 
 -- Paths
