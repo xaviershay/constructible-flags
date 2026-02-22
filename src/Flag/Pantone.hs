@@ -11,6 +11,7 @@ module Flag.Pantone
   ) where
 
 import Flag.Source
+import Flag.Design.UnionJack (unionJackFlagSpec)
 
 import Data.Colour
 import Data.Colour.SRGB (sRGB24, sRGB)
@@ -44,8 +45,6 @@ pantoneToRGB fromLabel key =
                 Nothing                -> baseEntity
           in derivedFrom (fromLabel ++ " (RGB)") fromLabel chipEntity (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
         Nothing -> derivedFrom (fromLabel ++ " (RGB)") fromLabel pantone (sRGB24 (fromIntegral r) (fromIntegral g) (fromIntegral b))
-    Nothing -> error $ "pantoneToRGB: unknown Pantone key: " ++ key
-
 
 -- | Source a Pantone colour code from an entity and immediately convert it to
 -- an sRGB colour. Combines 'reference' and 'pantoneToRGB' for the common case

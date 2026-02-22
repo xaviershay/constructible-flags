@@ -9,8 +9,11 @@ module Flag.Design.UnionJack
     , unionJackGazette
     , unionJackFlagInstitute
     , unionJackFlagSpec
+    , unionJackBlueRGB
+    , unionJackRedRGB
     ) where
 
+import Data.Colour (Colour)
 import Data.Colour.SRGB (sRGB24)
 import Data.Ratio ((%))
 import Control.Arrow (returnA)
@@ -19,6 +22,9 @@ import Effectful
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
+
+unionJackBlueRGB = sRGB24 1 33 105
+unionJackRedRGB = sRGB24 200 16 46
 
 constructedAt :: String
 constructedAt = "2026-02-22"
@@ -40,18 +46,16 @@ unionJackFlagSpec = screenshot constructedAt "gbr/construction-sheet.png" $ mkEn
     "https://www.college-of-arms.gov.uk/images/downloads/Union_Flag_5-3_guide_v3.pdf"
 
 -- | The Union Jack in 5:3 proportions (for use on land).
-unionJack5to3 :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
-unionJack5to3 = mkUnionJack 50 30
+unionJack5to3 :: Sourced :> es => Colour Double -> Colour Double -> Eff es (FlagA (Point, Point) Drawing)
+unionJack5to3 blue red = mkUnionJack 50 30 blue red
 
 -- | The Union Jack in 2:1 proportions (for use at sea, or embedded in cantons).
-unionJack2to1 :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
-unionJack2to1 = mkUnionJack 60 30
+unionJack2to1 :: Sourced :> es => Colour Double -> Colour Double -> Eff es (FlagA (Point, Point) Drawing)
+unionJack2to1 blue red = mkUnionJack 60 30 blue red
 
-mkUnionJack :: Sourced :> es => Int -> Int -> Eff es (FlagA (Point, Point) Drawing)
-mkUnionJack w h = do
+mkUnionJack :: Sourced :> es => Int -> Int -> Colour Double -> Colour Double -> Eff es (FlagA (Point, Point) Drawing)
+mkUnionJack w h blueC redC = do
     (bigWide, mediumWide) <- reference "Stripe Widths" unionJackFlagSpec (3 :: Int, 2 :: Int)
-    blueC <- reference "Royal Blue" unionJackFlagSpec (sRGB24 1 33 105)
-    redC <- reference "Red" unionJackFlagSpec (sRGB24 200 16 46)
     whiteC <- reference "White" unionJackFlagSpec (sRGB24 255 255 255)
 
     let mkDiagLines = proc (corner, center', n2, n3) -> do

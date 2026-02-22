@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE MultilineStrings #-}
 
 module Flag.Country.AUS
     ( australia
@@ -15,78 +16,156 @@ import Effectful
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
-import Flag.Definition (Flag, mkCountryFlag)
-import Flag.Design.UnionJack (unionJack2to1)
+import Flag.Definition (Flag, mkCountryFlag, editorNote)
+import Flag.Design.UnionJack (unionJack2to1, unionJackFlagSpec, unionJackBlueRGB, unionJackRedRGB)
 
 australia :: Sourced :> es => Flag es
-australia = mkCountryFlag
+australia = editorNote """
+    For consistency, the Pantone approximations provided by Union Jack source are used rather than the Pantone sourced ones typically used.
+   """ $ mkCountryFlag
   "AUS"
   "Australia"
-  (reference "Description" flagSpec "TODO: add official flag description")
+  (reference "Description" flagSpec """
+ The Australian National Flag is a blue flag, and the Australian Red Ensign is a red flag.  Each of the flags has:
+
+ (a)  the Union Jack occupying the upper quarter next the staff;
+ (b)  a large white star (representing the 6 States of Australia and the Territories) in the centre of the lower quarter next the staff and pointing direct to the centre of St George's Cross in the Union Jack, and
+ (c)  5 white stars (representing the Southern Cross) in the half of the flag further from the staff.
+  """
+  )
   design
 
   where
     constructedAt = "2026-02-22"
     gov = mkAgentOrg "aus_gov" "Government of Australia"
 
-    flagSpec = attributeTo gov $ mkEntity
-        "TODO: add official flag specification title"
-        "TODO: add URL"
+    pmcFlagBooklet = screenshot constructedAt "aus/pmc.png" $ attributeTo gov $ mkEntity
+      "Australian Flags"
+      "https://www.pmc.gov.au/resources/australian-flags-booklet"
+
+    flagSpec = screenshot constructedAt "aus/flags-act.png" $ attributeTo gov $ mkEntity
+        "Flags Act 1953"
+        "https://www.austlii.edu.au/cgi-bin/viewdoc/au/legis/cth/consol_act/fa195361/sch1.html"
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
         -- TODO: Proper colors, and line up with Union Jack
-        whiteC <- impliedReference "White" flagSpec (sRGB24 255 255 255)
-        blueC <- impliedReference "Blue" flagSpec (sRGB24 0 0 255)
-        redC <- impliedReference "Red" flagSpec (sRGB24 255 0 0)
-        jackArrow <- unionJack2to1
+        blueP <- reference "Royal Blue" pmcFlagBooklet "280-C"
+        redP  <- reference "Red"        pmcFlagBooklet "186-C"
+
+        let blueRGB = unionJackBlueRGB
+            redRGB  = unionJackRedRGB
+        whiteC <- reference "White" unionJackFlagSpec (sRGB24 255 255 255)
+        blueC <- derivedFrom "Royal Blue (RGB)" "Royal Blue" unionJackFlagSpec blueRGB
+        redC  <- derivedFrom "Red (RGB)" "Red" unionJackFlagSpec redRGB
+
+        jackArrow <- unionJack2to1 blueC redC
+
+        (l, w) <- reference "Proportions" flagSpec (2, 1)
+        (innerStarRatio, fedDiameter, starDiameter, tinyStarDiameter) <- reference "Star Sizes" flagSpec (4 % 9, 3 % 10, 1 % 7, 1 % 12)
+        (
+            (fedX, fedY),
+            (alphaX, alphaY),
+            (betaX, betaY),
+            (gammaX, gammaY),
+            (deltaX, deltaY),
+            (epsilonX, epsilonY)
+            ) <- reference "Star Positions" flagSpec (
+                -- "On middle line of Union Jack, one-quarter width of flag from
+                -- bottom edge of flag."
+                (1 % 4, 3 % 4),
+
+                -- "On middle line, one-sixth from bottom edge."
+                (0, 1 % 6),
+
+                -- "One-quarter from middle line, at right angles on left to a
+                -- point on middle line one-sixteenth above centre of fly.
+                (-1 % 4, -1 % 16),
+
+                -- "On middle line one-sixth from top edge."
+                (0, 1 % 6),
+
+                -- "Two-ninths from middle line at right angles on right to a
+                -- point one-fifteenth above a point on middle line
+                -- one-sixteenth above centre of fly."
+                (2 % 9, -(1 % 15 + 1 % 16)),
+
+                -- "One-tenth from middle line at right angles on right to a point on middle line
+                -- one twenty-fourth below centre of fly"
+                (1 % 10, 1 % 24)
+                )
+
+        -- Most dimensions are specified in relation to the width, but our unit
+        -- vector is for the length, hence many need to be multiplied by the
+        -- aspect.
+        let aspect = w % l
+        let starRadius = starDiameter * aspect
+        let flyCenter = 1 % 2
+        let middleLine = 3 % 4
+
+        if not (fedX == 1 % 4 && fedY == 3 % 4 && alphaX == 0 && betaX == -1 % 4 && gammaX == 0)
+            then error "Unsupported star positioning due to construction optimisations"
+            else pure ()
 
         pure $ proc (origin, unit) -> do
             let unitV = (origin, unit)
             -- TODO: implement actual flag design
-            (tl, tr, br, bl) <- boxNatural 2 1 -< (origin, unit)
+            (tl, tr, br, bl) <- boxNatural l w -< (origin, unit)
             topMid <- midpoint -< (tl, tr)
             leftMid <- midpoint -< (tl, bl)
 
-            top14L  <- generateLine midpoint -< (tl, topMid)
-            top34L  <- generateLine midpoint -< (topMid, tr)
-            top5_8L  <- generateLine midpoint -< (topMid, fst top34L)
-            top4_5L <- generateLine (rationalMult (3 % 4 + (1 % 10) / 2)) -< (tl, tr)
-            top31_36L <- generateLine (rationalMult (3 % 4 + (2 % 9) / 2)) -< (tl, tr)
+            topFedL  <- generateLine midpoint -< (tl, topMid)
+            topMiddleL  <- generateLine midpoint -< (topMid, tr)
+            topBetaL  <- generateLine midpoint -< (topMid, fst topMiddleL)
 
-            left34L <- generateLine midpoint -< (leftMid, bl)
-            left1_6L <- generateLine (rationalMult (1 % 6)) -< (tl, bl)
-            left56L <- generateLine (rationalMult (5 % 6)) -< (tl, bl)
-            left7_16L <- generateLine (rationalMult (7 % 16)) -< (tl, bl)
-            left13_24L <- generateLine (rationalMult (1 % 2 + 1 % 24)) -< (tl, bl)
-            left89_240L <- generateLine (rationalMult (1 % 2 - 1 % 15 - 1 % 16)) -< (tl, bl)
+            let topAlphaL = topMiddleL
+                topGammaL = topMiddleL
 
-            -- TODO: Stars are likely half-width
-            fedStar <- drawInCircleAt ((3 % 20) / 2) (fillStar7Inner (4 % 9) whiteC)
-                -< ((left34L, top14L), unitV)
+            topEpsilonL <- generateLine (rationalMult (middleLine + epsilonX * aspect)) -< (tl, tr)
 
-            alphaStar <- drawInCircleAt ((1 % 14) / 2) (fillStar7Inner (4 % 9) whiteC)
-                -< ((left56L, top34L), unitV)
+            -- "two-ninths from middle line"
+            topDeltaL <- generateLine (rationalMult (middleLine + deltaX * aspect)) -< (tl, tr)
 
-            betaStar <- drawInCircleAt ((1 % 14) / 2) (fillStar7Inner (4 % 9) whiteC)
-                -< ((left7_16L, top5_8L), unitV)
+            leftFedL <- generateLine midpoint -< (leftMid, bl)
+            -- "one-sixth from top egde"
+            leftGammaL <- generateLine (rationalMult gammaY) -< (tl, bl)
 
-            gammaStar <- drawInCircleAt ((1 % 14) / 2) (fillStar7Inner (4 % 9) whiteC)
-                -< ((left1_6L, top34L), unitV)
+            -- "one-sixth from bottom edge"
+            leftAlphaL <- generateLine (rationalMult (1 - alphaY)) -< (tl, bl)
+            
+            -- "one-sixteenth above centre of fly"
+            leftBetaL <- generateLine (rationalMult (flyCenter + betaY)) -< (tl, bl)
 
-            deltaStar <- drawInCircleAt ((1 % 14) / 2) (fillStar7Inner (4 % 9) whiteC)
-                -< ((left89_240L, top31_36L), unitV)
+            leftEpsilonL <- generateLine (rationalMult (flyCenter + epsilonY)) -< (tl, bl)
+
+            -- "one-fifteenth above a point on middle line one-sixteenth above centre of fly"
+            leftDeltaL <- generateLine (rationalMult (flyCenter + deltaY)) -< (tl, bl)
+
+
+            fedStar <- drawInCircleAt (fedDiameter * aspect) (fillStar7Inner innerStarRatio whiteC)
+                -< ((leftFedL, topFedL), unitV)
+
+            alphaStar <- drawInCircleAt starRadius (fillStar7Inner innerStarRatio whiteC)
+                -< ((leftAlphaL, topAlphaL), unitV)
+
+            betaStar <- drawInCircleAt starRadius (fillStar7Inner innerStarRatio whiteC)
+                -< ((leftBetaL, topBetaL), unitV)
+
+            gammaStar <- drawInCircleAt starRadius (fillStar7Inner innerStarRatio whiteC)
+                -< ((leftGammaL, topGammaL), unitV)
+
+            deltaStar <- drawInCircleAt starRadius (fillStar7Inner innerStarRatio whiteC)
+                -< ((leftDeltaL, topDeltaL), unitV)
 
             -- TODO: 5 pointed star, not 7
-            epsilonStar <- drawInCircleAt ((1 % 24) / 2) (fillStar7Inner (4 % 9) whiteC)
-                -< ((left13_24L, top4_5L), unitV)
+            epsilonStar <- drawInCircleAt (tinyStarDiameter * aspect) (fillStar7Inner innerStarRatio whiteC)
+                -< ((leftEpsilonL, topEpsilonL), unitV)
 
             bg <- fillRectangle blueC -< (tl, tr, br, bl)
 
-            -- The canton is the upper-left quarter of a 2:1 flag.
-            jack <- jackArrow -< (tl, topMid)
+            canton <- jackArrow -< (tl, topMid)
 
-            returnA -< bg <> jack <> fedStar <> alphaStar <> betaStar <> gammaStar <> deltaStar <> epsilonStar
+            returnA -< bg <> canton <> fedStar <> alphaStar <> betaStar <> gammaStar <> deltaStar <> epsilonStar
 
     generateLine pointArrow = proc (a, b) -> do
         p      <- pointArrow -< (a, b)

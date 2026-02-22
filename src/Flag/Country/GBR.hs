@@ -6,11 +6,12 @@ module Flag.Country.GBR
     ( unitedKingdom
     ) where
 
+import Data.Colour.SRGB (sRGB24)
 import Effectful
 
 import Flag.Source
 import Flag.Definition (Flag, mkCountryFlag, editorNote)
-import Flag.Design.UnionJack (unionJack5to3, unionJackGazette, unionJackFlagInstitute)
+import Flag.Design.UnionJack (unionJack5to3, unionJackGazette, unionJackFlagInstitute, unionJackFlagSpec, unionJackBlueRGB, unionJackRedRGB)
 
 unitedKingdom :: Sourced :> es => Flag es
 unitedKingdom = editorNote (
@@ -29,4 +30,8 @@ unitedKingdom = editorNote (
     p2 <- reference "Description" unionJackFlagInstitute "The Union Flag comprises three crosses on a royal blue background: a red St George's cross a white St Andrew's saltire a red St Patrick's saltire."
     return (p1 ++ "\n\n" ++ p2)
   )
-  unionJack5to3
+  (do
+    blueC <- reference "Royal Blue" unionJackFlagSpec unionJackBlueRGB
+    redC  <- reference "Red"        unionJackFlagSpec unionJackRedRGB
+    unionJack5to3 blueC redC
+  )
