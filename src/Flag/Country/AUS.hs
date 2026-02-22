@@ -109,37 +109,26 @@ australia = editorNote """
 
         pure $ proc (origin, unit) -> do
             let unitV = (origin, unit)
-            -- TODO: implement actual flag design
             (tl, tr, br, bl) <- boxNatural l w -< (origin, unit)
             topMid <- midpoint -< (tl, tr)
             leftMid <- midpoint -< (tl, bl)
 
             topFedL  <- generateLine midpoint -< (tl, topMid)
             topMiddleL  <- generateLine midpoint -< (topMid, tr)
-            topBetaL  <- generateLine midpoint -< (topMid, fst topMiddleL)
 
             let topAlphaL = topMiddleL
                 topGammaL = topMiddleL
 
+            topBetaL  <- generateLine midpoint -< (topMid, fst topMiddleL)
+            topDeltaL <- generateLine (rationalMult (middleLine + deltaX * aspect)) -< (tl, tr)
             topEpsilonL <- generateLine (rationalMult (middleLine + epsilonX * aspect)) -< (tl, tr)
 
-            -- "two-ninths from middle line"
-            topDeltaL <- generateLine (rationalMult (middleLine + deltaX * aspect)) -< (tl, tr)
-
             leftFedL <- generateLine midpoint -< (leftMid, bl)
-            -- "one-sixth from top egde"
-            leftGammaL <- generateLine (rationalMult gammaY) -< (tl, bl)
-
-            -- "one-sixth from bottom edge"
             leftAlphaL <- generateLine (rationalMult (1 - alphaY)) -< (tl, bl)
-            
-            -- "one-sixteenth above centre of fly"
             leftBetaL <- generateLine (rationalMult (flyCenter + betaY)) -< (tl, bl)
-
-            leftEpsilonL <- generateLine (rationalMult (flyCenter + epsilonY)) -< (tl, bl)
-
-            -- "one-fifteenth above a point on middle line one-sixteenth above centre of fly"
+            leftGammaL <- generateLine (rationalMult gammaY) -< (tl, bl)
             leftDeltaL <- generateLine (rationalMult (flyCenter + deltaY)) -< (tl, bl)
+            leftEpsilonL <- generateLine (rationalMult (flyCenter + epsilonY)) -< (tl, bl)
 
 
             fedStar <- drawInCircleAt (fedDiameter * aspect) (fillStar7Inner innerStarRatio whiteC)
