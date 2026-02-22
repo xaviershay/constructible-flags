@@ -73,7 +73,7 @@ unitedKingdom = editorNote (
             -- have the mid-line intersect h1 before v4, requiring a rectangle + triangle;
             -- wider flags use a single rectangle.
             rNEArrow
-              | w == 50 && h == 30 = proc (tr', diag_x_h1, v4_h1, mid_x_v4, mid_x_h1, mid_x_top) -> do
+              | w == 50 && h == 30 = proc (tr', diag_x_h1, v4_h1, mid_x_v4, _, mid_x_top) -> do
                   r1 <- fillRectangle redC -< (tr', diag_x_h1, v4_h1, mid_x_top)
                   r2 <- fillTriangle redC -< (v4_h1, mid_x_v4, mid_x_top)
                   returnA -< r1 <> r2
@@ -202,13 +202,13 @@ unitedKingdom = editorNote (
             bottomLineNEtoSW_x_v1 <- intersectLL -< ((v1, v1Down), bottomLineNEtoSW)
             bottomLineNEtoSW_x_bottom <- intersectLL -< (bottomLineNEtoSW, (bl, br))
             midBottomLineNEtoSW_x_bottom <- intersectLL -< (midBottomLineNEtoSW, (bl, br))
-            midBottomLineNEtoSW_x_h4 <- intersectLL -< (midBottomLineNEtoSW, (h4, h4Down))
+            midBottomLineNEtoSW_x_v1 <- intersectLL -< (midBottomLineNEtoSW, (v1, v1Down))
             diagNEtoSW_x_h4 <- intersectLL -< (diagNEtoSW, (h4, h4Down))
             v1_x_h4 <- intersectLL -< ((v1, v1Down), (h4, h4Down))
 
             bSWBig <- fillTriangle blueC -< (topLineNEtoSW_x_left, topLineNEtoSW_x_h4, h4)
             bSWSmall <- fillTriangle blueC -< (bottomLineNEtoSW_x_v1, v1_x_bottom, bottomLineNEtoSW_x_bottom)
-            rSW <- rSWArrow -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_h4, midBottomLineNEtoSW_x_bottom)
+            rSW <- rSWArrow -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_bottom)
 
 
             returnA -< bg <> rVert <> rHorz
