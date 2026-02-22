@@ -123,6 +123,8 @@ unitedKingdom = editorNote (
             v1_x_bottom <- intersectLL -< ((v1, v1Down), (bl, br))
             v4_x_bottom <- intersectLL -< ((v4, v4Down), (bl, br))
 
+            bg <- fillRectangle whiteC -< (tl, tr, br, bl)
+
             -- Red Stripes
             rVert <- fillRectangle redC -< (v2, v3, v3Down, v2Down)
             rHorz <- fillRectangle redC -< (h2, h3, h3Down, h2Down)
@@ -186,7 +188,6 @@ unitedKingdom = editorNote (
             rSW1 <- fillRectangle redC -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_bottom)
             rSW2 <- fillTriangle redC -< (v1_x_h4, midBottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_bottom)
 
-            bg <- fillRectangle whiteC -< (tl, tr, br, bl)
 
             returnA -< bg <> rVert <> rHorz
                 <> bNWBig <> bNWSmall <> rNW
