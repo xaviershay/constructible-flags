@@ -9,9 +9,9 @@ module Flag.Constructions
       -- * Drawing primitives
     , fillTriangle
     , fillCircle
-    , fillFiveStar
     , fillStar7x2
     , fillStar7x3
+    , fillStar5Inner
     , fillStar7Inner
     , ngonVertex
 
@@ -60,44 +60,6 @@ intersectCC = IntersectCC
 
 fillTriangle :: Colour Double -> FlagA (Point, Point, Point) Drawing
 fillTriangle = FillTriangle
-
--- | Inscribe a regular five-pointed star (pentagram) in the given circle
--- (centre, edge point) and fill it with the given colour.
-fillFiveStar :: Colour Double -> FlagA (Point, Point) Drawing
-fillFiveStar col = group "Fill five star" $ proc (o, a) -> do
-    -- Opposite point on the circle (diametrically opposite a)
-    (_, b)    <- intersectLC -< ((o, a), (o, a))
-    m         <- midpoint -< (o, b)
-
-    -- Circle centred at M through A intersects original
-    -- circle at two helpers w and v
-    (w, v)    <- intersectCC -< ((m, a), (o, a))
-    -- Circles centred at w and v with radius OA give four pentagon vertices
-    (p1, p2)  <- intersectCC -< ((w, a), (o, a))
-    (p3, p4)  <- intersectCC -< ((v, a), (o, a))
-
-    -- Label outer vertices (use the provided A as the fifth)
-    let v0 = a
-        v1 = p1
-        v2 = p3
-        v3 = p4
-        v4 = p2
-
-    -- Inner pentagon vertices: intersections of diagonals
-    i0 <- intersectLL -< ((v0, v2), (v1, v3))
-    i1 <- intersectLL -< ((v1, v3), (v2, v4))
-    i2 <- intersectLL -< ((v2, v4), (v3, v0))
-    i3 <- intersectLL -< ((v3, v0), (v4, v1))
-    i4 <- intersectLL -< ((v4, v1), (v0, v2))
-
-    -- Fill star as five triangles (outer vertex with two adjacent inner points)
-    t0 <- fillTriangle col -< (v0, i4, i0)
-    t1 <- fillTriangle col -< (v1, i0, i1)
-    t2 <- fillTriangle col -< (v2, i1, i2)
-    t3 <- fillTriangle col -< (v3, i2, i3)
-    t4 <- fillTriangle col -< (v4, i3, i4)
-
-    returnA -< t0 <> t1 <> t2 <> t3 <> t4
 
 -- | Smart constructor for a single n-gon vertex.
 ngonVertex :: Int -> Int -> FlagA (Point, Point) Point
@@ -263,6 +225,100 @@ fillStar7Inner scale col = group "Fill 7-point inner star" $ proc (o, a) -> do
 
     returnA -< s0 <> s1 <> s2 <> s3 <> s4 <> s5 <> s6
             <> c0 <> c1 <> c2 <> c3 <> c4
+
+-- | Inscribe a simple five-pointed star in the given circle
+-- (centre, edge point) and fill it with the given colour.
+--
+-- Uses a straightedge & compass construction for the
+-- regular pentagon.  The key idea: the perpendicular half-radius gives
+-- a segment of length R√5/2 (from the midpoint of a perpendicular
+-- radius to the starting vertex).  Intersecting this circle with the
+-- perpendicular diameter yields two golden-ratio reference distances.
+-- Projecting these onto the original diameter and bisecting produces
+-- the x-coordinates of the pentagon vertex pairs, which are then found
+-- by erecting perpendiculars and intersecting with the circle.
+--
+-- The inner vertices sit on a concentric circle of radius @scale * R@,
+-- rotated by π so they fall between adjacent outer vertices.  The same
+-- construction is applied to the inner circle.
+fillStar5Inner :: Ratio Int -> Colour Double -> FlagA (Point, Point) Drawing
+fillStar5Inner scale col = group "Fill 5-point inner star" $ proc (o, a) -> do
+    -- === Outer pentagon via straightedge & compass ===
+    -- Antipodal point and perpendicular reference on outer circle
+    (b, _) <- intersectLC -< ((o, a), (o, a))
+    (q, _) <- perpendicular -< (o, a)
+
+    -- M = midpoint of perpendicular radius OQ.
+    -- |MA| = R√5/2, so circle(M, A) encodes the golden ratio.
+    mq <- midpoint -< (o, q)
+    (n1, n2) <- intersectLC -< ((o, q), (mq, a))
+    -- n1 (smaller t): |A,n1| = pentagon side length
+    -- n2 (larger t):  |A,n2| = pentagon diagonal length
+
+    -- Project golden-ratio distances onto line OA.
+    -- circle(O, n1) ∩ line(O,A) gives points at ±|On1| along OA.
+    -- The second (larger t, same direction as A) is what we want.
+    (_, f1) <- intersectLC -< ((o, a), (o, n1))
+    g1      <- midpoint    -< (o, f1)
+    -- g1 is the x-coordinate of V1 and V4 (at ±72° from A)
+
+    -- Similarly for the diagonal distance → x-coordinate of V2 and V3.
+    -- The first (smaller t, opposite to A) is what we want.
+    (f2, _) <- intersectLC -< ((o, a), (o, n2))
+    g2      <- midpoint    -< (o, f2)
+    -- g2 is the x-coordinate of V2 and V3 (at ±144° from A)
+
+    -- Erect perpendiculars at g1 and g2 (parallel to OQ)
+    (_, g1q) <- translate -< ((o, q), g1)
+    (_, g2q) <- translate -< ((o, q), g2)
+
+    -- Intersect with outer circle to get pentagon vertices.
+    -- intersectLC orders by t along the directed line (going in q direction):
+    -- first = vertex above OA, second = vertex below OA.
+    let v0 = a
+    (v1, v4) <- intersectLC -< ((g1, g1q), (o, a))   -- 72° and 288°
+    (v2, v3) <- intersectLC -< ((g2, g2q), (o, a))   -- 144° and 216°
+
+    -- === Inner pentagon on scaled concentric circle ===
+    let opp = b
+    innerEdge <- rationalMult scale -< (o, opp)
+
+    -- Get a perpendicular reference on the inner circle in the same
+    -- direction as q (to preserve vertex ordering).
+    (_, iq) <- intersectLC -< ((o, q), (o, innerEdge))
+
+    -- Same golden-ratio construction on the inner circle
+    imq <- midpoint -< (o, iq)
+    (in1, in2) <- intersectLC -< ((o, iq), (imq, innerEdge))
+
+    (_, iF1) <- intersectLC -< ((o, innerEdge), (o, in1))
+    iG1      <- midpoint    -< (o, iF1)
+
+    (iF2, _) <- intersectLC -< ((o, innerEdge), (o, in2))
+    iG2      <- midpoint    -< (o, iF2)
+
+    (_, iG1q) <- translate -< ((o, iq), iG1)
+    (_, iG2q) <- translate -< ((o, iq), iG2)
+
+    let i0 = innerEdge                                  -- 180°
+    (i4, i1) <- intersectLC -< ((iG1, iG1q), (o, innerEdge))  -- 108° and 252°
+    (i3, i2) <- intersectLC -< ((iG2, iG2q), (o, innerEdge))  -- 36° and 324°
+
+    -- === Fill triangles ===
+    -- 5 spike triangles: vj flanked by i_{(j+2) mod 5} and i_{(j+3) mod 5}.
+    s0 <- fillTriangle col -< (v0, i2, i3)
+    s1 <- fillTriangle col -< (v1, i3, i4)
+    s2 <- fillTriangle col -< (v2, i4, i0)
+    s3 <- fillTriangle col -< (v3, i0, i1)
+    s4 <- fillTriangle col -< (v4, i1, i2)
+
+    -- Inner pentagonal core: fan from i0
+    c0 <- fillTriangle col -< (i0, i1, i2)
+    c1 <- fillTriangle col -< (i0, i2, i3)
+    c2 <- fillTriangle col -< (i0, i3, i4)
+
+    returnA -< s0 <> s1 <> s2 <> s3 <> s4
+            <> c0 <> c1 <> c2
 
 -- | Fill a circle defined by its center and an edge point
 fillCircle :: Colour Double -> FlagA (Point, Point) Drawing

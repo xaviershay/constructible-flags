@@ -49,7 +49,6 @@ australia = editorNote """
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        -- TODO: Proper colors, and line up with Union Jack
         blueP <- reference "Royal Blue" pmcFlagBooklet "280-C"
         redP  <- reference "Red"        pmcFlagBooklet "186-C"
 
@@ -130,6 +129,7 @@ australia = editorNote """
             leftDeltaL <- generateLine (rationalMult (flyCenter + deltaY)) -< (tl, bl)
             leftEpsilonL <- generateLine (rationalMult (flyCenter + epsilonY)) -< (tl, bl)
 
+            bg <- fillRectangle blueC -< (tl, tr, br, bl)
 
             fedStar <- drawInCircleAt (fedDiameter * aspect) (fillStar7Inner innerStarRatio whiteC)
                 -< ((leftFedL, topFedL), unitV)
@@ -146,11 +146,9 @@ australia = editorNote """
             deltaStar <- drawInCircleAt starRadius (fillStar7Inner innerStarRatio whiteC)
                 -< ((leftDeltaL, topDeltaL), unitV)
 
-            -- TODO: 5 pointed star, not 7
-            epsilonStar <- drawInCircleAt (tinyStarDiameter * aspect) (fillStar7Inner innerStarRatio whiteC)
+            epsilonStar <- drawInCircleAt (tinyStarDiameter * aspect) (fillStar5Inner innerStarRatio whiteC)
                 -< ((leftEpsilonL, topEpsilonL), unitV)
 
-            bg <- fillRectangle blueC -< (tl, tr, br, bl)
 
             canton <- jackArrow -< (tl, topMid)
 
