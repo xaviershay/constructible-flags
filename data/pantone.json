@@ -10,6 +10,17 @@
         "sampledAt": "2026-02-20T22:20:06Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-116-c.webp"
     },
+    "122-C": {
+        "chip": "images/pantone/122-C.webp",
+        "label": "122-C",
+        "rgb": [
+            254,
+            210,
+            63
+        ],
+        "sampledAt": "2026-02-26T08:53:12Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-122-c.webp"
+    },
     "15-4225-TCX": {
         "chip": "images/pantone/15-4225-TCX.webp",
         "label": "15-4225-TCX",
@@ -31,6 +42,17 @@
         ],
         "sampledAt": "2026-02-20T22:20:11Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-165-c.webp"
+    },
+    "1795-C": {
+        "chip": "images/pantone/1795-C.webp",
+        "label": "1795-C",
+        "rgb": [
+            211,
+            38,
+            50
+        ],
+        "sampledAt": "2026-02-26T08:53:18Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-1795-c.webp"
     },
     "186-C": {
         "chip": "images/pantone/186-C.webp",
@@ -65,6 +87,17 @@
         "sampledAt": "2026-02-22T06:13:26Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-280-c.webp"
     },
+    "294-C": {
+        "chip": "images/pantone/294-C.webp",
+        "label": "294-C",
+        "rgb": [
+            0,
+            48,
+            104
+        ],
+        "sampledAt": "2026-02-26T08:53:07Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-294-c.webp"
+    },
     "342-C": {
         "chip": "images/pantone/342-C.webp",
         "label": "342-C",
@@ -84,7 +117,7 @@
             123,
             57
         ],
-        "sampledAt": "2026-02-18T07:08:39Z",
+        "sampledAt": "2026-02-26T08:53:23Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-356-c.webp"
     },
     "485-C": {

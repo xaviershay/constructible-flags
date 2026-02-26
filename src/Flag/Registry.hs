@@ -11,6 +11,7 @@ module Flag.Registry
     , unitedKingdom
     , jordan
     , japan
+    , seychelles
     ) where
 
 import Flag.Source (Sourced)
@@ -24,6 +25,7 @@ import Flag.Country.FRA (france)
 import Flag.Country.GBR (unitedKingdom)
 import Flag.Country.JOR (jordan)
 import Flag.Country.JPN (japan)
+import Flag.Country.SYC (seychelles)
 
 allCountryFlags :: [Flag (Sourced : '[])]
 allCountryFlags =
@@ -35,4 +37,5 @@ allCountryFlags =
     , unitedKingdom
     , jordan
     , japan
+    , seychelles
     ]
