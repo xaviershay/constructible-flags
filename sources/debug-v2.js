@@ -95,6 +95,51 @@ function leafToVirtual(virtualLayers, leafIndex) {
 }
 
 // ---------------------------------------------------------------------------
+// Geometry rendering from structured instructions
+// ---------------------------------------------------------------------------
+
+// Render construction geometry (dashed lines/circles) from a geom instruction.
+function renderGeom(geom) {
+  if (!geom) return null;
+  switch (geom.type) {
+    case 'intersectLL':
+      return html`
+        <line key="l1" x1=${geom.l1[0][0]} y1=${geom.l1[0][1]} x2=${geom.l1[1][0]} y2=${geom.l1[1][1]} stroke="#999" fill="none" />
+        <line key="l2" x1=${geom.l2[0][0]} y1=${geom.l2[0][1]} x2=${geom.l2[1][0]} y2=${geom.l2[1][1]} stroke="#999" fill="none" />
+      `;
+    case 'intersectLC':
+      return html`
+        <line key="line" x1=${geom.line[0][0]} y1=${geom.line[0][1]} x2=${geom.line[1][0]} y2=${geom.line[1][1]} stroke="#999" fill="none" />
+        <circle key="circ" cx=${geom.cx} cy=${geom.cy} r=${geom.r} stroke="#999" fill="none" />
+      `;
+    case 'intersectCC':
+      return html`
+        <circle key="c1" cx=${geom.cx1} cy=${geom.cy1} r=${geom.r1} stroke="#999" fill="none" />
+        <circle key="c2" cx=${geom.cx2} cy=${geom.cy2} r=${geom.r2} stroke="#999" fill="none" />
+      `;
+    case 'circle':
+      return html`<circle cx=${geom.cx} cy=${geom.cy} r=${geom.r} stroke="#999" fill="none" />`;
+    default:
+      return null;
+  }
+}
+
+// Render a persistent filled shape from a fill instruction.
+function renderFill(fill) {
+  if (!fill) return null;
+  switch (fill.type) {
+    case 'triangle': {
+      const pts = fill.pts.map(([x, y]) => `${x},${y}`).join(' ');
+      return html`<polygon points=${pts} fill=${fill.color} fillOpacity="0.7" stroke=${fill.color} />`;
+    }
+    case 'circle':
+      return html`<circle cx=${fill.cx} cy=${fill.cy} r=${fill.r} fill=${fill.color} fillOpacity="0.7" stroke=${fill.color} />`;
+    default:
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // SVG Viewer Component
 // ---------------------------------------------------------------------------
 
@@ -257,12 +302,12 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
           const showFill = leaf.index <= maxVisibleIndex;
           return html`
             <g key=${leaf.index}>
-              ${showFill && leaf.fillSvg && html`
-                <g class="fill-layer" dangerouslySetInnerHTML=${{ __html: leaf.fillSvg }} />
+              ${showFill && leaf.fill && html`
+                <g class="fill-layer">${renderFill(leaf.fill)}</g>
               `}
               <g>
-                ${isVisible && leaf.geomSvg && html`
-                  <g class="geom-layer" dangerouslySetInnerHTML=${{ __html: leaf.geomSvg }} />
+                ${isVisible && leaf.geom && html`
+                  <g class="geom-layer">${renderGeom(leaf.geom)}</g>
                 `}
                 ${isVisible && html`
                   <g class="dots-layer">

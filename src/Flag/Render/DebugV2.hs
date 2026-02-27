@@ -6,8 +6,6 @@ module Flag.Render.DebugV2
     ) where
 
 import Data.Char (toLower)
-import Data.List (intercalate)
-import qualified Data.Set as Set
 import Data.Colour (Colour)
 import Data.Colour.SRGB (toSRGB, channelRed, channelGreen, channelBlue)
 import Numeric (showFFloat, showHex)
@@ -91,14 +89,6 @@ writeConstructionJson name isoCode input tree = do
       fvbW = (fMaxX - fMinX) + 2 * fPadX
       fvbH = (fMaxY - fMinY) + 2 * fPadY
 
-  -- Compute live-after sets (single backward pass using Double-keyed Sets).
-  let inputPtSets = map (Set.fromList . map toDP . layerInputPoints) allLayers
-      liveAfterSets = scanr Set.union Set.empty inputPtSets
-
-  -- Pre-compute cumulative output points (as Double pairs) per step.
-  let outputPtLists = map (map toDP . layerOutputPoints) allLayers
-      prevOutputsDbl = scanl (\acc outs -> acc ++ outs) [] outputPtLists
-
   -- Build JSON using Aeson
   let viewBox = showF vbMinX ++ " " ++ showF vbMinY
                 ++ " " ++ showF vbW ++ " " ++ showF vbH
@@ -112,8 +102,7 @@ writeConstructionJson name isoCode input tree = do
             [ jsonPoint (fst input) "A"
             , jsonPoint (snd input) "B"
             ])
-        , ("tree", treeToJson numbered allLayers initialPts
-                     liveAfterSets prevOutputsDbl)
+        , ("tree", treeToJson numbered)
         ]
 
   let isoLower = map toLower isoCode
@@ -141,36 +130,19 @@ fromList = foldl (\v x -> v <> pure x) mempty
 -- Tree → JSON
 -- ---------------------------------------------------------------------------
 
-treeToJson :: [NumberedEntry] -> [ConstructionLayer] -> [Point]
-           -> [Set.Set (Double, Double)]   -- ^ liveAfterSets
-           -> [[(Double, Double)]]         -- ^ prevOutputsDbl
-           -> Aeson.Value
-treeToJson entries _allLayers initialPts liveAfterSets prevOutputsDbl =
+treeToJson :: [NumberedEntry] -> Aeson.Value
+treeToJson entries =
     Aeson.Array $ fromList (map entryToJson entries)
   where
-    initialDbl = map toDP initialPts
-
     entryToJson :: NumberedEntry -> Aeson.Value
     entryToJson (NLeaf idx label layer) =
-      let layerIdx = idx - 1
-          liveSet = if layerIdx + 1 < length liveAfterSets
-                      then liveAfterSets !! (layerIdx + 1)
-                      else Set.empty
-          prevOutDbl = if layerIdx < length prevOutputsDbl
-                         then prevOutputsDbl !! layerIdx
-                         else []
-          curOutputs = layerOutputPoints layer
-          curOutDbl = map toDP curOutputs
-          allKnownDbl = initialDbl ++ prevOutDbl ++ curOutDbl
-          liveDotsDbl = filter (`Set.member` liveSet) allKnownDbl
-          dotPtsDbl = dedupDbl (curOutDbl ++ liveDotsDbl)
+      let curOutputs = layerOutputPoints layer
       in jObj
         [ ("type", jStr "leaf")
         , ("index", jNum (fromIntegral idx))
         , ("label", jStr label)
-        , ("geomSvg", jStr (layerGeomSvg layer))
-        , ("fillSvg", jStr (layerFillSvg layer))
-        , ("dotsSvg", jStr (dotsSvgDbl dotPtsDbl))
+        , ("geom", layerGeomJson layer)
+        , ("fill", layerFillJson layer)
         , ("points", Aeson.Array $ fromList (map (\p -> jsonPoint p "") curOutputs))
         , ("inputPoints", Aeson.Array $ fromList (map (\p -> jsonPoint p "") (layerInputPoints layer)))
         ]
@@ -191,6 +163,17 @@ jsonPoint (x, y) label = jObj
     , ("label", jStr label)
     ]
 
+-- | Compact [x, y] array for use in geometry instructions.
+jsonXY :: Double -> Double -> Aeson.Value
+jsonXY x y = Aeson.Array $ fromList [jNum x, jNum y]
+
+-- | A line as [[x1,y1],[x2,y2]].
+jsonLine :: Point -> Point -> Aeson.Value
+jsonLine p1 p2 =
+    let (x1, y1) = toDP p1
+        (x2, y2) = toDP p2
+    in Aeson.Array $ fromList [jsonXY x1 y1, jsonXY x2 y2]
+
 -- ---------------------------------------------------------------------------
 -- Fill bounding box helpers
 -- ---------------------------------------------------------------------------
@@ -208,94 +191,63 @@ fillBoundingPoints (LayerCircle _ cc ce) =
 fillBoundingPoints _ = []
 
 -- ---------------------------------------------------------------------------
--- Layer → SVG fragments (manual SVG generation)
+-- Layer → structured geometry JSON
 -- ---------------------------------------------------------------------------
 
--- | Generate the construction geometry SVG for a layer
-layerGeomSvg :: ConstructionLayer -> String
-layerGeomSvg (LayerIntersectLL p1 p2 p3 p4 _) =
-    let (x1,y1) = toDP p1; (x2,y2) = toDP p2
-        (x3,y3) = toDP p3; (x4,y4) = toDP p4
-    in  svgLine x1 y1 x2 y2 ++ "\n" ++ svgLine x3 y3 x4 y4
-
-layerGeomSvg (LayerIntersectLC lp1 lp2 cc ce _) =
-    let (x1,y1) = toDP lp1; (x2,y2) = toDP lp2
-        (cx,cy) = toDP cc
-    in  svgLine x1 y1 x2 y2 ++ "\n" ++ svgCircleOutline cx cy (toD (pointDist cc ce))
-
-layerGeomSvg (LayerIntersectCC c1 e1 c2 e2 _) =
-    let (c1x,c1y) = toDP c1; (c2x,c2y) = toDP c2
-    in  svgCircleOutline c1x c1y (toD (pointDist c1 e1))
-        ++ "\n"
-        ++ svgCircleOutline c2x c2y (toD (pointDist c2 e2))
-
-layerGeomSvg (LayerNGonVertex _ _ _) = ""
-layerGeomSvg (LayerTriangle _ _ _ _) = ""
-
-layerGeomSvg (LayerCircle _ cc ce) =
-    let (cx,cy) = toDP cc
-    in  svgCircleOutline cx cy (toD (pointDist cc ce))
-
-layerGeomSvg (LayerSVGOverlay _ _ _) = ""
-
--- | Generate the persistent fill SVG for a layer
-layerFillSvg :: ConstructionLayer -> String
-layerFillSvg (LayerTriangle col p1 p2 p3) =
-    let (x1,y1) = toDP p1; (x2,y2) = toDP p2; (x3,y3) = toDP p3
-    in  "<polygon points=\"" ++ showF x1 ++ "," ++ showF y1
-        ++ " " ++ showF x2 ++ "," ++ showF y2
-        ++ " " ++ showF x3 ++ "," ++ showF y3
-        ++ "\" fill=\"" ++ colourToHex col
-        ++ "\" fill-opacity=\"0.7\" stroke=\"" ++ colourToHex col
-        ++ "\" stroke-width=\"0.02\"/>"
-
-layerFillSvg (LayerCircle col cc ce) =
-    let (cx,cy) = toDP cc
+-- | Structured description of the construction geometry for a layer.
+-- Returns Null for layers with no construction to display.
+layerGeomJson :: ConstructionLayer -> Aeson.Value
+layerGeomJson (LayerIntersectLL p1 p2 p3 p4 _) =
+    jObj [ ("type", jStr "intersectLL")
+         , ("l1", jsonLine p1 p2)
+         , ("l2", jsonLine p3 p4)
+         ]
+layerGeomJson (LayerIntersectLC lp1 lp2 cc ce _) =
+    let (cx, cy) = toDP cc
         r = toD (pointDist cc ce)
-    in  "<circle cx=\"" ++ showF cx ++ "\" cy=\"" ++ showF cy
-        ++ "\" r=\"" ++ showF r
-        ++ "\" fill=\"" ++ colourToHex col
-        ++ "\" fill-opacity=\"0.7\" stroke=\"" ++ colourToHex col
-        ++ "\" stroke-width=\"0.02\"/>"
+    in jObj [ ("type", jStr "intersectLC")
+            , ("line", jsonLine lp1 lp2)
+            , ("cx", jNum cx), ("cy", jNum cy), ("r", jNum r)
+            ]
+layerGeomJson (LayerIntersectCC c1 e1 c2 e2 _) =
+    let (c1x, c1y) = toDP c1
+        r1 = toD (pointDist c1 e1)
+        (c2x, c2y) = toDP c2
+        r2 = toD (pointDist c2 e2)
+    in jObj [ ("type", jStr "intersectCC")
+            , ("cx1", jNum c1x), ("cy1", jNum c1y), ("r1", jNum r1)
+            , ("cx2", jNum c2x), ("cy2", jNum c2y), ("r2", jNum r2)
+            ]
+layerGeomJson (LayerNGonVertex _ _ _) = Aeson.Null
+layerGeomJson (LayerTriangle _ _ _ _) = Aeson.Null
+layerGeomJson (LayerCircle _ cc ce) =
+    let (cx, cy) = toDP cc
+        r = toD (pointDist cc ce)
+    in jObj [ ("type", jStr "circle")
+            , ("cx", jNum cx), ("cy", jNum cy), ("r", jNum r)
+            ]
+layerGeomJson (LayerSVGOverlay _ _ _) = Aeson.Null
 
-layerFillSvg _ = ""
-
--- | Generate SVG for dot markers from pre-computed (Double, Double) pairs.
-dotsSvgDbl :: [(Double, Double)] -> String
-dotsSvgDbl pts =
-    intercalate "\n"
-      [ "<circle cx=\"" ++ showF x ++ "\" cy=\"" ++ showF y
-        ++ "\" r=\"0.04\" fill=\"black\" class=\"dot\" data-x=\""
-        ++ showF x ++ "\" data-y=\"" ++ showF y ++ "\"/>"
-      | (x, y) <- pts
-      ]
-
--- | Deduplicate a list of (Double, Double) pairs preserving order.
-dedupDbl :: [(Double, Double)] -> [(Double, Double)]
-dedupDbl = go Set.empty
-  where
-    go _ [] = []
-    go seen (p:ps)
-      | Set.member p seen = go seen ps
-      | otherwise         = p : go (Set.insert p seen) ps
-
--- ---------------------------------------------------------------------------
--- SVG primitives
--- ---------------------------------------------------------------------------
-
-svgLine :: Double -> Double -> Double -> Double -> String
-svgLine x1 y1 x2 y2 =
-    "<line x1=\"" ++ showF x1 ++ "\" y1=\"" ++ showF y1
-    ++ "\" x2=\"" ++ showF x2 ++ "\" y2=\"" ++ showF y2
-    ++ "\" stroke=\"#999\" stroke-width=\"0.02\""
-    ++ " stroke-dasharray=\"0.05,0.05\" fill=\"none\"/>"
-
-svgCircleOutline :: Double -> Double -> Double -> String
-svgCircleOutline cx cy r =
-    "<circle cx=\"" ++ showF cx ++ "\" cy=\"" ++ showF cy
-    ++ "\" r=\"" ++ showF r
-    ++ "\" stroke=\"#999\" stroke-width=\"0.02\""
-    ++ " stroke-dasharray=\"0.08,0.05\" fill=\"none\"/>"
+-- | Structured description of the persistent fill for a layer.
+-- Returns Null for layers that don't produce a filled shape.
+layerFillJson :: ConstructionLayer -> Aeson.Value
+layerFillJson (LayerTriangle col p1 p2 p3) =
+    let (x1, y1) = toDP p1
+        (x2, y2) = toDP p2
+        (x3, y3) = toDP p3
+    in jObj [ ("type", jStr "triangle")
+            , ("pts", Aeson.Array $ fromList
+                [ jsonXY x1 y1, jsonXY x2 y2, jsonXY x3 y3 ])
+            , ("color", jStr (colourToHex col))
+            ]
+layerFillJson (LayerCircle col cc ce) =
+    let (cx, cy) = toDP cc
+        r = toD (pointDist cc ce)
+    in jObj [ ("type", jStr "circle")
+            , ("cx", jNum cx), ("cy", jNum cy), ("r", jNum r)
+            , ("color", jStr (colourToHex col))
+            ]
+layerFillJson _ = Aeson.Null
 
 -- ---------------------------------------------------------------------------
 -- Colour helpers
