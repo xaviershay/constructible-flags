@@ -7,6 +7,7 @@ module Flag.Registry
     , bangladesh
     , bhutan
     , botswana
+    , algeria
     , france
     , unitedKingdom
     , jordan
@@ -21,6 +22,7 @@ import Flag.Country.AUS (australia)
 import Flag.Country.BGD (bangladesh)
 import Flag.Country.BTN (bhutan)
 import Flag.Country.BWA (botswana)
+import Flag.Country.DZA (algeria)
 import Flag.Country.FRA (france)
 import Flag.Country.GBR (unitedKingdom)
 import Flag.Country.JOR (jordan)
@@ -33,6 +35,7 @@ allCountryFlags =
     , bangladesh
     , bhutan
     , botswana
+    , algeria
     , france
     , unitedKingdom
     , jordan
