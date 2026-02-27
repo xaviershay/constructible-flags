@@ -7,7 +7,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import Effectful (runPureEff)
-import Flag.Source (runSourcedPure, Sourced)
+import Flag.Source (runSourcedPure)
 import Flag.Registry (allCountryFlags)
 import Flag.Definition (Flag(..))
 import Flag.Construction.Tree (evalTree, flattenTree)
@@ -27,6 +27,7 @@ expectedCosts =
   , ("FRA", 35)
   , ("JOR", 102)
   , ("JPN", 29)
+  , ("SYC", 27)
   ]
 
 -- Tests to prevent performance regressions in construction.
