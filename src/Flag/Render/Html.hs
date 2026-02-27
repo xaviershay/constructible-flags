@@ -18,6 +18,8 @@ import Data.Char (toLower)
 import Data.List (nub, sortOn, groupBy, intercalate, intersperse, partition)
 import Data.Function (on)
 
+import Flag.Definition (FlagCategory(..))
+
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5 (docTypeHtml, (!), toValue, toHtml)
 import qualified Text.Blaze.Html5.Attributes as A
@@ -31,8 +33,8 @@ import Flag.Construction.Interpreter (Step(..))
 -- ---------------------------------------------------------------------------
 
 -- | Generate the index.html content
--- Tuple: (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, field)
-generateIndex :: [(String, String, String, String, String, [SourcedElement], [Step], String)] -> String
+-- Tuple: (svgFile, name, desc, flagId, updatedAt, sources, constructionSteps, field, category)
+generateIndex :: [(String, String, String, String, String, [SourcedElement], [Step], String, FlagCategory)] -> String
 generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
   H.head $ do
     H.meta ! A.charset "UTF-8"
@@ -59,7 +61,9 @@ generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
           H.a ! A.href "https://www.constituteproject.org/" $ "Constitute Project"
           " when referencing constitutions, for consistency of presentation."
         H.li "Use Pantone\8217s own RGB approximations if not otherwise provided."
-    H.div ! A.class_ "flag-grid" $ mapM_ flagCard flags
+    flagSection "Country Flags"  Country  flags
+    flagSection "Pride Flags"    Pride    flags
+    flagSection "Cultural Flags" Cultural flags
     H.footer ! A.class_ "site-footer" $
       H.p $ do
         H.a ! A.href "https://github.com/xaviershay/constructible-flags" $ "GitHub"
@@ -68,9 +72,17 @@ generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
         " · Made by "
         H.a ! A.href "https://blog.xaviershay.com" $ "Xavier Shay"
   where
-    flagCard (svgFile, name, _desc, isoCode, updatedAt, _sources, constructionSteps, _field) =
-      let isoLower = map toLower isoCode
-          flagPage = isoLower ++ ".html"
+    flagSection heading cat fs =
+      let matching = filter (\(_,_,_,_,_,_,_,_,c) -> c == cat) fs
+      in if null matching
+           then mempty
+           else do
+             H.h2 $ toHtml (heading :: String)
+             H.div ! A.class_ "flag-grid" $ mapM_ flagCard matching
+
+    flagCard (svgFile, name, _desc, flagId_, updatedAt, _sources, constructionSteps, _field, _cat) =
+      let idLower  = map toLower flagId_
+          flagPage = idLower ++ ".html"
           isConstructible = null [() | StepNGonVertex <- constructionSteps]
           hasSVGOverlay   = not $ null [() | StepSVGOverlay <- constructionSteps]
       in H.a ! A.class_ "flag-card" ! A.href (toValue flagPage) $ do

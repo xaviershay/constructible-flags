@@ -56,6 +56,10 @@ library
       Flag.Country.SYC
       Flag.Definition
       Flag.Design.UnionJack
+      Flag.Other.Aboriginal
+      Flag.Other.LGBTQ
+      Flag.Other.TRANS
+      Flag.Other.TSI
       Flag.Pantone
       Flag.Pantone.Cli
       Flag.Registry

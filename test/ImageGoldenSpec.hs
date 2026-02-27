@@ -17,7 +17,7 @@ import Codec.Picture
 
 import Flag.Render.SVGOverlay (renderDrawingToSVG)
 
-import Flag.Registry (allCountryFlags)
+import Flag.Registry (allFlags)
 import Flag.Definition (Flag(..))
 import FlagsUnderConstruction (underConstruction)
 import Flag.Construction.Types (Point)
@@ -29,9 +29,9 @@ import Flag.Render.Diagram (drawingToDiagram)
 -- | Tests that render each flag to a PNG and compare to a golden PNG.
 imageGoldenTests :: TestTree
 imageGoldenTests = testGroup "ImageGolden"
-  [ testCase (flagIsoCode f) (goldenTestFor f)
-  | f <- allCountryFlags
-  , flagIsoCode f `notElem` underConstruction
+  [ testCase (flagId f) (goldenTestFor f)
+  | f <- allFlags
+  , flagId f `notElem` underConstruction
   ]
 
 -- Paths
@@ -51,7 +51,7 @@ goldenTestFor flag = do
   createDirectoryIfMissing True failureDir
   createDirectoryIfMissing True tmpDir
 
-  let iso = map toLower (flagIsoCode flag)
+  let iso = map toLower (flagId flag)
       goldenPath  = goldenDir </> (iso ++ ".png")
       tmpSvgPath  = tmpDir </> (iso ++ ".svg")
       tmpPath     = tmpDir </> (iso ++ ".png")

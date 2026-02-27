@@ -6,7 +6,6 @@ module Main (main) where
 import Data.Char (toLower)
 import Data.List (intercalate, nub, sort)
 import Data.Ratio (numerator, denominator)
-import qualified Data.Text.IO as TIO
 import Effectful (runPureEff)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory, copyFile)
 import System.FilePath ((</>), takeDirectory)
@@ -14,13 +13,11 @@ import Control.Monad (unless, when, forM_)
 
 import Flag.Construction.Types (Point)
 import Flag.Construction.Interpreter (Step, steps, evalCollectRadicals)
-import Flag.Construction.Optimize (optimize)
 import Flag.Construction.Radical (Radical, isNatural, isInteger, radicands)
 import Flag.Construction.Tree (evalTree)
 import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
-import Flag.Definition (Flag(..))
-import Flag.Registry (allCountryFlags)
-import Flag.Render.Diagram (drawingToDiagram)
+import Flag.Definition (Flag(..), FlagCategory)
+import Flag.Registry (allFlags)
 import Flag.Render.Html (generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
 import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
@@ -32,43 +29,48 @@ main = do
   copyDirRecursive "data" "out"
   buildHtml
   writeDebugViewer
-  mapM_ writeConstructionJsonForFlag allCountryFlags
+  mapM_ writeConstructionJsonForFlag allFlags
 
 writeConstructionJsonForFlag :: Flag (Sourced : '[]) -> IO ()
 writeConstructionJsonForFlag flag = do
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       input = ((0, 0), (1, 0)) :: (Point, Point)
       (_, tree) = evalTree flagArrow input
-  writeConstructionJson (flagName flag) (flagIsoCode flag) input tree
+  writeConstructionJson (flagName flag) (flagId flag) input tree
 
 -- ---------------------------------------------------------------------------
 -- HTML index build
 -- ---------------------------------------------------------------------------
 
--- Helper to drop the editor note for index page
--- (a,b,c,d,e,f,g,h,i) -> (a,b,c,d,e,f,g,h)
-dropEditorNote :: (a,b,c,d,e,f,g,h,i) -> (a,b,c,d,e,f,g,h)
-dropEditorNote (a,b,c,d,e,f,g,h,_) = (a,b,c,d,e,f,g,h)
+-- FlagData tuple: (svgFile, name, desc, id, updatedAt, sources, steps, field, editorNote, category)
+type FlagData = (String, String, String, String, String, [SourcedElement], [Step], String, String, FlagCategory)
+
+-- Drop editorNote (position 9) for the index, keeping category (position 10)
+forIndex :: FlagData -> (String, String, String, String, String, [SourcedElement], [Step], String, FlagCategory)
+forIndex (a,b,c,d,e,f,g,h,_,j) = (a,b,c,d,e,f,g,h,j)
 
 buildHtml :: IO ()
 buildHtml = do
   createDirectoryIfMissing True "out"
-  
-  -- Generate SVG for each flag and collect metadata for index
-  flagData <- mapM processFlag allCountryFlags
-  
+
+  -- Generate SVG for each flag and collect metadata
+  flagData <- mapM processFlag allFlags
+
   -- Generate show pages for each flag
-  mapM_ (\fd@(_, _, _, iso, _, _, _, _, _) -> do
-    let showHtml = generateShowPage fd
-        showPath = "out/" ++ map toLower iso ++ ".html"
+  mapM_ (\fd@(_, _, _, id_, _, _, _, _, _, _) -> do
+    let showHtml = generateShowPage (dropCategory fd)
+        showPath = "out/" ++ map toLower id_ ++ ".html"
     writeFile showPath showHtml) flagData
 
   -- Generate index.html
-  let html = generateIndex (map dropEditorNote flagData)
+  let html = generateIndex (map forIndex flagData)
   writeFile "out/index.html" html
-  
+
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
 
+-- Drop category for the show page (which doesn't need it)
+dropCategory :: FlagData -> (String, String, String, String, String, [SourcedElement], [Step], String, String)
+dropCategory (a,b,c,d,e,f,g,h,i,_) = (a,b,c,d,e,f,g,h,i)
 
 -- | Recursively copy directory contents from src to dst
 copyDirRecursive :: FilePath -> FilePath -> IO ()
@@ -89,12 +91,12 @@ copyDirRecursive src dst = do
           copyFile s d
     putStrLn $ "Copied " ++ src ++ " -> " ++ dst
 
--- | Process a single flag: render SVG, generate PROV XML, and extract metadata
--- Returns: (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, fieldStr, editorNote)
-processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, String, [SourcedElement], [Step], String, String)
+-- | Process a single flag: render SVG, generate PROV JSON, and extract metadata
+-- Returns: (svgFile, name, desc, id, updatedAt, sources, constructionSteps, fieldStr, editorNote, category)
+processFlag :: Flag (Sourced : '[]) -> IO FlagData
 processFlag flag = do
-  let isoLower = map toLower (flagIsoCode flag)
-      svgFile = isoLower ++ ".svg"
+  let idLower = map toLower (flagId flag)
+      svgFile = idLower ++ ".svg"
       svgPath = "out/" ++ svgFile
 
   -- Resolve the FlagA arrow (sources colours etc.)
@@ -119,9 +121,9 @@ processFlag flag = do
   let allSources = nub (designSources ++ descSources)
 
   -- Generate PROV JSON
-  let provFile = isoLower ++ "-prov.json"
+  let provFile = idLower ++ "-prov.json"
       provPath = "out/" ++ provFile
-      provJson = generateProvJson (flagIsoCode flag) (flagName flag) allSources
+      provJson = generateProvJson (flagId flag) (flagName flag) allSources
   writeFile provPath provJson
 
   -- Extract construction steps from the FlagA arrow
@@ -132,7 +134,9 @@ processFlag flag = do
 
   putStrLn $ "Generated " ++ svgFile ++ " (" ++ flagName flag ++ ")"
 
-  pure (svgFile, flagName flag, description, flagIsoCode flag, flagUpdatedAt flag, allSources, constructionSteps, fieldStr, flagEditorNote flag)
+  pure ( svgFile, flagName flag, description, flagId flag, flagUpdatedAt flag
+       , allSources, constructionSteps, fieldStr, flagEditorNote flag
+       , flagCategory flag )
 
 -- | Classify the number field required by all intermediate construction points.
 classifyField :: [Radical] -> String
@@ -152,4 +156,3 @@ classifyField rads =
     ratToKaTeX r
       | denominator r == 1 = show (numerator r)
       | otherwise = "\\frac{" ++ show (numerator r) ++ "}{" ++ show (denominator r) ++ "}"
-

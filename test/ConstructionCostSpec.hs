@@ -8,7 +8,7 @@ import Test.Tasty.HUnit
 
 import Effectful (runPureEff)
 import Flag.Source (runSourcedPure)
-import Flag.Registry (allCountryFlags)
+import Flag.Registry (allFlags)
 import Flag.Definition (Flag(..))
 import Flag.Construction.Tree (evalTree, flattenTree)
 import Flag.Construction.Types (Point)
@@ -28,13 +28,18 @@ expectedCosts =
   , ("JOR", 102)
   , ("JPN", 29)
   , ("SYC", 27)
+  -- Other flags
+  , ("ABORIGINAL", 32)
+  , ("LGBTQ", 79)
+  , ("TRANS", 71)
+  , ("TSI", 66)
   ]
 
 -- Tests to prevent performance regressions in construction.
 constructionCostTests :: TestTree
 constructionCostTests = testGroup "ConstructionCost"
-  [ testCase (flagIsoCode f) $ do
-      let iso = flagIsoCode f
+  [ testCase (flagId f) $ do
+      let iso = flagId f
           flagArrow = runPureEff $ runSourcedPure $ flagDesign f
           input = ((0,0),(1,0)) :: (Point, Point)
           (_, trees) = evalTree flagArrow input
@@ -43,6 +48,6 @@ constructionCostTests = testGroup "ConstructionCost"
       case lookup iso expectedCosts of
         Nothing -> assertFailure $ "No expected cost recorded for " ++ iso ++ ". Current computed cost: " ++ show cost ++ "."
         Just expected -> assertEqual ("construction cost for " ++ iso) expected cost
-  | f <- allCountryFlags
-  , flagIsoCode f `notElem` underConstruction
+  | f <- allFlags
+  , flagId f `notElem` underConstruction
   ]

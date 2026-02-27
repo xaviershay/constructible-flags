@@ -22,7 +22,7 @@ evalFlag flag =
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       input = ((0, 0), (1, 0)) :: (Point, Point)
       (_, tree) = evalTree flagArrow input
-  in (flagName flag, flagIsoCode flag, input, tree)
+  in (flagName flag, flagId flag, input, tree)
 
 main :: IO ()
 main = do

@@ -30,17 +30,19 @@ splitComma s = map trim $ split s
 				[] -> []
 				(_:rest) -> split rest
 
-generateRegistry :: IO ()
-generateRegistry = do
-    let countryDir = "src/Flag/Country"
-        outFile = "src/Flag/Registry.hs"
-    exists <- doesDirectoryExist countryDir
-    unless exists $ putStrLn ("Warning: " ++ countryDir ++ " does not exist")
-    when exists $ do
-        files <- listDirectory countryDir
+-- | Scan a directory for Haskell modules and extract (moduleName, exportedName) pairs.
+scanFlagDir :: FilePath -> IO [(String, String)]
+scanFlagDir dir = do
+    exists <- doesDirectoryExist dir
+    if not exists
+      then do
+        putStrLn $ "Warning: " ++ dir ++ " does not exist"
+        return []
+      else do
+        files <- listDirectory dir
         let hsFiles = sort . filter ((== ".hs") . takeExtension) $ files
         entries <- forM hsFiles $ \f -> do
-            let path = countryDir </> f
+            let path = dir </> f
             content <- readFile path
             let ls = lines content
                 modStart = dropWhile (not . ("module " `isPrefixOf`) . dropWhile isSpace) ls
@@ -61,28 +63,53 @@ generateRegistry = do
                                      then toLowerFirst (takeBaseName f)
                                      else head exportNames
                     return $ Just (moduleName, exportName)
+        return [ (m,n) | Just (m,n) <- entries ]
 
-        let pairs = [ (m,n) | Just (m,n) <- entries ]
-            imports = map (\(m,n) -> "import " ++ m ++ " (" ++ n ++ ")") pairs
-            names = map snd pairs
-            header = unlines
-                [ "{-# LANGUAGE DataKinds #-}"
-                , "{-# LANGUAGE TypeOperators #-}"
-                , ""
-                , "module Flag.Registry"
-                , "    ( allCountryFlags"
-                ]
-            exportsBlock = unlines $ map (\n -> "    , " ++ n) names
-            headerClose = "    ) where\n"
-            preImports = unlines
-                [ "import Flag.Source (Sourced)"
-                , "import Flag.Definition (Flag)"
-                ]
-            listBody = "allCountryFlags :: [Flag (Sourced : '[])]\nallCountryFlags =\n    [ " ++ intercalate "\n    , " names ++ "\n    ]\n"
-            contentOut = header ++ exportsBlock ++ headerClose ++ "\n" ++ preImports ++ "\n" ++ unlines imports ++ "\n" ++ listBody
-        createDirectoryIfMissing True (takeDirectory outFile)
-        writeFile outFile contentOut
-        putStrLn $ "Wrote " ++ outFile
+generateRegistry :: IO ()
+generateRegistry = do
+    let countryDir = "src/Flag/Country"
+        otherDir   = "src/Flag/Other"
+        outFile    = "src/Flag/Registry.hs"
+
+    countryPairs <- scanFlagDir countryDir
+    otherPairs   <- scanFlagDir otherDir
+
+    let allPairs    = countryPairs ++ otherPairs
+        countryNames = map snd countryPairs
+        otherNames   = map snd otherPairs
+        allNames     = map snd allPairs
+        imports     = map (\(m,n) -> "import " ++ m ++ " (" ++ n ++ ")") allPairs
+        header = unlines
+            [ "{-# LANGUAGE DataKinds #-}"
+            , "{-# LANGUAGE TypeOperators #-}"
+            , ""
+            , "module Flag.Registry"
+            , "    ( allCountryFlags"
+            , "    , allOtherFlags"
+            , "    , allFlags"
+            ]
+        exportsBlock = unlines $ map (\n -> "    , " ++ n) allNames
+        headerClose = "    ) where\n"
+        preImports = unlines
+            [ "import Flag.Source (Sourced)"
+            , "import Flag.Definition (Flag)"
+            ]
+        mkList listName names =
+            listName ++ " :: [Flag (Sourced : '[])]\n"
+            ++ listName ++ " =\n"
+            ++ "    [ " ++ intercalate "\n    , " names ++ "\n    ]\n"
+        allFlagsDecl =
+            "allFlags :: [Flag (Sourced : '[])]\n"
+            ++ "allFlags = allCountryFlags ++ allOtherFlags\n"
+        contentOut = header ++ exportsBlock ++ headerClose
+                  ++ "\n" ++ preImports
+                  ++ "\n" ++ unlines imports
+                  ++ "\n" ++ mkList "allCountryFlags" countryNames
+                  ++ "\n" ++ mkList "allOtherFlags" otherNames
+                  ++ "\n" ++ allFlagsDecl
+    createDirectoryIfMissing True (takeDirectory outFile)
+    writeFile outFile contentOut
+    putStrLn $ "Wrote " ++ outFile
 
  
 
