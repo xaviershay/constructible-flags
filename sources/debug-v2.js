@@ -3,6 +3,7 @@
 
 import { h, render, Component } from 'https://esm.sh/preact@10.19.3';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'https://esm.sh/preact@10.19.3/hooks';
+import { memo } from 'https://esm.sh/preact@10.19.3/compat';
 import htm from 'https://esm.sh/htm@3.1.1';
 
 const html = htm.bind(h);
@@ -140,6 +141,66 @@ function renderFill(fill) {
 }
 
 // ---------------------------------------------------------------------------
+// Memoized leaf renderer
+// ---------------------------------------------------------------------------
+
+// Each leaf's SVG subtree is memoized so Preact skips re-rendering leaves whose
+// visibility flags and radii haven't changed. During scrubbing only O(1) boundary
+// leaves have changed props, so the VDOM diff drops from O(N) to O(1).
+const LeafLayer = memo(function LeafLayer({
+  leaf, isVisible, showFill, hitRadius, dotRadiusOuter, dotRadiusInner, setHoveredPoint
+}) {
+  const pts = leaf.points || [];
+  const inPts = leaf.inputPoints || [];
+  // Stable hover handlers: leaf data is immutable (from DATA) and setHoveredPoint
+  // is a useState setter, both stable. Computed exactly once per LeafLayer instance.
+  const enterHandlers = useMemo(
+    () => [...pts, ...inPts].map(pt => () => setHoveredPoint(pt)),
+    [leaf, setHoveredPoint]
+  );
+  const onLeave = useCallback(() => setHoveredPoint(null), [setHoveredPoint]);
+
+  return html`
+    <g>
+      ${showFill && leaf.fill && html`
+        <g class="fill-layer">${renderFill(leaf.fill)}</g>
+      `}
+      <g>
+        ${isVisible && leaf.geom && html`
+          <g class="geom-layer">${renderGeom(leaf.geom)}</g>
+        `}
+        ${isVisible && html`
+          <g class="dots-layer">
+            ${pts.map((pt, i) => html`
+              <circle key=${'hit' + i}
+                      cx=${pt.x} cy=${pt.y} r=${hitRadius}
+                      fill="transparent" class="dot-hitbox"
+                      onMouseEnter=${enterHandlers[i]}
+                      onMouseLeave=${onLeave} />
+              <circle key=${i}
+                      cx=${pt.x} cy=${pt.y} r=${dotRadiusOuter}
+                      fill="black" class="dot"
+                      pointer-events="none" />
+            `)}
+            ${inPts.map((pt, i) => html`
+              <circle key=${'inhit' + i}
+                      cx=${pt.x} cy=${pt.y} r=${hitRadius}
+                      fill="transparent" class="dot-hitbox"
+                      onMouseEnter=${enterHandlers[pts.length + i]}
+                      onMouseLeave=${onLeave} />
+              <circle key=${'in' + i}
+                      cx=${pt.x} cy=${pt.y} r=${dotRadiusInner}
+                      fill="#666" class="dot"
+                      pointer-events="none" />
+            `)}
+          </g>
+        `}
+      </g>
+    </g>
+  `;
+});
+
+// ---------------------------------------------------------------------------
 // SVG Viewer Component
 // ---------------------------------------------------------------------------
 
@@ -169,6 +230,19 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
     return originalVB;
   });
   const panRef = useRef({ isPanning: false, startX: 0, startY: 0, startVb: null });
+
+  // Track SVG pixel width via ResizeObserver to avoid forced layout reads during render
+  const svgWidthRef = useRef(600);
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    svgWidthRef.current = svg.getBoundingClientRect().width || 600;
+    const obs = new ResizeObserver(entries => {
+      svgWidthRef.current = entries[0].contentRect.width || 600;
+    });
+    obs.observe(svg);
+    return () => obs.disconnect();
+  }, []);
 
   // Sync viewBox to URL params
   useEffect(() => {
@@ -276,13 +350,17 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
   }, [onWheel]);
 
   const allLeaves = leaves;
-  const maxVisibleIndex = Math.max(0, ...visibleSet);
+  // Derive maxVisibleIndex from hi and virtualLayers rather than spreading visibleSet.
+  // The last visible virtual layer is virtualLayers[min(hi, len-1)]; its maximum
+  // leaf index is the highest index that has been revealed.
+  const maxVisibleIndex = virtualLayers.length > 0
+    ? Math.max(...virtualLayers[Math.min(hi, virtualLayers.length - 1)])
+    : 0;
   const viewBoxStr = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
 
-  // Fixed screen-size radii: convert target pixel sizes to viewBox units
-  const svgEl = svgRef.current;
-  const svgScreenW = svgEl ? svgEl.clientWidth || 600 : 600;
-  const pxToVb = vb.w / svgScreenW;
+  // Fixed screen-size radii: convert target pixel sizes to viewBox units.
+  // svgWidthRef is kept current by a ResizeObserver (no DOM read during render).
+  const pxToVb = vb.w / svgWidthRef.current;
   const hitRadius = pxToVb * 30;
   const dotRadiusOuter = pxToVb * 5;
   const dotRadiusInner = pxToVb * 4;
@@ -297,48 +375,17 @@ function SvgViewer({ leaves, visibleSet, lo, hi, virtualLayers, hoveredPoint, se
          onPointerUp=${onPointerUp}
          onDblClick=${onDblClick}>
       <g transform="scale(1,-1) translate(0, ${-getSvgTranslateY()})">
-        ${allLeaves.map(leaf => {
-          const isVisible = visibleSet.has(leaf.index);
-          const showFill = leaf.index <= maxVisibleIndex;
-          return html`
-            <g key=${leaf.index}>
-              ${showFill && leaf.fill && html`
-                <g class="fill-layer">${renderFill(leaf.fill)}</g>
-              `}
-              <g>
-                ${isVisible && leaf.geom && html`
-                  <g class="geom-layer">${renderGeom(leaf.geom)}</g>
-                `}
-                ${isVisible && html`
-                  <g class="dots-layer">
-                    ${(leaf.points || []).map((pt, i) => html`
-                      <circle key=${'hit' + i}
-                              cx=${pt.x} cy=${pt.y} r=${hitRadius}
-                              fill="transparent" class="dot-hitbox"
-                              onMouseEnter=${() => setHoveredPoint(pt)}
-                              onMouseLeave=${() => setHoveredPoint(null)} />
-                      <circle key=${i}
-                              cx=${pt.x} cy=${pt.y} r=${dotRadiusOuter}
-                              fill="black" class="dot"
-                              pointer-events="none" />
-                    `)}
-                    ${(leaf.inputPoints || []).map((pt, i) => html`
-                      <circle key=${'inhit' + i}
-                              cx=${pt.x} cy=${pt.y} r=${hitRadius}
-                              fill="transparent" class="dot-hitbox"
-                              onMouseEnter=${() => setHoveredPoint(pt)}
-                              onMouseLeave=${() => setHoveredPoint(null)} />
-                      <circle key=${'in' + i}
-                              cx=${pt.x} cy=${pt.y} r=${dotRadiusInner}
-                              fill="#666" class="dot"
-                              pointer-events="none" />
-                    `)}
-                  </g>
-                `}
-              </g>
-            </g>
-          `;
-        })}
+        ${allLeaves.map(leaf => html`
+          <${LeafLayer}
+            key=${leaf.index}
+            leaf=${leaf}
+            isVisible=${visibleSet.has(leaf.index)}
+            showFill=${leaf.index <= maxVisibleIndex}
+            hitRadius=${hitRadius}
+            dotRadiusOuter=${dotRadiusOuter}
+            dotRadiusInner=${dotRadiusInner}
+            setHoveredPoint=${setHoveredPoint} />
+        `)}
         ${/* Initial points always visible */ ''}
         ${DATA.initialPoints.map((pt, i) => html`
           <circle key=${'inithit' + i}
@@ -462,13 +509,14 @@ function RangeSlider({ lo, hi, max: maxVal, onLoChange, onHiChange, onMidDrag })
 // Step Tree Component (collapsible sidebar)
 // ---------------------------------------------------------------------------
 
-function StepTree({ tree, visibleSet, midpointIndex, expandedGroups, onToggleGroup }) {
+function StepTree({ tree, loLeafIndex, hiLeafIndex, midpointIndex, expandedGroups, onToggleGroup }) {
   return html`
     <div class="step-tree">
       ${tree.map((node, i) => html`
         <${StepNode} key=${i}
                      node=${node}
-                     visibleSet=${visibleSet}
+                     loLeafIndex=${loLeafIndex}
+                     hiLeafIndex=${hiLeafIndex}
                      midpointIndex=${midpointIndex}
                      expandedGroups=${expandedGroups}
                      onToggleGroup=${onToggleGroup}
@@ -478,9 +526,12 @@ function StepTree({ tree, visibleSet, midpointIndex, expandedGroups, onToggleGro
   `;
 }
 
-function StepNode({ node, visibleSet, midpointIndex, expandedGroups, onToggleGroup, depth }) {
+const StepNode = memo(function StepNode({ node, loLeafIndex, hiLeafIndex, midpointIndex, expandedGroups, onToggleGroup, depth }) {
+  // groupLeaves is stable: node is an immutable object from DATA, never mutates.
+  const groupLeaves = useMemo(() => node.type === 'group' ? allLeafIndices(node) : [], [node]);
+
   if (node.type === 'leaf') {
-    const isActive = visibleSet.has(node.index);
+    const isActive = node.index >= loLeafIndex && node.index <= hiLeafIndex;
     const isMidpoint = midpointIndex === node.index;
     return html`
       <div class=${'step-leaf' + (isActive ? ' active' : '') + (isMidpoint ? ' midpoint' : '')}
@@ -493,8 +544,7 @@ function StepNode({ node, visibleSet, midpointIndex, expandedGroups, onToggleGro
 
   // Group node
   const isExpanded = expandedGroups.has(node.label);
-  const groupLeaves = allLeafIndices(node);
-  const anyActive = groupLeaves.some(idx => visibleSet.has(idx));
+  const anyActive = groupLeaves.some(idx => idx >= loLeafIndex && idx <= hiLeafIndex);
   const anyMidpoint = groupLeaves.includes(midpointIndex);
 
   return html`
@@ -511,7 +561,8 @@ function StepNode({ node, visibleSet, midpointIndex, expandedGroups, onToggleGro
           ${node.children.map((child, i) => html`
             <${StepNode} key=${i}
                          node=${child}
-                         visibleSet=${visibleSet}
+                         loLeafIndex=${loLeafIndex}
+                         hiLeafIndex=${hiLeafIndex}
                          midpointIndex=${midpointIndex}
                          expandedGroups=${expandedGroups}
                          onToggleGroup=${onToggleGroup}
@@ -521,7 +572,7 @@ function StepNode({ node, visibleSet, midpointIndex, expandedGroups, onToggleGro
       `}
     </div>
   `;
-}
+});
 
 // ---------------------------------------------------------------------------
 // Coordinate Tooltip
@@ -658,7 +709,8 @@ function App() {
           <h2>Steps</h2>
           <${StepTree}
             tree=${DATA.tree}
-            visibleSet=${visibleSet}
+            loLeafIndex=${lo < virtualLayers.length ? virtualLayers[lo][0] : Infinity}
+            hiLeafIndex=${virtualLayers.length > 0 ? Math.max(...virtualLayers[Math.min(hi, virtualLayers.length - 1)]) : 0}
             midpointIndex=${midpointLeafIndex}
             expandedGroups=${expandedGroups}
             onToggleGroup=${toggleGroup} />
