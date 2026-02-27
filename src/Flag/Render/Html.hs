@@ -1,5 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE MultilineStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Flag.Render.Html
     ( -- * Index page
@@ -13,11 +15,11 @@ module Flag.Render.Html
     ) where
 
 import Data.Char (toLower)
-import Data.List (nub, sortOn, groupBy, intercalate, partition)
+import Data.List (nub, sortOn, groupBy, intercalate, intersperse, partition)
 import Data.Function (on)
 
 import qualified Text.Blaze.Html5 as H
-import Text.Blaze.Html5 (docTypeHtml, (!), toValue, toHtml, preEscapedToHtml)
+import Text.Blaze.Html5 (docTypeHtml, (!), toValue, toHtml)
 import qualified Text.Blaze.Html5.Attributes as A
 import Text.Blaze.Html.Renderer.String (renderHtml)
 
@@ -33,52 +35,57 @@ import Flag.Construction.Interpreter (Step(..))
 generateIndex :: [(String, String, String, String, String, [SourcedElement], [Step], String)] -> String
 generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
   H.head $ do
-    H.meta ! A.charset (toValue "UTF-8")
-    H.meta ! A.name (toValue "viewport") ! A.content (toValue "width=device-width, initial-scale=1.0")
-    H.title $ toHtml "Constructible Flags"
-    H.link ! A.rel (toValue "stylesheet") ! A.href (toValue "/static/main.css")
+    H.meta ! A.charset "UTF-8"
+    H.meta ! A.name "viewport" ! A.content "width=device-width, initial-scale=1.0"
+    H.title "Constructible Flags"
+    H.link ! A.rel "stylesheet" ! A.href "/static/main.css"
   H.body $ do
-    H.preEscapedToHtml ("<header class=\"site-header\">" :: String)
-    H.h1 $ toHtml "Constructible Flags"
-    H.p ! A.class_ (toValue "site-description") $ toHtml
-      "High quality SVG flag productions from official specifications. \
-      \Geometric features are (as much as possible) exactly programmatically generated. \
-      \Full provenance information and editorial notes are provided for every construction."
-    H.preEscapedToHtml ("</header>" :: String)
-    H.preEscapedToHtml ("<div class=\"flag-grid\">" :: String)
-    mapM_ flagCard flags
-    H.preEscapedToHtml ("</div>" :: String)
-    H.preEscapedToHtml ("<footer class=\"site-footer\">" :: String)
-    H.p $ do
-      H.a ! A.href (toValue "https://github.com/xaviershay/constructible-flags") $ toHtml "GitHub"
-      toHtml (" · " :: String)
-      H.a ! A.href (toValue "https://www.crwflags.com/fotw/flags/") $ toHtml "Flags of the World"
-      toHtml (" · Made by " :: String)
-      H.a ! A.href (toValue "https://blog.xaviershay.com") $ toHtml "Xavier Shay"
-    H.preEscapedToHtml ("</footer>" :: String)
+    H.header ! A.class_ "site-header" $ do
+      H.h1 "Constructible Flags"
+      H.p ! A.class_ "site-description" $ """
+        High quality SVG flag productions from official specifications.  Geometric
+        features are (as much as possible) exactly programmatically generated.
+        Full provenance information and editorial notes are provided for every
+        construction.  A byproduct of this method is insight into the minimum
+        capabilities required to construct (e.g. straightedge and compass) and
+        relative "cost".
+        """
+      H.h3 "Principles"
+      H.ul ! A.class_ "principles" $ do
+        H.li "Prefer government and official sources."
+        H.li "Constructions aim to map to specifications rather than be minimal."
+        H.li $ do
+          "Use "
+          H.a ! A.href "https://www.constituteproject.org/" $ "Constitute Project"
+          " when referencing constitutions, for consistency of presentation."
+        H.li "Use Pantone\8217s own RGB approximations if not otherwise provided."
+    H.div ! A.class_ "flag-grid" $ mapM_ flagCard flags
+    H.footer ! A.class_ "site-footer" $
+      H.p $ do
+        H.a ! A.href "https://github.com/xaviershay/constructible-flags" $ "GitHub"
+        " · "
+        H.a ! A.href "https://www.crwflags.com/fotw/flags/" $ "Flags of the World"
+        " · Made by "
+        H.a ! A.href "https://blog.xaviershay.com" $ "Xavier Shay"
   where
     flagCard (svgFile, name, _desc, isoCode, updatedAt, _sources, constructionSteps, _field) =
       let isoLower = map toLower isoCode
           flagPage = isoLower ++ ".html"
           isConstructible = null [() | StepNGonVertex <- constructionSteps]
           hasSVGOverlay   = not $ null [() | StepSVGOverlay <- constructionSteps]
-          constructibleIcon
-            | isConstructible = "<span class=\"icon icon-sc\" title=\"Constructible with straight-edge and compass\">\9711</span>"
-            | otherwise       = "<span class=\"icon icon-ngon\" title=\"Requires non-constructible n-gon vertex\">\9733</span>"
-          svgIcon
-            | hasSVGOverlay = "<span class=\"icon icon-svg\" title=\"Requires arbitrary SVG overlay\">+</span>"
-            | otherwise     = ""
-      in H.preEscapedToHtml $
-           "<a class=\"flag-card\" href=\"" ++ escapeHtml flagPage ++ "\">"
-        ++ "<img src=\"" ++ escapeHtml svgFile ++ "\" alt=\"" ++ escapeHtml name ++ "\">"
-        ++ "<div class=\"flag-card-body\">"
-        ++ "<div class=\"flag-name\">" ++ escapeHtml name ++ "</div>"
-        ++ "<div class=\"flag-meta\">"
-        ++ "<span class=\"flag-date\">" ++ escapeHtml updatedAt ++ "</span>"
-        ++ "<span class=\"flag-icons\">" ++ constructibleIcon ++ svgIcon ++ "</span>"
-        ++ "</div>"
-        ++ "</div>"
-        ++ "</a>"
+      in H.a ! A.class_ "flag-card" ! A.href (toValue flagPage) $ do
+           H.img ! A.src (toValue svgFile) ! A.alt (toValue name)
+           H.div ! A.class_ "flag-card-body" $ do
+             H.div ! A.class_ "flag-name" $ toHtml name
+             H.div ! A.class_ "flag-meta" $ do
+               H.span ! A.class_ "flag-date" $ toHtml updatedAt
+               H.span ! A.class_ "flag-icons" $ do
+                 if isConstructible
+                   then H.span ! A.class_ "icon icon-sc" ! A.title "Constructible with straight-edge and compass" $ "\9711"
+                   else H.span ! A.class_ "icon icon-ngon" ! A.title "Requires non-constructible n-gon vertex" $ "\9733"
+                 if hasSVGOverlay
+                   then H.span ! A.class_ "icon icon-svg" ! A.title "Requires arbitrary SVG overlay" $ "+"
+                   else mempty
 
 -- ---------------------------------------------------------------------------
 -- Show page
@@ -87,42 +94,43 @@ generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
 -- | Generate a show page for a single flag
 -- (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, field, editorNote)
 generateShowPage :: (String, String, String, String, String, [SourcedElement], [Step], String, String) -> String
-generateShowPage (svgFile, name, desc, isoCode, _updatedAt, sources, constructionSteps, field, editorNote) =
+generateShowPage (svgFile, name, desc, isoCode, _updatedAt, sources, constructionSteps, _field, editorNote) =
   let isoLower = map toLower isoCode
   in renderHtml $ docTypeHtml $ H.html $ do
     H.head $ do
-      H.meta ! A.charset (toValue "UTF-8")
-      H.meta ! A.name (toValue "viewport") ! A.content (toValue "width=device-width, initial-scale=1.0")
-      H.title $ H.toHtml $ escapeHtml name ++ " - Constructible Flags"
-      H.link ! A.rel (toValue "stylesheet") ! A.href (toValue "/static/main.css")
-      H.link ! A.rel (toValue "stylesheet") ! A.href (toValue "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css")
-      H.script ! A.defer (toValue "") ! A.src (toValue "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js") $ mempty
-      H.script ! A.defer (toValue "") ! A.src (toValue "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js") $ mempty
-      H.script ! A.defer (toValue "") ! A.src (toValue "/static/katex-init.js") $ mempty
-      H.script ! A.src (toValue "https://d3js.org/d3.v7.min.js") $ mempty
-      H.script ! A.src (toValue "/static/prov.js") $ mempty
+      H.meta ! A.charset "UTF-8"
+      H.meta ! A.name "viewport" ! A.content "width=device-width, initial-scale=1.0"
+      H.title $ toHtml name <> " - Constructible Flags"
+      H.link ! A.rel "stylesheet" ! A.href "/static/main.css"
+      H.link ! A.rel "stylesheet" ! A.href "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+      H.script ! A.defer "" ! A.src "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" $ mempty
+      H.script ! A.defer "" ! A.src "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" $ mempty
+      H.script ! A.defer "" ! A.src "/static/katex-init.js" $ mempty
+      H.script ! A.src "https://d3js.org/d3.v7.min.js" $ mempty
+      H.script ! A.src "/static/prov.js" $ mempty
     H.body $ do
-      H.p $ H.a ! A.href (toValue "index.html") $ H.toHtml "← All flags"
-      H.div ! A.class_ (toValue "flag-header") $ do
-        H.a ! A.href (toValue svgFile) $ H.img ! A.src (toValue svgFile) ! A.alt (toValue $ escapeHtml name)
-        H.div ! A.class_ (toValue "flag-info") $ do
-          H.h1 $ H.toHtml $ escapeHtml name
-          H.div ! A.class_ (toValue "description") $ H.toHtml $ desc
+      H.p $ H.a ! A.href "index.html" $ "← All flags"
+      H.div ! A.class_ "flag-header" $ do
+        H.a ! A.href (toValue svgFile) $ H.img ! A.src (toValue svgFile) ! A.alt (toValue name)
+        H.div ! A.class_ "flag-info" $ do
+          H.h1 $ toHtml name
+          H.div ! A.class_ "description" $ toHtml desc
           if not (null editorNote) then
-            H.div ! A.class_ (toValue "editor-note") $ do
-              H.i $ H.toHtml "Editor's note: "
-              H.toHtml $ escapeHtml editorNote
+            H.div ! A.class_ "editor-note" $ do
+              H.i "Editor's note: "
+              toHtml editorNote
           else mempty
-      H.h2 $ toHtml "Construction"
-      H.div ! A.class_ (toValue "construction") $ do
+      H.h2 "Construction"
+      H.div ! A.class_ "construction" $ do
         H.div $ do
-          H.a ! A.href (toValue $ "debug-v2/?flag=" ++ isoLower) $ H.toHtml "Interactive viewer"
-          H.toHtml $ " — " ++ show (length constructionSteps) ++ " cost"
-        H.preEscapedToHtml $ formatSteps constructionSteps
-      H.h2 $ toHtml "Sources"
-      H.preEscapedToHtml $ formatSourceCards sources
-      H.h2 $ toHtml "Provenance"
-      H.div ! A.style (toValue "overflow:hidden;border:1px solid #ddd;background:#fafafa;cursor:grab") $ H.preEscapedToHtml "<svg id=\"prov-hier\" width=\"880\" height=\"500\"></svg>"
+          H.a ! A.href (toValue $ "debug-v2/?flag=" ++ isoLower) $ "Interactive viewer"
+          toHtml $ " — " ++ show (length constructionSteps) ++ " cost"
+        formatSteps constructionSteps
+      H.h2 "Sources"
+      formatSourceCards sources
+      H.h2 "Provenance"
+      H.div ! A.style "overflow:hidden;border:1px solid #ddd;background:#fafafa;cursor:grab" $
+        H.preEscapedToHtml ("<svg id=\"prov-hier\" width=\"880\" height=\"500\"></svg>" :: String)
       H.script $ H.preEscapedToHtml $ "initProv(\"" ++ isoLower ++ "-prov.json\");"
 
 -- ---------------------------------------------------------------------------
@@ -133,8 +141,8 @@ generateShowPage (svgFile, name, desc, isoCode, _updatedAt, sources, constructio
 -- Sources are first grouped by exact Source match (merging elements that share
 -- a source), then groups with the same element names are merged (so e.g.
 -- multiple Pantone chips for "RGB Conversion" appear in one card).
-formatSourceCards :: [SourcedElement] -> String
-formatSourceCards [] = "<em>None</em>"
+formatSourceCards :: [SourcedElement] -> H.Html
+formatSourceCards [] = H.em "None"
 formatSourceCards elems =
   let pairs = map elementDisplayPair elems
       -- Pass 1: group elements by identical Source
@@ -144,7 +152,7 @@ formatSourceCards elems =
                      | grp <- bySource ]
       -- Pass 2: merge groups that share the same element names
       merged = mergeByNames $ sortOn fst sourceGroups
-  in "<div class=\"source-cards\">" ++ concatMap formatMergedCard merged ++ "</div>"
+  in H.div ! A.class_ "source-cards" $ mapM_ formatMergedCard merged
 
 -- | Merge adjacent groups that share the same element name list.
 mergeByNames :: [([String], [Source])] -> [([String], [Source])]
@@ -155,58 +163,50 @@ mergeByNames ((n1, s1):(n2, s2):rest)
   | otherwise = (n1, s1) : mergeByNames ((n2, s2) : rest)
 
 -- | Render a merged card: may have multiple sources.
-formatMergedCard :: ([String], [Source]) -> String
+formatMergedCard :: ([String], [Source]) -> H.Html
 formatMergedCard (names, srcs) =
-  let elementsStr = escapeHtml (joinElements names)
-      headings = intercalate ", " $ map formatSourceHeading srcs
-      screenshotEntities = [ e | e <- nub (concatMap screenshotableEntities srcs)
+  let screenshotEntities = [ e | e <- nub (concatMap screenshotableEntities srcs)
                                , entityScreenshot e /= Nothing ]
       isPantone e = case entityAgent e of
         Just a  -> agentId a == "pantone"
         Nothing -> False
       (pantoneEnts, regularEnts) = partition isPantone screenshotEntities
-      screenshotsHtml = concatMap renderScreenshot regularEnts
-                     ++ renderPantoneChips pantoneEnts
-  in "<div class=\"source-card\">"
-     ++ "<div class=\"source-info\">"
-     ++ headings
-     ++ " <span class=\"elements\">(" ++ elementsStr ++ ")</span>"
-     ++ "</div>"
-     ++ screenshotsHtml
-     ++ "</div>"
+  in H.div ! A.class_ "source-card" $ do
+       H.div ! A.class_ "source-info" $ do
+         mconcat $ intersperse ", " $ map formatSourceHeading srcs
+         " "
+         H.span ! A.class_ "elements" $ "(" <> toHtml (joinElements names) <> ")"
+       mapM_ renderScreenshot regularEnts
+       renderPantoneChips pantoneEnts
 
 -- | Render the source heading (link + type annotation).
-formatSourceHeading :: Source -> String
+formatSourceHeading :: Source -> H.Html
 formatSourceHeading (SourceReference e) = formatEntityLink e
-formatSourceHeading (SourceImpliedReference e) = formatEntityLink e ++ " (implied)"
-formatSourceHeading (SourceUnsightedReference e _) = formatEntityLink e ++ " (unsighted)"
+formatSourceHeading (SourceImpliedReference e) = formatEntityLink e <> " (implied)"
+formatSourceHeading (SourceUnsightedReference e _) = formatEntityLink e <> " (unsighted)"
 formatSourceHeading (SourceEditorial _) = "Editorial decision"
-formatSourceHeading (SourceApproximation approxOf _) = "Approximation of <em>" ++ escapeHtml approxOf ++ "</em>"
+formatSourceHeading (SourceApproximation approxOf _) = "Approximation of " <> H.em (toHtml approxOf)
 
 -- | Render a regular (non-Pantone) screenshot as a block-level image.
-renderScreenshot :: Entity -> String
+renderScreenshot :: Entity -> H.Html
 renderScreenshot entity =
   case entityScreenshot entity of
     Just (_, path) ->
-      "<div class=\"source-screenshot\">"
-      ++ "<img src=\"/images/" ++ escapeHtml path ++ "\">"
-      ++ "</div>"
-    Nothing -> ""
+      H.div ! A.class_ "source-screenshot" $
+        H.img ! A.src (toValue $ "/images/" ++ path)
+    Nothing -> mempty
 
 -- | Render Pantone chip images grouped together in a row.
-renderPantoneChips :: [Entity] -> String
-renderPantoneChips [] = ""
+renderPantoneChips :: [Entity] -> H.Html
+renderPantoneChips [] = mempty
 renderPantoneChips chips =
-  "<div class=\"pantone-chips\">"
-  ++ concatMap renderChip chips
-  ++ "</div>"
+  H.div ! A.class_ "pantone-chips" $ mapM_ renderChip chips
   where
     renderChip entity = case entityScreenshot entity of
       Just (_, path) ->
-        "<div class=\"pantone-chip\">"
-        ++ "<img src=\"/images/" ++ escapeHtml path ++ "\">"
-        ++ "</div>"
-      Nothing -> ""
+        H.div ! A.class_ "pantone-chip" $
+          H.img ! A.src (toValue $ "/images/" ++ path)
+      Nothing -> mempty
 
 -- | Get all entities from a Source (flat list), for link/reference display.
 sourceEntitiesFlat :: Source -> [Entity]
@@ -231,8 +231,8 @@ screenshotableEntities (SourceApproximation _ _)         = []
 -- Shared formatting helpers
 -- ---------------------------------------------------------------------------
 
-formatSteps :: [Step] -> String
-formatSteps [] = "<em>None</em>"
+formatSteps :: [Step] -> H.Html
+formatSteps [] = H.em "None"
 formatSteps ss =
   let llCount = length [() | StepIntersectLL <- ss]
       lcCount = length [() | StepIntersectLC <- ss]
@@ -251,15 +251,16 @@ formatSteps ss =
         , if svgCount > 0 then ["+ &\\times " ++ show svgCount] else []
         ]
   in if null rows
-     then "<em>None</em>"
-     else "<span style=\"font-size:75%\">$$\\begin{aligned}" ++ intercalate "\\\\" rows ++ "\\end{aligned}$$</span>"
+     then H.em "None"
+     else H.span ! A.style "font-size:75%" $
+            H.preEscapedToHtml $ "$$\\begin{aligned}" ++ intercalate "\\\\" rows ++ "\\end{aligned}$$"
 
-formatSources :: [SourcedElement] -> String
-formatSources [] = "<em>None</em>"
+formatSources :: [SourcedElement] -> H.Html
+formatSources [] = H.em "None"
 formatSources elems =
   let pairs = map elementDisplayPair elems
       grouped = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) pairs
-  in "<ul>" ++ concatMap formatSourceGroup grouped ++ "</ul>"
+  in H.ul $ mapM_ formatSourceGroup grouped
 
 sourceKey :: Source -> String
 sourceKey (SourceReference e) = "1" ++ entityTitle e
@@ -268,32 +269,32 @@ sourceKey (SourceUnsightedReference e _) = "3" ++ entityTitle e
 sourceKey (SourceEditorial _) = "4"
 sourceKey (SourceApproximation approxOf _) = "5" ++ approxOf
 
-formatSourceGroup :: [(String, Source)] -> String
-formatSourceGroup [] = ""
+formatSourceGroup :: [(String, Source)] -> H.Html
+formatSourceGroup [] = mempty
 formatSourceGroup grp@((_, src):_) =
   let elementNames = map fst grp
-      elementsStr = "<span class=\"elements\">(" ++ escapeHtml (joinElements elementNames) ++ ")</span>"
+      elementsStr = H.span ! A.class_ "elements" $ "(" <> toHtml (joinElements elementNames) <> ")"
   in formatSourceWithElements src elementsStr
 
 joinElements :: [String] -> String
 joinElements xs = intercalate ", " xs
 
-formatSourceWithElements :: Source -> String -> String
+formatSourceWithElements :: Source -> H.Html -> H.Html
 formatSourceWithElements (SourceReference e) elems =
-  "<li>" ++ formatEntityLink e ++ " " ++ elems ++ "</li>"
+  H.li $ formatEntityLink e <> " " <> elems
 formatSourceWithElements (SourceImpliedReference e) elems =
-  "<li>" ++ formatEntityLink e ++ " (implied) " ++ elems ++ "</li>"
+  H.li $ formatEntityLink e <> " (implied) " <> elems
 formatSourceWithElements (SourceUnsightedReference e _) elems =
-  "<li>" ++ formatEntityLink e ++ " (unsighted) " ++ elems ++ "</li>"
+  H.li $ formatEntityLink e <> " (unsighted) " <> elems
 formatSourceWithElements (SourceEditorial _) elems =
-  "<li>Editorial decision " ++ elems ++ "</li>"
+  H.li $ "Editorial decision " <> elems
 formatSourceWithElements (SourceApproximation approxOf _) elems =
-  "<li>Approximation of <em>" ++ escapeHtml approxOf ++ "</em> " ++ elems ++ "</li>"
+  H.li $ "Approximation of " <> H.em (toHtml approxOf) <> " " <> elems
 
-formatEntityLink :: Entity -> String
+formatEntityLink :: Entity -> H.Html
 formatEntityLink e
-  | null (entityUrl e) = escapeHtml (entityTitle e)
-  | otherwise = "<a href=\"" ++ escapeHtml (entityUrl e) ++ "\">" ++ escapeHtml (entityTitle e) ++ "</a>"
+  | null (entityUrl e) = toHtml (entityTitle e)
+  | otherwise = H.a ! A.href (toValue (entityUrl e)) $ toHtml (entityTitle e)
 
 -- ---------------------------------------------------------------------------
 -- Utilities
