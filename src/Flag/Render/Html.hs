@@ -29,48 +29,65 @@ import Flag.Construction.Interpreter (Step(..))
 -- ---------------------------------------------------------------------------
 
 -- | Generate the index.html content
-generateIndex :: [(String, String, String, String, [SourcedElement], [Step], String)] -> String
+-- Tuple: (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, field)
+generateIndex :: [(String, String, String, String, String, [SourcedElement], [Step], String)] -> String
 generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
   H.head $ do
     H.meta ! A.charset (toValue "UTF-8")
     H.meta ! A.name (toValue "viewport") ! A.content (toValue "width=device-width, initial-scale=1.0")
     H.title $ toHtml "Constructible Flags"
-    -- External CSS and KaTeX init
     H.link ! A.rel (toValue "stylesheet") ! A.href (toValue "/static/main.css")
-    H.link ! A.rel (toValue "stylesheet") ! A.href (toValue "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css")
-    H.script ! A.defer (toValue "") ! A.src (toValue "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js") $ mempty
-    H.script ! A.defer (toValue "") ! A.src (toValue "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js") $ mempty
-    H.script ! A.defer (toValue "") ! A.src (toValue "/static/katex-init.js") $ mempty
   H.body $ do
+    H.preEscapedToHtml ("<header class=\"site-header\">" :: String)
     H.h1 $ toHtml "Constructible Flags"
-    H.table $ do
-      H.thead $ H.tr $ do
-        H.th $ toHtml "Design"
-        H.th $ toHtml "Name"
-        H.th $ toHtml "Construction"
-        H.th $ toHtml "Sources"
-      H.tbody $ mapM_ flagRow flags
+    H.p ! A.class_ (toValue "site-description") $ toHtml
+      "High quality SVG flag productions from official specifications. \
+      \Geometric features are (as much as possible) exactly programmatically generated. \
+      \Full provenance information and editorial notes are provided for every construction."
+    H.preEscapedToHtml ("</header>" :: String)
+    H.preEscapedToHtml ("<div class=\"flag-grid\">" :: String)
+    mapM_ flagCard flags
+    H.preEscapedToHtml ("</div>" :: String)
+    H.preEscapedToHtml ("<footer class=\"site-footer\">" :: String)
+    H.p $ do
+      H.a ! A.href (toValue "https://github.com/xaviershay/constructible-flags") $ toHtml "GitHub"
+      toHtml (" · " :: String)
+      H.a ! A.href (toValue "https://www.crwflags.com/fotw/flags/") $ toHtml "Flags of the World"
+      toHtml (" · Made by " :: String)
+      H.a ! A.href (toValue "https://blog.xaviershay.com") $ toHtml "Xavier Shay"
+    H.preEscapedToHtml ("</footer>" :: String)
   where
-    flagRow (svgFile, name, _desc, isoCode, sources, constructionSteps, field) = H.tr $ do
-      H.td $ H.a ! A.href (toValue svgFile) $ H.img ! A.src (toValue svgFile) ! A.alt (toValue $ escapeHtml name ++ " flag")
-      H.td $ H.a ! A.href (toValue $ map toLower isoCode ++ ".html") $ H.toHtml (escapeHtml name)
-      H.td $ do
-        H.div ! A.style (toValue "text-align:center") $ H.a ! A.href (toValue $ "debug-v2/?flag=" ++ map toLower isoCode) $ H.toHtml $ show (length constructionSteps) ++ " cost"
-        H.preEscapedToHtml $ formatSteps constructionSteps
-        -- H.preEscapedToHtml $ "<div style=\"text-align:center\">$" ++ field ++"$</div>"
-      H.td $ do
-        H.preEscapedToHtml $ formatSources sources
-        H.preEscapedToHtml $ "<div style=\"margin-top:8px;font-size:0.85em\"><a href=\"" ++ map toLower isoCode ++ "-prov.json\">[PROV]</a></div>"
+    flagCard (svgFile, name, _desc, isoCode, updatedAt, _sources, constructionSteps, _field) =
+      let isoLower = map toLower isoCode
+          flagPage = isoLower ++ ".html"
+          isConstructible = null [() | StepNGonVertex <- constructionSteps]
+          hasSVGOverlay   = not $ null [() | StepSVGOverlay <- constructionSteps]
+          constructibleIcon
+            | isConstructible = "<span class=\"icon icon-sc\" title=\"Constructible with straight-edge and compass\">\9711</span>"
+            | otherwise       = "<span class=\"icon icon-ngon\" title=\"Requires non-constructible n-gon vertex\">\9733</span>"
+          svgIcon
+            | hasSVGOverlay = "<span class=\"icon icon-svg\" title=\"Requires arbitrary SVG overlay\">+</span>"
+            | otherwise     = ""
+      in H.preEscapedToHtml $
+           "<a class=\"flag-card\" href=\"" ++ escapeHtml flagPage ++ "\">"
+        ++ "<img src=\"" ++ escapeHtml svgFile ++ "\" alt=\"" ++ escapeHtml name ++ "\">"
+        ++ "<div class=\"flag-card-body\">"
+        ++ "<div class=\"flag-name\">" ++ escapeHtml name ++ "</div>"
+        ++ "<div class=\"flag-meta\">"
+        ++ "<span class=\"flag-date\">" ++ escapeHtml updatedAt ++ "</span>"
+        ++ "<span class=\"flag-icons\">" ++ constructibleIcon ++ svgIcon ++ "</span>"
+        ++ "</div>"
+        ++ "</div>"
+        ++ "</a>"
 
 -- ---------------------------------------------------------------------------
 -- Show page
 -- ---------------------------------------------------------------------------
 
 -- | Generate a show page for a single flag
--- Now includes editorNote as last field
--- (svgFile, name, desc, isoCode, sources, constructionSteps, field, editorNote)
-generateShowPage :: (String, String, String, String, [SourcedElement], [Step], String, String) -> String
-generateShowPage (svgFile, name, desc, isoCode, sources, constructionSteps, field, editorNote) =
+-- (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, field, editorNote)
+generateShowPage :: (String, String, String, String, String, [SourcedElement], [Step], String, String) -> String
+generateShowPage (svgFile, name, desc, isoCode, _updatedAt, sources, constructionSteps, field, editorNote) =
   let isoLower = map toLower isoCode
   in renderHtml $ docTypeHtml $ H.html $ do
     H.head $ do
