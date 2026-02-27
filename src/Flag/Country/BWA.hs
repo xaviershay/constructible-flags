@@ -20,6 +20,7 @@ botswana :: Sourced :> es => Flag es
 botswana = mkCountryFlag
   "BWA"
   "Botswana"
+  constructedAt
   ( reference "Description" law
       ( "Five horizontal stripes having colour and width as follows, that is to say taken from the top \8212\n"
      ++ "1st Stripe \8212 azure blue having a width equal to 9/24ths of the total depth of the flag.\n"

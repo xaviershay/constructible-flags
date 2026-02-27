@@ -23,6 +23,7 @@ bhutan = editorNote "The dragon design used here is not the most common on the i
   $ mkCountryFlag
   "BTN"
   "Bhutan"
+  constructedAt
   ( reference "Description" flagRules
       ( "The yellow half holds the base from the top. The orange half extends from bottom and forms the fluttering end. "
       ++ "The dragon equally spreads over the borderline. The colour of dragon is white. Whatever be the length of a "

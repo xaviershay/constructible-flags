@@ -20,6 +20,7 @@ france :: Sourced :> es => Flag es
 france = mkCountryFlag
   "FRA"
   "France"
+  constructedAt
   (reference "Description" constitution "A tricolour flag, blue, white, red.")
   design
 

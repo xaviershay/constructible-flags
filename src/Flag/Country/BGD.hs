@@ -22,6 +22,7 @@ bangladesh :: Sourced :> es => Flag es
 bangladesh = mkCountryFlag
   "BGD"
   "Bangladesh"
+  constructedAt
   ( reference "Description" flagRules
       ( "The ‘National Flag’ will be in bottle green and rectangular in size in the "
      ++ "proportion of length to width 10: 6 bearing a red circle on the body of the green. "

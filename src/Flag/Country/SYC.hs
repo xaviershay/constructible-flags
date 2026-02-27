@@ -23,6 +23,7 @@ seychelles :: Sourced :> es => Flag es
 seychelles = mkCountryFlag
   "SYC"
   "Seychelles"
+  constructedAt
   (reference "Description" guidelines """
 The National Flag is made up of five oblique bands of blue, yellow, red,
 white and green, radiating from the bottom of the hoist side of the flag. The

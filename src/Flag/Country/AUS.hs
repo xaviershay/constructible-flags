@@ -25,6 +25,7 @@ australia = editorNote """
    """ $ mkCountryFlag
   "AUS"
   "Australia"
+  constructedAt
   (reference "Description" flagSpec """
  The Australian National Flag is a blue flag, and the Australian Red Ensign is a red flag.  Each of the flags has:
 

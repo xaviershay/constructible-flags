@@ -21,6 +21,7 @@ japan :: Sourced :> es => Flag es
 japan = mkCountryFlag
   "JPN"
   "Japan"
+  constructedAt
   (reference "Description" flagLaw "A white rectangular flag with a crimson disc at the center.")
   design
 

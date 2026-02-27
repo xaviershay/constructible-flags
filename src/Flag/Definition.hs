@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Flag.Definition
-    ( Flag(flagIsoCode, flagName, flagDescription, flagDesign, flagEditorNote)
+    ( Flag(flagIsoCode, flagName, flagDescription, flagDesign, flagEditorNote, flagUpdatedAt)
     , mkCountryFlag
     , editorNote
     ) where
@@ -16,6 +16,7 @@ import Flag.Construction.Types (Point, Drawing, FlagA)
 data Flag es = CountryFlag
   { flagIsoCode     :: String
   , flagName        :: String
+  , flagUpdatedAt   :: String
   , flagDescription :: Eff es String
   , flagDesign      :: Eff es (FlagA (Point, Point) Drawing)
   , flagEditorNote  :: String
@@ -24,12 +25,14 @@ data Flag es = CountryFlag
 mkCountryFlag
   :: String
   -> String
+  -> String
   -> Eff es String
   -> Eff es (FlagA (Point, Point) Drawing)
   -> Flag es
-mkCountryFlag isoCode name desc design = CountryFlag
+mkCountryFlag isoCode name updatedAt desc design = CountryFlag
   { flagIsoCode     = isoCode
   , flagName        = name
+  , flagUpdatedAt   = updatedAt
   , flagDescription = desc
   , flagDesign      = design
   , flagEditorNote  = ""

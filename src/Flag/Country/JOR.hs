@@ -28,6 +28,7 @@ jordan = editorNote (
   $ mkCountryFlag
   "JOR"
   "Jordan"
+  constructedAt
   ( reference "Description" constitution
     ( "Its length shall be twice its width. "
     ++ "It shall be divided horizontally into three parallel equal stripes, "

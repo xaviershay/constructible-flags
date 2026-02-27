@@ -25,6 +25,7 @@ unitedKingdom = editorNote (
   ) $ mkCountryFlag
   "GBR"
   "United Kingdom"
+  constructedAt
   (do
     p1 <- reference "Description" unionJackGazette "\"And that the Union Flag shall be Azure, the Crosses Saltires of St. Andrew and St. Patrick Quarterly per Saltire, counterchanged Argent and Gules; the latter fimbriated of the Second, surmounted by the Cross of St. George of the Third, fimbriated as the Saltire.\""
     p2 <- reference "Description" unionJackFlagInstitute "The Union Flag comprises three crosses on a royal blue background: a red St George's cross a white St Andrew's saltire a red St Patrick's saltire."
@@ -35,3 +36,6 @@ unitedKingdom = editorNote (
     redC  <- reference "Red"        unionJackFlagSpec53 unionJackRedRGB
     unionJack5to3 blueC redC
   )
+
+  where
+    constructedAt = "2026-02-22"
