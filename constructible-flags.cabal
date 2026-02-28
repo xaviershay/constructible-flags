@@ -124,6 +124,37 @@ executable bench-json
     , webp
   default-language: Haskell2010
 
+executable bench-radical
+  main-is: BenchRadical.hs
+  other-modules:
+      Paths_constructible_flags
+  autogen-modules:
+      Paths_constructible_flags
+  hs-source-dirs:
+      app-bench-radical
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N -O2
+  build-depends:
+      JuicyPixels
+    , aeson
+    , aeson-pretty
+    , base >=4.7 && <5
+    , blaze-html
+    , bytestring
+    , colour
+    , constructible-flags
+    , containers
+    , diagrams-lib
+    , diagrams-svg
+    , directory
+    , effectful-core
+    , filepath
+    , http-conduit
+    , text
+    , time
+    , unordered-containers
+    , webp
+  default-language: Haskell2010
+
 executable constructible-flags-exe
   main-is: Main.hs
   other-modules:

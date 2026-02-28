@@ -13,6 +13,7 @@ radicalTests :: TestTree
 radicalTests = testGroup "Radical"
   [ nthPowerFreeTests
   , normalisationTests
+  , denestingTests
   , arithmeticTests
   , sqrtTests
   , nthRootTests
@@ -25,6 +26,9 @@ radicalTests = testGroup "Radical"
   , realTests
   , divRMultiRadicandTests
   , consolidationTests
+  , rootIndexReductionTests
+  , nestedRootCompositionTests
+  , canonicalOrderingTests
   ]
 
 -- -----------------------------------------------------------------------
@@ -239,6 +243,66 @@ normalisationTests = testGroup "Normalisation"
           aval = (r1*r1 - r1*r1 + d*d) / (2 * d)
           h  = sqrtC (r1*r1 - aval*aval)
       in approxD "h" (toDouble r1 * sqrt 3 / 2) (toDouble h)
+  ]
+
+-- -----------------------------------------------------------------------
+-- 1b. Denesting sqrt(a ± b√n)
+-- -----------------------------------------------------------------------
+
+denestingTests :: TestTree
+denestingTests = testGroup "Denesting sqrt(a +- b*sqrt(n))"
+  -- The identity: sqrt(a + b√n) = sqrt((a+d)/2) + sign(b)*sqrt((a-d)/2)
+  -- where d = sqrt(a^2 - b^2*n), applies when disc = a^2 - b^2*n is a
+  -- perfect rational square.
+
+  [ testCase "sqrt(3 + 2√2) = 1 + √2  [disc = 9-8 = 1]" $
+      let inner = Ext (rat 3) (rat 2) (rat 2) 2
+      in radicalEq "denest"
+           (Ext (rat 1) (rat 1) (rat 2) 2)
+           (normalize (Ext (rat 0) (rat 1) inner 2))
+
+  , testCase "sqrt(7 + 4√3) = 2 + √3  [disc = 49-48 = 1]" $
+      let inner = Ext (rat 7) (rat 4) (rat 3) 2
+      in radicalEq "denest"
+           (Ext (rat 2) (rat 1) (rat 3) 2)
+           (normalize (Ext (rat 0) (rat 1) inner 2))
+
+  , testCase "sqrt(6 + 2√5) = 1 + √5  [disc = 36-20 = 16]" $
+      let inner = Ext (rat 6) (rat 2) (rat 5) 2
+      in radicalEq "denest"
+           (Ext (rat 1) (rat 1) (rat 5) 2)
+           (normalize (Ext (rat 0) (rat 1) inner 2))
+
+  , testCase "sqrt(5 - 2√6) = √3 - √2  [disc = 25-24 = 1]" $
+      let inner = Ext (rat 5) (rat (-2)) (rat 6) 2
+          result = normalize (Ext (rat 0) (rat 1) inner 2)
+      in approxD "denest neg" (sqrt 3 - sqrt 2) (toDouble result)
+
+  , testCase "2*sqrt(3 + 2√2) = 2 + 2√2  [outer coefficient]" $
+      let inner = Ext (rat 3) (rat 2) (rat 2) 2
+      in radicalEq "denest coeff"
+           (Ext (rat 2) (rat 2) (rat 2) 2)
+           (normalize (Ext (rat 0) (rat 2) inner 2))
+
+  -- This case requires the fix: when a0 /= 0 the denesting must still fire
+  -- and combine the outer addend with the denested result.
+  , testCase "1 + sqrt(3 + 2√2) = 2 + √2  [non-zero outer addend]" $
+      let inner = Ext (rat 3) (rat 2) (rat 2) 2
+      in radicalEq "denest outer"
+           (Ext (rat 2) (rat 1) (rat 2) 2)
+           (normalize (Ext (rat 1) (rat 1) inner 2))
+
+  , testCase "3 + 2*sqrt(7 + 4√3) = 7 + 2√3  [non-zero a0 with coefficient]" $
+      let inner = Ext (rat 7) (rat 4) (rat 3) 2
+      in radicalEq "denest outer coeff"
+           (Ext (rat 7) (rat 2) (rat 3) 2)
+           (normalize (Ext (rat 3) (rat 2) inner 2))
+
+  , testCase "sqrt(2 + √2): disc = 2 (not perfect square), value preserved" $
+      -- a=2, b=1, r=2 => disc = 4-2 = 2, not a perfect square => stays nested
+      let inner = Ext (rat 2) (rat 1) (rat 2) 2
+          result = normalize (Ext (rat 0) (rat 1) inner 2)
+      in approxD "no denest" (sqrt (2 + sqrt 2)) (toDouble result)
   ]
 
 -- -----------------------------------------------------------------------
@@ -631,6 +695,13 @@ divRMultiRadicandTests = testGroup "divR multi-radicand"
       let denom = Ext (Ext (rat 0) (rat 1) (rat 3) 2) (rat 1) (rat 3) 2
           result = rat 1 / denom
       in approxD "1/(2√3)" (1 / toDouble denom) (toDouble result)
+
+  , testCase "divR: conjugate denominator zero (perfect square radicand, r2=1)" $
+      -- Ext 1 1 1 2 = 1 + √1 = 2 (un-normalised), so 1/denom should be 1/2.
+      -- After consolidation: a2'=1, b2'=1, r2=1.
+      -- Conjugate denominator: a2'² - b2'²·r2 = 1 - 1·1 = 0, hitting the error branch.
+      let denom = Ext (rat 1) (rat 1) (rat 1) 2
+      in approxD "1/2" 0.5 (toDouble (rat 1 / denom))
   ]
 
 -- -----------------------------------------------------------------------
@@ -727,6 +798,9 @@ consolidationTests = testGroup "consolidateRadicands"
       in do assertBool "result should be rational" (isRational r)
             approxD "value" 2.0 (toDouble r)
 
+  , testCase "regression" $
+      assertEqual "value" (Rational 2) (normalize (Ext (rat 1) (rat 1) (rat 1) 2))
+
   , testProperty "normalize is value-preserving" $
       forAll genSimpleRadical $ \x ->
         let d1 = toDouble x
@@ -781,3 +855,106 @@ genSmallRat = oneof
        d <- elements ([1..4] :: [Int])
        return (fromIntegral n % fromIntegral d)
   ]
+
+-- -----------------------------------------------------------------------
+-- 14. Root index reduction
+--
+-- Strategy: when a radicand r = p^k and gcd(k, n) = g > 1, reduce the
+-- root index.  E.g. 4^(1/4) = (2^2)^(1/4) = 2^(2/4) = 2^(1/2) = √2.
+--
+-- Currently factorRadical only strips *complete* nth powers (so 4 under
+-- a 4th root is unchanged), and nthPowerFree 4 4 = (1,4).  No GCD-based
+-- index reduction is applied, so these all fail.
+-- -----------------------------------------------------------------------
+
+rootIndexReductionTests :: TestTree
+rootIndexReductionTests = testGroup "Root index reduction"
+  [ testCase "∜4 = √2  (4 = 2², gcd(2,4) = 2)" $
+      -- 4^(1/4) = (2^2)^(1/4) = 2^(1/2)
+      radicalEq "∜4" (sqrtC (rat 2)) (nthRootC 4 (rat 4))
+
+  , testCase "∜9 = √3  (9 = 3², gcd(2,4) = 2)" $
+      -- 9^(1/4) = (3^2)^(1/4) = 3^(1/2)
+      radicalEq "∜9" (sqrtC (rat 3)) (nthRootC 4 (rat 9))
+
+  , testCase "8^(1/6) = √2  (8 = 2³, gcd(3,6) = 3)" $
+      -- 8^(1/6) = (2^3)^(1/6) = 2^(3/6) = 2^(1/2)
+      radicalEq "8^(1/6)" (sqrtC (rat 2)) (nthRootC 6 (rat 8))
+
+  , testCase "4^(1/6) = ∛2  (4 = 2², gcd(2,6) = 2)" $
+      -- 4^(1/6) = (2^2)^(1/6) = 2^(2/6) = 2^(1/3)
+      radicalEq "4^(1/6)" (nthRootC 3 (rat 2)) (nthRootC 6 (rat 4))
+  ]
+
+-- -----------------------------------------------------------------------
+-- 15. Nested root composition
+--
+-- Strategy: Ext 0 b (Ext 0 1 r n) m  =  b · (r^(1/n))^(1/m)
+--                                     =  b · r^(1/(m·n))
+--         = Ext 0 b r (m*n)
+--
+-- Currently sqrtC (sqrtC (rat 2)) normalises to Ext 0 1 (Ext 0 1 2 2) 2
+-- while nthRootC 4 (rat 2) = Ext 0 1 2 4.  Neither step unifies them.
+-- -----------------------------------------------------------------------
+
+nestedRootCompositionTests :: TestTree
+nestedRootCompositionTests = testGroup "Nested root composition"
+  [ testCase "√(√2) and ∜2 are structurally equal after normalize" $
+      -- Ext 0 1 (Ext 0 1 2 2) 2  should reduce to  Ext 0 1 2 4
+      assertBool "√(√2) radEq ∜2"
+        (normalize (sqrtC (sqrtC (rat 2))) `radEq` normalize (nthRootC 4 (rat 2)))
+
+  , testCase "√(∛2) and 2^(1/6) are structurally equal after normalize" $
+      -- Ext 0 1 (Ext 0 1 2 3) 2  should reduce to  Ext 0 1 2 6
+      assertBool "√(∛2) radEq 2^(1/6)"
+        (normalize (sqrtC (nthRootC 3 (rat 2))) `radEq` normalize (nthRootC 6 (rat 2)))
+
+  , testCase "∜5 == √(√5) via Eq" $
+      -- nthRootC 4 5 = Ext 0 1 5 4
+      -- sqrtC(sqrtC 5) = Ext 0 1 (Ext 0 1 5 2) 2
+      -- Currently these are structurally different so Eq returns False.
+      assertBool "∜5 == √(√5)" (nthRootC 4 (rat 5) == sqrtC (sqrtC (rat 5)))
+
+  , testCase "∜4 == √(√4) — combines index reduction and composition" $
+      -- √(√4) = √2 (since √4 = 2), and ∜4 = √2 by index reduction.
+      -- Both should be the same canonical form.
+      assertBool "∜4 == √(√4)" (nthRootC 4 (rat 4) == sqrtC (sqrtC (rat 4)))
+  ]
+
+-- -----------------------------------------------------------------------
+-- 16. Canonical ordering of radicands
+--
+-- Strategy: impose a total order on radicands so that addition is
+-- structurally commutative after normalization.  E.g. always place the
+-- larger radicand at the outermost Ext layer.
+--
+-- Currently addR nests the left argument inside, so
+--   √2 + √3  →  Ext (Ext 0 1 3 2) 1 2 2   (outer: √2, inner: √3)
+--   √3 + √2  →  Ext (Ext 0 1 2 2) 1 3 2   (outer: √3, inner: √2)
+-- radEq returns False on these, so the Eq instance is not commutative.
+-- -----------------------------------------------------------------------
+
+canonicalOrderingTests :: TestTree
+canonicalOrderingTests = testGroup "Canonical ordering"
+  []
+  -- TODO: These introduce perf regression (possible lopp too?) in other test cases
+  --[ testCase "√2 + √3 == √3 + √2  (Eq must be commutative)" $
+  --    assertBool "commutative add"
+  --      (sqrtC (rat 2) + sqrtC (rat 3) == sqrtC (rat 3) + sqrtC (rat 2))
+
+  --, testCase "normalize(√2+√3) `radEq` normalize(√3+√2)" $
+  --    assertBool "canonical structure"
+  --      (normalize (sqrtC (rat 2) + sqrtC (rat 3))
+  --        `radEq`
+  --       normalize (sqrtC (rat 3) + sqrtC (rat 2)))
+
+  --, testCase "√2 + √3 + √5 == √5 + √3 + √2  (Eq, three radicands)" $
+  --    let lhs = sqrtC (rat 2) + sqrtC (rat 3) + sqrtC (rat 5)
+  --        rhs = sqrtC (rat 5) + sqrtC (rat 3) + sqrtC (rat 2)
+  --    in assertBool "commutative three" (lhs == rhs)
+
+  --, testCase "(1 + √2) * (1 + √3) == (1 + √3) * (1 + √2)  (Eq)" $
+  --    let a = rat 1 + sqrtC (rat 2)
+  --        b = rat 1 + sqrtC (rat 3)
+  --    in assertBool "mul commutative" (a * b == b * a)
+  --]

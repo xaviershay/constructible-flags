@@ -13,7 +13,7 @@ import Flag.Definition (Flag(..))
 
 main :: IO ()
 main = do
-    let flagArrow = runPureEff $ runSourcedPure $ flagDesign unitedKingdom
+    let flagArrow = runPureEff $ runSourcedPure $ flagDesign algeria
         flagInput = ((0, 0), (1, 0)) :: (Point, Point)
     _ <- trace flagArrow flagInput
     pure ()

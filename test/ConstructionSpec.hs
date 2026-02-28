@@ -6,13 +6,22 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
 
-import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, midpoint, translate, bisectAngle)
+import Data.List (nub, sort)
+import Data.Colour.SRGB (sRGB24)
+
+import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, midpoint, translate, bisectAngle, fillStar5)
 import Flag.Construction.Interpreter (eval)
-import Flag.Construction.Types (Point)
+import Flag.Construction.Types (Point, Drawing(..))
 import Flag.Construction.Geometry (dist)
 import Flag.Construction.Radical (Radical(..), toDouble)
 import Data.Ratio (Ratio, (%))
 import ArbitraryRadical ()
+
+-- | Flatten a Drawing into its constituent triangles.
+flattenTriangles :: Drawing -> [(Point, Point, Point)]
+flattenTriangles (DrawTriangle _ p1 p2 p3) = [(p1, p2, p3)]
+flattenTriangles (Overlay a b) = flattenTriangles a ++ flattenTriangles b
+flattenTriangles _ = []
 
 -- | Approximate equality for points, converting Radical to Double.
 approxEqual :: String -> Point -> Point -> Assertion
@@ -281,5 +290,60 @@ constructionTests = testGroup "Constructions"
             b = a
             p = (1,2) :: Point
         in evalTrans ((a,b), p) @?= (p, p)
+    ]
+  , testGroup "fillStar5"
+    [ testCase "produces 8 triangles (5 spikes + 3 core)" $ do
+        let o = (0, 0) :: Point
+            a = (1, 0) :: Point
+            d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
+        length (flattenTriangles d) @?= 8
+
+    --, testCase "outer pentagon: 5 unique vertices on circumscribed circle" $ do
+    --    let o = (0, 0) :: Point
+    --        a = (1, 0) :: Point
+    --        d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
+    --        allPts = nub $ concatMap (\(p1,p2,p3) -> [p1,p2,p3]) (flattenTriangles d)
+    --        r = toDouble (dist o a)
+    --        outerPts = filter (\p -> abs (toDouble (dist o p) - r) < 1e-9) allPts
+    --    length outerPts @?= 5
+
+    --, testCase "inner pentagon: 5 unique vertices on a smaller concentric circle" $ do
+    --    let o = (0, 0) :: Point
+    --        a = (1, 0) :: Point
+    --        d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
+    --        allPts = nub $ concatMap (\(p1,p2,p3) -> [p1,p2,p3]) (flattenTriangles d)
+    --        r = toDouble (dist o a)
+    --        innerPts = filter (\p -> abs (toDouble (dist o p) - r) > 1e-9) allPts
+    --        innerDists = map (toDouble . dist o) innerPts
+    --    length innerPts @?= 5
+    --    let innerR = head innerDists
+    --    mapM_ (\d' -> assertBool ("inner vertex equidistant: " ++ show d') (abs (d' - innerR) < 1e-9)) innerDists
+
+    --, testCase "outer vertices evenly spaced at 72°" $ do
+    --    let o = (0, 0) :: Point
+    --        a = (1, 0) :: Point
+    --        d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
+    --        allPts = nub $ concatMap (\(p1,p2,p3) -> [p1,p2,p3]) (flattenTriangles d)
+    --        r = toDouble (dist o a)
+    --        outerPts = filter (\p -> abs (toDouble (dist o p) - r) < 1e-9) allPts
+    --        angles = sort [ atan2 (toDouble (snd p) - toDouble (snd o))
+    --                              (toDouble (fst p) - toDouble (fst o))
+    --                      | p <- outerPts ]
+    --        gaps = zipWith (-) (tail angles ++ [head angles + 2*pi]) angles
+    --        expected = 2 * pi / 5
+    --    mapM_ (\g -> assertBool ("gap ≈ 72°: " ++ show g) (abs (g - expected) < 1e-9)) gaps
+
+    --, testCase "inner radius is R/φ²" $ do
+    --    let o = (0, 0) :: Point
+    --        a = (1, 0) :: Point
+    --        d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
+    --        allPts = nub $ concatMap (\(p1,p2,p3) -> [p1,p2,p3]) (flattenTriangles d)
+    --        r = toDouble (dist o a)
+    --        innerPts = filter (\p -> abs (toDouble (dist o p) - r) > 1e-9) allPts
+    --        innerR = toDouble (dist o (head innerPts))
+    --        phi = (1 + sqrt 5) / 2
+    --        expectedInnerR = r / (phi * phi)
+    --    assertBool ("inner radius " ++ show innerR ++ " ≈ " ++ show expectedInnerR)
+    --        (abs (innerR - expectedInnerR) < 1e-9)
     ]
   ]

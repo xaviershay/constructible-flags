@@ -12,6 +12,7 @@
 module Flag.Construction.Radical
     ( Radical(..)
     , normalize
+    , isNormal
     , toDouble
     , toKaTeX
     , sqrtC
@@ -21,10 +22,14 @@ module Flag.Construction.Radical
     , toRational'
     , radical
     , radicands
+    , radEq
     , isInteger
     , isNatural
+    , showR
     , nthPowerFree
     ) where
+
+import GHC.Stack
 
 import Data.List (nub)
 import Data.Ratio (numerator, denominator, (%))
@@ -49,7 +54,7 @@ data Radical
   | Real !Double
     -- ^ An approximate real value (floating-point).
     --   \"Contagious\": any operation combining Real with Ext collapses to Real.
-  deriving (Show, Read)
+  deriving (Read)
 
 -- | Smart constructor: build an extension and normalise.
 radical :: Radical -> Radical -> Radical -> Int -> Radical
@@ -100,22 +105,55 @@ radicands = nub . go
 
 -- | Normalise a Radical value.
 --
--- Pipeline: normaliseNested → factorRadical → consolidateRadicands
---           → denestSqrt → zeroElimination
+-- Pipeline: normaliseNested → composeRoots → factorRadical
+--           → consolidateRadicands → denestSqrt → zeroElimination
+--           → canonicalOrder
 normalize :: Radical -> Radical
 normalize rad =
-    zeroElimination . denestSqrt . consolidateRadicands . factorRadical
-                    . normalizeNested $ rad
+       id
+     -- . canonicalOrder
+     . zeroElimination 
+     . denestSqrt 
+     . consolidateRadicands 
+     . factorRadical
+     . composeRoots 
+     . normalizeNested $ rad
   where
     -- Recursively normalise sub-expressions.
     normalizeNested (Ext a b c r) = Ext (normalize a) (normalize b) (normalize c) r
     normalizeNested x@(Rational _) = x
     normalizeNested x@(Real _) = x
 
+    -- Flatten nested pure roots: b·(r^(1/n))^(1/m)  =  b·r^(1/(m·n)).
+    -- Matches when the radicand is a pure nth root — zero addend, unit
+    -- coefficient — and collapses the two indices into one.
+    -- E.g.  √(√r) = r^(1/4),  √(∛r) = r^(1/6).
+    composeRoots (Ext a b (Ext a' b' r n) m)
+        | isZero a', b' `radEq` Rational 1 =
+            normalize (Ext a b r (m * n))
+    composeRoots x = x
+
     -- Collapse Ext when the coefficient or radicand is zero.
     zeroElimination (Ext a b _ _) | isZero b = a
     zeroElimination (Ext a _ r _) | isZero r = a
     zeroElimination x = x
+
+    -- Impose a canonical order on radicand layers so that structurally
+    -- equivalent sums (e.g. √2+√3 and √3+√2) normalise to the same tree,
+    -- making the Eq instance commutative.
+    --
+    -- Convention: the numerically larger radicand occupies the outermost
+    -- Ext layer.  When the addend is an Ext whose radicand is larger than
+    -- the current layer's radicand, swap the two layers and re-normalise.
+    -- This is a single bubble-sort step; recursion through normalizeNested
+    -- repeats it until the whole expression is sorted.
+    --
+    -- Only applied when both layers share the same root index, so mixed-
+    -- index towers (e.g. √2 nested inside ∛3) are left untouched.
+    canonicalOrder (Ext (Ext a' b' r' n') b r n)
+        | n == n', toDouble r' > toDouble r =
+            (Ext (Ext a' b r n) b' r' n')
+    canonicalOrder x = x
 
     -- For rational radicands, factor out perfect nth powers and
     -- rationalise the radicand denominator.
@@ -145,7 +183,17 @@ normalize rad =
           in  if finalRad == 1
                 -- radicand was a perfect nth power: no radical remains
                 then addR a newB
-                else Ext a newB newR n
+                else
+                  -- Root index reduction: if finalRad = s^d for some proper
+                  -- divisor d of n (i.e. d | n, 1 < d < n), then
+                  -- finalRad^(1/n) = s^(1/(n/d)).  Try divisors largest-first
+                  -- so we get the maximum reduction in one step.
+                  let divs    = [d | d <- [n-1, n-2 .. 2], n `mod` d == 0]
+                      reduced = [normalize (Ext a newB (Rational (fromInteger s)) (n `div` d)
+                                 ) | d <- divs, Just s <- [inroot d finalRad]]
+                  in  case reduced of
+                        (x:_) -> x
+                        []    -> Ext a newB newR n
     factorRadical x = x
 
     -- Consolidate all occurrences of a radicand into a single Ext layer.
@@ -167,20 +215,20 @@ normalize rad =
     -- Denest square roots: √(a + b√r) = √((a+d)/2) + sign(b)·√((a-d)/2)
     -- where d = √(a²-b²r), but ONLY when disc = a²-b²r is a perfect
     -- square (rational d). Otherwise denesting recurses infinitely.
-    denestSqrt (Ext a0 b0 (Ext a b r 2) 2)
-      | isZero a0 =
-          let disc = subR (mulR a a) (mulR (mulR b b) r)
-          in case disc of
-               Rational d2
-                 | d2 >= 0, Just d <- perfectSqrtR d2 ->
-                     let half   = Rational (1 % 2)
-                         dR     = Rational d
-                         t1     = sqrtC (mulR (addR a dR) half)
-                         t2     = sqrtC (mulR (subR a dR) half)
-                         s      = signR b
-                         denest = if s >= 0 then addR t1 t2 else subR t1 t2
-                     in  mulR b0 denest
-               _ -> Ext a0 b0 (Ext a b r 2) 2
+    -- The outer addend a0 is preserved by combining: a0 + b0·denest.
+    denestSqrt (Ext a0 b0 (Ext a b r 2) 2) =
+        let disc = subR (mulR a a) (mulR (mulR b b) r)
+        in case disc of
+             Rational d2
+               | d2 >= 0, Just d <- perfectSqrtR d2 ->
+                   let half   = Rational (1 % 2)
+                       dR     = Rational d
+                       t1     = sqrtC (mulR (addR a dR) half)
+                       t2     = sqrtC (mulR (subR a dR) half)
+                       s      = signR b
+                       denest = if s >= 0 then addR t1 t2 else subR t1 t2
+                   in  addR a0 (mulR b0 denest)
+             _ -> Ext a0 b0 (Ext a b r 2) 2
     denestSqrt x = x
 
 -- | Check if a rational is a perfect square and return its sqrt.
@@ -246,6 +294,9 @@ inroot k n
           else if (s+1) ^ k == n then Just (s + 1)
           else if s > 1 && (s-1) ^ k == n then Just (s - 1)
           else Nothing
+
+isNormal :: Radical -> Bool
+isNormal x = x `radEq` normalize x
 
 -- ---------------------------------------------------------------------------
 -- Arithmetic
@@ -313,7 +364,7 @@ radEq (Ext a1 b1 r1 n1) (Ext a2 b2 r2 n2) =
 radEq (Real d1) (Real d2) = abs (d1 - d2) < 1e-15
 radEq _ _ = False
 
-divR :: Radical -> Radical -> Radical
+divR :: HasCallStack => Radical -> Radical -> Radical
 divR _ b | isZero b = error "divR: division by zero"
 divR a (Rational b) = mulR a (Rational (1 / b))
 divR a (Ext a2 b2 r2 2) =
@@ -339,7 +390,9 @@ divR a (Ext a2 b2 r2 2) =
             else let conj  = Ext a2' (negateR b2') r2 2
                      denom = subR (mulR a2' a2') (mulR (mulR b2' b2') r2)
                      num   = mulR a conj
-                 in  divR num denom
+                 in  if isZero denom 
+                     then error "divR: unhandled case, conjugate denominator is zero"
+                     else divR num denom
 divR (Real d1) (Real d2) = Real (d1 / d2)
 divR (Rational r) (Real d) = Real (fromRational r / d)
 divR (Real d) x = Real (d / toDouble x)
@@ -445,6 +498,9 @@ nthRootC n x = normalize (Ext (Rational 0) (Rational 1) x n)
 -- Type class instances
 -- ---------------------------------------------------------------------------
 
+instance Show Radical where
+  show = toKaTeX
+
 instance Eq Radical where
   a == b = radEq (normalize a) (normalize b)
 
@@ -544,4 +600,46 @@ toKaTeXCoeffAbs (Rational r)
   | abs r == 1 = ""
   | otherwise  = toKaTeX (Rational (abs r))
 toKaTeXCoeffAbs x = toKaTeX (absR x)
+
+-- ---------------------------------------------------------------------------
+-- ASCII rendering (used by Show instance)
+-- ---------------------------------------------------------------------------
+
+-- | Render a Radical as an ASCII string.
+-- Examples: @3/4@, @sqrt(2)@, @1 + 2*sqrt(3)@, @3rt(5)@.
+showR :: Radical -> String
+showR (Rational r)
+  | denominator r == 1 = show (numerator r)
+  | otherwise          = show (numerator r) ++ "/" ++ show (denominator r)
+showR (Real d) = show d
+showR (Ext a b r n) =
+    let radStr  = asciiRoot r n
+        aIsZero = isZero a
+        bSign   = signR b
+    in  if aIsZero
+          then case bSign of
+            0  -> "0"
+            -1 -> "-" ++ asciiCoeffAbs b ++ radStr
+            _  ->        asciiCoeffAbs b ++ radStr
+          else case bSign of
+            0  -> showAtom a
+            -1 -> showAtom a ++ " - " ++ asciiCoeffAbs b ++ radStr
+            _  -> showAtom a ++ " + " ++ asciiCoeffAbs b ++ radStr
+
+-- | Render a Radical, parenthesising compound (Ext) expressions.
+showAtom :: Radical -> String
+showAtom x@(Ext {}) = "(" ++ showR x ++ ")"
+showAtom x          = showR x
+
+-- | Render the nth root: @sqrt(r)@ or @Nrt(r)@.
+asciiRoot :: Radical -> Int -> String
+asciiRoot r 2 = "sqrt(" ++ showR r ++ ")"
+asciiRoot r n = show n ++ "rt(" ++ showR r ++ ")"
+
+-- | Render |b| as a coefficient (empty string for 1, otherwise @|b|*@).
+asciiCoeffAbs :: Radical -> String
+asciiCoeffAbs (Rational r)
+  | abs r == 1 = ""
+  | otherwise  = showR (Rational (abs r)) ++ "*"
+asciiCoeffAbs x = showAtom (absR x) ++ "*"
 

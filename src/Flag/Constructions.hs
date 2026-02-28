@@ -11,6 +11,7 @@ module Flag.Constructions
     , fillCircle
     , fillStar7x2
     , fillStar7x3
+    , fillStar5
     , fillStar5Inner
     , fillStar7Inner
     , ngonVertex
@@ -225,6 +226,59 @@ fillStar7Inner scale col = group "Fill 7-point inner star" $ proc (o, a) -> do
 
     returnA -< s0 <> s1 <> s2 <> s3 <> s4 <> s5 <> s6
             <> c0 <> c1 <> c2 <> c3 <> c4
+
+-- | Inscribe a pentagram {5/2} in the given circle (centre, edge point)
+-- and fill it with the given colour.
+--
+-- Uses the same straightedge & compass pentagon construction as
+-- 'fillStar5Inner' to get the 5 outer vertices, then finds the 5 inner
+-- pentagon vertices by intersecting adjacent star edges (edge k connects
+-- v_k to v_{k+2 mod 5}; inner vertex i_k = edge k ∩ edge (k+1 mod 5)).
+-- Fills 5 spike triangles plus a 3-triangle fan for the pentagonal core.
+fillStar5 :: Colour Double -> FlagA (Point, Point) Drawing
+fillStar5 col = group "Fill {5/2} star" $ proc (o, a) -> do
+    -- === Outer pentagon via straightedge & compass ===
+    (q, _) <- perpendicular -< (o, a)
+
+    mq <- midpoint -< (o, q)
+    (n1, n2) <- intersectLC -< ((o, q), (mq, a))
+
+    (_, f1) <- intersectLC -< ((o, a), (o, n1))
+    g1      <- midpoint    -< (o, f1)
+
+    (f2, _) <- intersectLC -< ((o, a), (o, n2))
+    g2      <- midpoint    -< (o, f2)
+
+    (_, g1q) <- translate -< ((o, q), g1)
+    (_, g2q) <- translate -< ((o, q), g2)
+
+    let v0 = a
+    (v1, v4) <- intersectLC -< ((g1, g1q), (o, a))   -- 72° and 288°
+    (v2, v3) <- intersectLC -< ((g2, g2q), (o, a))   -- 144° and 216°
+
+    -- === Inner pentagon via star edge intersections ===
+    -- Edge k: v_k → v_{k+2 mod 5}.  i_k = edge k ∩ edge (k+1 mod 5).
+    i0 <- intersectLL -< ((v0, v2), (v1, v3))
+    i1 <- intersectLL -< ((v1, v3), (v2, v4))
+    i2 <- intersectLL -< ((v2, v4), (v3, v0))
+    i3 <- intersectLL -< ((v3, v0), (v4, v1))
+    i4 <- intersectLL -< ((v4, v1), (v0, v2))
+
+    -- === Fill triangles ===
+    -- 5 spike triangles: v_k flanked by i_{k-2 mod 5} and i_{k-1 mod 5}
+    s0 <- fillTriangle col -< (v0, i3, i4)
+    s1 <- fillTriangle col -< (v1, i4, i0)
+    s2 <- fillTriangle col -< (v2, i0, i1)
+    s3 <- fillTriangle col -< (v3, i1, i2)
+    s4 <- fillTriangle col -< (v4, i2, i3)
+
+    -- Inner pentagonal core: fan from i0
+    c0 <- fillTriangle col -< (i0, i1, i2)
+    c1 <- fillTriangle col -< (i0, i2, i3)
+    c2 <- fillTriangle col -< (i0, i3, i4)
+
+    returnA -< s0 <> s1 <> s2 <> s3 <> s4
+            <> c0 <> c1 <> c2
 
 -- | Inscribe a simple five-pointed star in the given circle
 -- (centre, edge point) and fill it with the given colour.

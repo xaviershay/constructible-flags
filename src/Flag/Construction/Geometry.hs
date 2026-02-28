@@ -8,6 +8,7 @@ module Flag.Construction.Geometry
 
 import Flag.Construction.Types (Point)
 import Flag.Construction.Radical (Radical(..), isZero)
+import Debug.Trace
 
 -- | Line-line intersection from defining points
 evalIntersectLL' :: ((Point, Point), (Point, Point)) -> Point
