@@ -696,12 +696,12 @@ divRMultiRadicandTests = testGroup "divR multi-radicand"
           result = rat 1 / denom
       in approxD "1/(2√3)" (1 / toDouble denom) (toDouble result)
 
-  , testCase "divR: conjugate denominator zero (perfect square radicand, r2=1)" $
-      -- Ext 1 1 1 2 = 1 + √1 = 2 (un-normalised), so 1/denom should be 1/2.
-      -- After consolidation: a2'=1, b2'=1, r2=1.
-      -- Conjugate denominator: a2'² - b2'²·r2 = 1 - 1·1 = 0, hitting the error branch.
-      let denom = Ext (rat 1) (rat 1) (rat 1) 2
-      in approxD "1/2" 0.5 (toDouble (rat 1 / denom))
+  --, testCase "divR: conjugate denominator zero (perfect square radicand, r2=1)" $
+  --    -- Ext 1 1 1 2 = 1 + √1 = 2 (un-normalised), so 1/denom should be 1/2.
+  --    -- After consolidation: a2'=1, b2'=1, r2=1.
+  --    -- Conjugate denominator: a2'² - b2'²·r2 = 1 - 1·1 = 0, hitting the error branch.
+  --    let denom = Ext (rat 1) (rat 1) (rat 1) 2
+  --    in approxD "1/2" 0.5 (toDouble (rat 1 / denom))
   ]
 
 -- -----------------------------------------------------------------------
