@@ -8,8 +8,8 @@ import Test.Tasty.QuickCheck (testProperty, forAllShrink)
 import Test.QuickCheck (Property, ioProperty, shrink)
 
 import Flag.Construction.Types (Point)
-import Flag.Construction.Geometry (evalIntersectLL')
-import Flag.Construction.FieldNumber (FieldNumber, toDouble, isZero, fnRational)
+import Flag.Construction.Geometry (evalIntersectLL', evalIntersectLC', evalIntersectCC')
+import Flag.Construction.FieldNumber (FieldNumber, toDouble, isZero, fnRational, fnInteger)
 import Data.Ratio ((%))
 import ArbitraryFieldNumber ()
 import Control.Exception (evaluate, try, SomeException)
@@ -85,6 +85,62 @@ geometryTests = testGroup "Geometry"
 
     , testCase "parallel lines error (division by zero)" $ do
         r <- try (evaluate (evalIntersectLL' (((0,0),(1,0)), ((0,1),(1,1))))) :: IO (Either SomeException (FieldNumber, FieldNumber))
+        case r of
+          Left _ -> assertBool "caught expected exception" True
+          Right v -> assertFailure ("expected exception, got: " ++ show v)
+
+    , testCase "degenerate first line errors" $ do
+        let p = (fnInteger 0, fnInteger 0)
+            q = (fnInteger 1, fnInteger 0)
+        r <- try (evaluate (evalIntersectLL' ((p, p), (q, (fnInteger 2, fnInteger 0))))) :: IO (Either SomeException (FieldNumber, FieldNumber))
+        case r of
+          Left _ -> assertBool "caught expected exception" True
+          Right v -> assertFailure ("expected exception, got: " ++ show v)
+
+    , testCase "degenerate second line errors" $ do
+        let p = (fnInteger 0, fnInteger 0)
+            q = (fnInteger 1, fnInteger 0)
+        r <- try (evaluate (evalIntersectLL' ((p, (fnInteger 1, fnInteger 1)), (q, q)))) :: IO (Either SomeException (FieldNumber, FieldNumber))
+        case r of
+          Left _ -> assertBool "caught expected exception" True
+          Right v -> assertFailure ("expected exception, got: " ++ show v)
+    ]
+
+  , testGroup "intersectLC degenerate inputs"
+    [ testCase "degenerate line errors" $ do
+        let p = (fnInteger 0, fnInteger 0)
+            cc = (fnInteger 3, fnInteger 0)
+            ce = (fnInteger 4, fnInteger 0)
+        r <- try (evaluate (fst (evalIntersectLC' ((p, p), (cc, ce))))) :: IO (Either SomeException (FieldNumber, FieldNumber))
+        case r of
+          Left _ -> assertBool "caught expected exception" True
+          Right v -> assertFailure ("expected exception, got: " ++ show v)
+
+    , testCase "degenerate circle (zero radius) errors" $ do
+        let lp1 = (fnInteger 0, fnInteger 0)
+            lp2 = (fnInteger 1, fnInteger 0)
+            cc  = (fnInteger 2, fnInteger 0)
+        r <- try (evaluate (fst (evalIntersectLC' ((lp1, lp2), (cc, cc))))) :: IO (Either SomeException (FieldNumber, FieldNumber))
+        case r of
+          Left _ -> assertBool "caught expected exception" True
+          Right v -> assertFailure ("expected exception, got: " ++ show v)
+    ]
+
+  , testGroup "intersectCC degenerate inputs"
+    [ testCase "degenerate first circle (zero radius) errors" $ do
+        let c1 = (fnInteger 0, fnInteger 0)
+            c2 = (fnInteger 2, fnInteger 0)
+            e2 = (fnInteger 3, fnInteger 0)
+        r <- try (evaluate (fst (evalIntersectCC' ((c1, c1), (c2, e2))))) :: IO (Either SomeException (FieldNumber, FieldNumber))
+        case r of
+          Left _ -> assertBool "caught expected exception" True
+          Right v -> assertFailure ("expected exception, got: " ++ show v)
+
+    , testCase "degenerate second circle (zero radius) errors" $ do
+        let c1 = (fnInteger 0, fnInteger 0)
+            e1 = (fnInteger 1, fnInteger 0)
+            c2 = (fnInteger 2, fnInteger 0)
+        r <- try (evaluate (fst (evalIntersectCC' ((c1, e1), (c2, c2))))) :: IO (Either SomeException (FieldNumber, FieldNumber))
         case r of
           Left _ -> assertBool "caught expected exception" True
           Right v -> assertFailure ("expected exception, got: " ++ show v)

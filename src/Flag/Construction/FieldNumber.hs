@@ -10,34 +10,41 @@
 -- 'FCyclomatic' even though 0.5 is rational — detecting such collapses
 -- would require exact arithmetic.
 module Flag.Construction.FieldNumber
-    ( -- * Types
-      Field(..)
-    , FieldNumber(..)
-      -- * Smart constructors
-    , fnInteger
-    , fnRational
-      -- * Trig wrappers (introduce FCyclomatic)
-    , fnCos
-    , fnSin
-      -- * Field queries
-    , fieldOf
-    , getValue
-      -- * Predicates
-    , isZero
-    , isInteger
-    , isNatural
-    , isRational
-    , isIrrational
-      -- * Conversion
-    , toDouble
-    , toRational'
-      -- * Display
-    , toKaTeX
-    , showFN
-    ) where
+  ( -- * Types
+    Field (..),
+    FieldNumber (..),
+
+    -- * Smart constructors
+    fnInteger,
+    fnRational,
+
+    -- * Trig wrappers (introduce FCyclomatic)
+    fnCos,
+    fnSin,
+
+    -- * Field queries
+    fieldOf,
+    getValue,
+
+    -- * Predicates
+    isZero,
+    isInteger,
+    isNatural,
+    isRational,
+    isIrrational,
+
+    -- * Conversion
+    toDouble,
+    toRational',
+
+    -- * Display
+    toKaTeX,
+    showFN,
+  )
+where
 
 import Data.List (find)
-import Data.Ratio (Rational, numerator, denominator, (%))
+import Data.Ratio (Rational, denominator, numerator, (%))
 
 -- ---------------------------------------------------------------------------
 -- Core types
@@ -46,18 +53,26 @@ import Data.Ratio (Rational, numerator, denominator, (%))
 -- | Hierarchy of algebraic fields, ordered by complexity.
 -- A 'FieldNumber' value's tag is the minimal field that contains it.
 data Field
-  = FInteger     -- ^ A whole number: 0, 1, -3
-  | FRational    -- ^ A ratio of integers: 1\/3, -7\/5
-  | FIrrational  -- ^ Algebraic irrational arising from sqrt: √2, (1+√5)\/2
-  | FCyclomatic  -- ^ Algebraic from trig of rational-π multiples: cos(2π\/7)
-  | FReal        -- ^ Transcendental: π, e
+  = -- | A whole number: 0, 1, -3
+    FInteger
+  | -- | A ratio of integers: 1\/3, -7\/5
+    FRational
+  | -- | Algebraic irrational arising from sqrt: √2, (1+√5)\/2
+    FIrrational
+  | -- | Algebraic from trig of rational-π multiples: cos(2π\/7)
+    FCyclomatic
+  | -- | Transcendental: π, e
+    FReal
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 -- | A numeric value tagged with its algebraic field.
 -- The 'Field' tag cannot decrease: once promoted by an operation, always
 -- at least that field within this computation.
 data FieldNumber = FieldNumber !Field !Double
-  deriving (Show, Read)
+  deriving (Read)
+
+instance Show FieldNumber where
+  show = showFN
 
 -- ---------------------------------------------------------------------------
 -- Smart constructors
@@ -72,7 +87,7 @@ fnInteger n = FieldNumber FInteger (fromInteger n)
 fnRational :: Rational -> FieldNumber
 fnRational r
   | denominator r == 1 = FieldNumber FInteger (fromIntegral (numerator r))
-  | otherwise          = FieldNumber FRational (fromRational r)
+  | otherwise = FieldNumber FRational (fromRational r)
 
 -- | Cosine wrapper — result is always 'FCyclomatic'.
 fnCos :: FieldNumber -> FieldNumber
@@ -132,11 +147,14 @@ isIrrational (FieldNumber f _) = f == FIrrational
 toRational' :: FieldNumber -> Maybe Rational
 toRational' (FieldNumber FInteger d) = Just (round d % 1)
 toRational' (FieldNumber FRational d) =
-  case find (\q -> let pf = d * fromIntegral q
-                       p  = round pf :: Integer
-                   in abs (fromIntegral p - pf) < 1e-9)
-            ([1..1000] :: [Integer]) of
-    Just q  -> let p = round (d * fromIntegral q) :: Integer in Just (p % q)
+  case find
+    ( \q ->
+        let pf = d * fromIntegral q
+            p = round pf :: Integer
+         in abs (fromIntegral p - pf) < 1e-9
+    )
+    ([1 .. 1000] :: [Integer]) of
+    Just q -> let p = round (d * fromIntegral q) :: Integer in Just (p % q)
     Nothing -> Nothing
 toRational' _ = Nothing
 
@@ -144,9 +162,16 @@ toRational' _ = Nothing
 -- Display
 -- ---------------------------------------------------------------------------
 
--- | Human-readable display with field annotation.
+-- | Human-readable display: unicode field symbol prepended to the number.
 showFN :: FieldNumber -> String
-showFN (FieldNumber f d) = show d ++ " [" ++ show f ++ "]"
+showFN (FieldNumber f d) = fieldSymbol f ++ show d
+
+fieldSymbol :: Field -> String
+fieldSymbol FInteger = "ℤ"
+fieldSymbol FRational = "ℚ"
+fieldSymbol FIrrational = "I"
+fieldSymbol FCyclomatic = "∠"
+fieldSymbol FReal = "ℝ"
 
 -- | KaTeX rendering for debug overlays.
 toKaTeX :: FieldNumber -> String
@@ -177,16 +202,17 @@ divField f1 f2 result
 -- rational results (→ 'FRational'). Everything else → 'FIrrational'.
 detectSqrtField :: Double -> FieldNumber
 detectSqrtField d
-  | d == 0    = FieldNumber FInteger 0
-  | d < 0     = error "FieldNumber.sqrt: negative argument"
+  | d == 0 = FieldNumber FInteger 0
+  | d < 0 = error "FieldNumber.sqrt: negative argument"
   | otherwise =
       let s = sqrt d
-      in if isNearInt s
-           then FieldNumber FInteger (fromInteger (round s))
-           else case find (\q -> isNearInt (s * fromIntegral q))
-                         ([2..12] :: [Integer]) of
-                  Just _  -> FieldNumber FRational s
-                  Nothing -> FieldNumber FIrrational s
+       in if isNearInt s
+            then FieldNumber FInteger (fromInteger (round s))
+            else case find
+              (\q -> isNearInt (s * fromIntegral q))
+              ([2 .. 12] :: [Integer]) of
+              Just _ -> FieldNumber FRational s
+              Nothing -> FieldNumber FIrrational s
   where
     isNearInt x = abs (x - fromInteger (round x)) < 1e-9
 
@@ -203,15 +229,16 @@ instance Eq FieldNumber where
 instance Ord FieldNumber where
   compare (FieldNumber _ d1) (FieldNumber _ d2)
     | abs (d1 - d2) < 1e-9 = EQ
-    | d1 < d2               = LT
-    | otherwise             = GT
+    | d1 < d2 = LT
+    | otherwise = GT
 
 instance Num FieldNumber where
   FieldNumber f1 d1 + FieldNumber f2 d2 = FieldNumber (promoteField f1 f2) (d1 + d2)
   FieldNumber f1 d1 - FieldNumber f2 d2 = FieldNumber (promoteField f1 f2) (d1 - d2)
   FieldNumber f1 d1 * FieldNumber f2 d2 = FieldNumber (promoteField f1 f2) (d1 * d2)
   negate (FieldNumber f d) = FieldNumber f (negate d)
-  abs    (FieldNumber f d) = FieldNumber f (abs d)
+  abs (FieldNumber f d) = FieldNumber f (abs d)
+
   -- signum result is always -1, 0, or 1 — tag as FInteger regardless of input
   signum (FieldNumber _ d) = FieldNumber FInteger (signum d)
   fromInteger n = FieldNumber FInteger (fromInteger n)
@@ -219,31 +246,31 @@ instance Num FieldNumber where
 instance Fractional FieldNumber where
   FieldNumber f1 d1 / FieldNumber f2 d2 =
     let result = d1 / d2
-    in FieldNumber (divField f1 f2 result) result
+     in FieldNumber (divField f1 f2 result) result
   fromRational r
     | denominator r == 1 = FieldNumber FInteger (fromIntegral (numerator r))
-    | otherwise          = FieldNumber FRational (fromRational r)
+    | otherwise = FieldNumber FRational (fromRational r)
 
 instance Floating FieldNumber where
   sqrt (FieldNumber f d)
     | f <= FRational = detectSqrtField d
-    | otherwise      = FieldNumber f (sqrt d)
+    | otherwise = FieldNumber f (sqrt d)
 
   pi = FieldNumber FReal 3.141592653589793
 
-  cos  = fnCos
-  sin  = fnSin
-  tan  (FieldNumber _ d) = FieldNumber FCyclomatic (tan d)
+  cos = fnCos
+  sin = fnSin
+  tan (FieldNumber _ d) = FieldNumber FCyclomatic (tan d)
   asin (FieldNumber _ d) = FieldNumber FCyclomatic (asin d)
   acos (FieldNumber _ d) = FieldNumber FCyclomatic (acos d)
   atan (FieldNumber _ d) = FieldNumber FCyclomatic (atan d)
 
-  exp  (FieldNumber _ d) = FieldNumber FReal (exp d)
-  log  (FieldNumber _ d) = FieldNumber FReal (log d)
+  exp (FieldNumber _ d) = FieldNumber FReal (exp d)
+  log (FieldNumber _ d) = FieldNumber FReal (log d)
 
-  sinh  (FieldNumber _ d) = FieldNumber FReal (sinh d)
-  cosh  (FieldNumber _ d) = FieldNumber FReal (cosh d)
-  tanh  (FieldNumber _ d) = FieldNumber FReal (tanh d)
+  sinh (FieldNumber _ d) = FieldNumber FReal (sinh d)
+  cosh (FieldNumber _ d) = FieldNumber FReal (cosh d)
+  tanh (FieldNumber _ d) = FieldNumber FReal (tanh d)
   asinh (FieldNumber _ d) = FieldNumber FReal (asinh d)
   acosh (FieldNumber _ d) = FieldNumber FReal (acosh d)
   atanh (FieldNumber _ d) = FieldNumber FReal (atanh d)

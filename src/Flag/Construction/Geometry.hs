@@ -18,7 +18,13 @@ evalIntersectLL' ((p1, p2), (p3, p4)) =
       (x4, y4) = p4
       denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
       t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
-  in if isZero denom then error "cannot intersect parallel lines" else (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+  in if isZero ((x2-x1)^(2::Int) + (y2-y1)^(2::Int))
+       then error "evalIntersectLL': first line is degenerate (both points are equal)"
+     else if isZero ((x4-x3)^(2::Int) + (y4-y3)^(2::Int))
+       then error "evalIntersectLL': second line is degenerate (both points are equal)"
+     else if isZero denom
+       then error "cannot intersect parallel lines"
+     else (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
 
 -- | Line-circle intersection from defining points.
 --
@@ -40,9 +46,13 @@ evalIntersectLC' ((lp1, lp2), (cc, ce)) =
       sd = sqrt disc
       t1 = (-b - sd) / (2*a)
       t2 = (-b + sd) / (2*a)
-  in ( (x1 + t1*dx, y1 + t1*dy)
-     , (x1 + t2*dx, y1 + t2*dy)
-     )
+  in if isZero a
+       then error "evalIntersectLC': line is degenerate (both points are equal)"
+     else if isZero r2
+       then error "evalIntersectLC': circle is degenerate (zero radius: center equals edge point)"
+     else ( (x1 + t1*dx, y1 + t1*dy)
+          , (x1 + t2*dx, y1 + t2*dy)
+          )
 
 -- | Circle-circle intersection from defining points.
 --
@@ -68,9 +78,13 @@ evalIntersectCC' ((c1, e1), (c2, e2)) =
       hd = sqrt (r1sq / d2 - ad * ad)
       mx = x1 + ad * dx
       my = y1 + ad * dy
-  in ( (mx + hd * dy, my - hd * dx)
-     , (mx - hd * dy, my + hd * dx)
-     )
+  in if isZero r1sq
+       then error "evalIntersectCC': first circle is degenerate (zero radius: center equals edge point)"
+     else if isZero r2sq
+       then error "evalIntersectCC': second circle is degenerate (zero radius: center equals edge point)"
+     else ( (mx + hd * dy, my - hd * dx)
+          , (mx - hd * dy, my + hd * dx)
+          )
 
 -- | Euclidean distance between two points
 dist :: Point -> Point -> Number
