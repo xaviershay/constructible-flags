@@ -4,33 +4,32 @@
 
 module ImageGoldenSpec (imageGoldenTests) where
 
-import Test.Tasty
-import Test.Tasty.HUnit
-
+import Codec.Picture
 import Control.Monad (when)
 import Effectful (runPureEff)
+import Flag.Construction.Interpreter (eval, evalCollectNumbers)
+import Flag.Construction.Types (Point)
+import Flag.Definition (Flag (..))
+import Flag.Registry (allCountryFlags)
+import Flag.Render.SVGBuilderBackend (SVGBuilderBackend (..))
+import Flag.Render.SVGOverlay (renderDrawingToSVG)
+import Flag.Source (Sourced, runSourcedPure)
+import FlagsUnderConstruction (underConstruction)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((</>))
 import System.Process (callProcess)
-
-import Codec.Picture
-
-import Flag.Render.SVGOverlay (renderDrawingToSVG)
-
-import Flag.Registry (allCountryFlags)
-import Flag.Definition (Flag(..))
-import FlagsUnderConstruction (underConstruction)
-import Flag.Construction.Types (Point)
-import Flag.Construction.Interpreter (eval, evalCollectNumbers)
-import Flag.Source (runSourcedPure, Sourced)
+import Test.Tasty
+import Test.Tasty.HUnit
 
 -- | Tests that render each flag to a PNG and compare to a golden PNG.
 imageGoldenTests :: TestTree
-imageGoldenTests = testGroup "ImageGolden"
-  [ testCase (flagIsoCode f) (goldenTestFor f)
-  | f <- allCountryFlags
-  , flagIsoCode f `notElem` underConstruction
-  ]
+imageGoldenTests =
+  testGroup
+    "ImageGolden"
+    [ testCase (flagIsoCode f) (goldenTestFor f)
+    | f <- allCountryFlags,
+      flagIsoCode f `notElem` underConstruction
+    ]
 
 -- Paths
 goldenDir :: FilePath
@@ -50,20 +49,20 @@ goldenTestFor flag = do
   createDirectoryIfMissing True tmpDir
 
   let iso = map toLower (flagIsoCode flag)
-      goldenPath  = goldenDir </> (iso ++ ".png")
-      tmpSvgPath  = tmpDir </> (iso ++ ".svg")
-      tmpPath     = tmpDir </> (iso ++ ".png")
+      goldenPath = goldenDir </> (iso ++ ".png")
+      tmpSvgPath = tmpDir </> (iso ++ ".svg")
+      tmpPath = tmpDir </> (iso ++ ".png")
       failurePath = failureDir </> (iso ++ "-diff.png")
       -- Render width (match SVG width used elsewhere)
-      svgWidth    = 300 :: Double
+      svgWidth = 300 :: Double
 
   -- Resolve the FlagA arrow and evaluate on unit input
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       flagInput = ((0, 0), (1, 0)) :: (Point, Point)
-      --drawing = eval flagArrow flagInput
+      -- drawing = eval flagArrow flagInput
       (drawing, _intermediateNumbers) = evalCollectNumbers flagArrow flagInput
 
-  renderDrawingToSVG tmpSvgPath svgWidth drawing
+  renderDrawingToSVG SVGBuilderBackend tmpSvgPath svgWidth drawing
   callProcess "convert" [tmpSvgPath, tmpPath]
 
   goldenExists <- doesFileExist goldenPath
@@ -100,17 +99,19 @@ toLower c
 
 -- | Pixel-by-pixel equality check; currently exact equality.
 imagesEqual :: Image PixelRGBA8 -> Image PixelRGBA8 -> Bool
-imagesEqual a b = imageWidth a == imageWidth b
-               && imageHeight a == imageHeight b
-               && allPixelsEqual 0
+imagesEqual a b =
+  imageWidth a == imageWidth b
+    && imageHeight a == imageHeight b
+    && allPixelsEqual 0
   where
     allPixelsEqual !idx
       | idx >= w * h = True
-      | otherwise = let x = idx `mod` w
-                        y = idx `div` w
-                        p1 = pixelAt a x y
-                        p2 = pixelAt b x y
-                    in p1 == p2 && allPixelsEqual (idx + 1)
+      | otherwise =
+          let x = idx `mod` w
+              y = idx `div` w
+              p1 = pixelAt a x y
+              p2 = pixelAt b x y
+           in p1 == p2 && allPixelsEqual (idx + 1)
     w = imageWidth a
     h = imageHeight a
 
@@ -120,12 +121,13 @@ diffImage a b = generateImage gen w h
   where
     w = min (imageWidth a) (imageWidth b)
     h = min (imageHeight a) (imageHeight b)
-    gen x y = let (PixelRGBA8 r1 g1 b1 _) = pixelAt a x y
-                  (PixelRGBA8 r2 g2 b2 _) = pixelAt b x y
-                  dr = abs (fromIntegral r1 - fromIntegral r2) :: Int
-                  dg = abs (fromIntegral g1 - fromIntegral g2) :: Int
-                  db = abs (fromIntegral b1 - fromIntegral b2) :: Int
-              in PixelRGBA8 (fromIntegral dr) (fromIntegral dg) (fromIntegral db) 255
+    gen x y =
+      let (PixelRGBA8 r1 g1 b1 _) = pixelAt a x y
+          (PixelRGBA8 r2 g2 b2 _) = pixelAt b x y
+          dr = abs (fromIntegral r1 - fromIntegral r2) :: Int
+          dg = abs (fromIntegral g1 - fromIntegral g2) :: Int
+          db = abs (fromIntegral b1 - fromIntegral b2) :: Int
+       in PixelRGBA8 (fromIntegral dr) (fromIntegral dg) (fromIntegral db) 255
 
 -- | Helper to write a DynamicImage to PNG (JuicyPixels helper)
 writePngImage :: FilePath -> DynamicImage -> IO ()

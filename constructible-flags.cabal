@@ -60,11 +60,14 @@ library
       Flag.Pantone
       Flag.Pantone.Cli
       Flag.Registry
+      Flag.Render.Backend
+      Flag.Render.Bounds
       Flag.Render.Debug
       Flag.Render.DebugV2
       Flag.Render.Diagram
       Flag.Render.Html
       Flag.Render.Prov
+      Flag.Render.SVGBuilderBackend
       Flag.Render.SVGOverlay
       Flag.Source
   other-modules:

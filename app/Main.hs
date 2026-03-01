@@ -3,24 +3,24 @@
 
 module Main (main) where
 
+import Control.Monad (forM_, unless, when)
 import Data.Char (toLower)
 import Data.List (nub)
 import Effectful (runPureEff)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory, copyFile)
-import System.FilePath ((</>), takeDirectory)
-import Control.Monad (unless, when, forM_)
-
-import Flag.Construction.Types (Point)
-import Flag.Construction.Interpreter (Step, steps, evalCollectNumbers)
-import Flag.Construction.FieldNumber (FieldNumber, fieldOf, isNatural, isInteger, Field(..))
+import Flag.Construction.FieldNumber (Field (..), FieldNumber, fieldOf, isInteger, isNatural)
+import Flag.Construction.Interpreter (Step, evalCollectNumbers, steps)
 import Flag.Construction.Tree (evalTree)
-import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
-import Flag.Definition (Flag(..))
+import Flag.Construction.Types (Point)
+import Flag.Definition (Flag (..))
 import Flag.Registry (allCountryFlags)
+import Flag.Render.DebugV2 (writeConstructionJson, writeDebugViewer)
 import Flag.Render.Html (generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
-import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)
+import Flag.Render.SVGBuilderBackend (SVGBuilderBackend (..))
 import Flag.Render.SVGOverlay (renderDrawingToSVG)
+import Flag.Source (Sourced, SourcedElement, runSourcedCollect, runSourcedPure)
+import System.Directory (copyFile, createDirectoryIfMissing, doesDirectoryExist, listDirectory)
+import System.FilePath (takeDirectory, (</>))
 
 main :: IO ()
 main = do
@@ -43,8 +43,8 @@ writeConstructionJsonForFlag flag = do
 
 -- Helper to drop the editor note for index page
 -- (a,b,c,d,e,f,g,h,i) -> (a,b,c,d,e,f,g,h)
-dropEditorNote :: (a,b,c,d,e,f,g,h,i) -> (a,b,c,d,e,f,g,h)
-dropEditorNote (a,b,c,d,e,f,g,h,_) = (a,b,c,d,e,f,g,h)
+dropEditorNote :: (a, b, c, d, e, f, g, h, i) -> (a, b, c, d, e, f, g, h)
+dropEditorNote (a, b, c, d, e, f, g, h, _) = (a, b, c, d, e, f, g, h)
 
 buildHtml :: IO ()
 buildHtml = do
@@ -54,17 +54,19 @@ buildHtml = do
   flagData <- mapM processFlag allCountryFlags
 
   -- Generate show pages for each flag
-  mapM_ (\fd@(_, _, _, iso, _, _, _, _, _) -> do
-    let showHtml = generateShowPage fd
-        showPath = "out/" ++ map toLower iso ++ ".html"
-    writeFile showPath showHtml) flagData
+  mapM_
+    ( \fd@(_, _, _, iso, _, _, _, _, _) -> do
+        let showHtml = generateShowPage fd
+            showPath = "out/" ++ map toLower iso ++ ".html"
+        writeFile showPath showHtml
+    )
+    flagData
 
   -- Generate index.html
   let html = generateIndex (map dropEditorNote flagData)
   writeFile "out/index.html" html
 
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
-
 
 -- | Recursively copy directory contents from src to dst
 copyDirRecursive :: FilePath -> FilePath -> IO ()
@@ -104,7 +106,7 @@ processFlag flag = do
   -- render the optimized drawing using the shared pipeline (including
   -- SVG overlay injection) so that tests and the main executable stay in
   -- sync.
-  renderDrawingToSVG svgPath svgOutputWidth drawing
+  renderDrawingToSVG SVGBuilderBackend svgPath svgOutputWidth drawing
 
   -- Get description
   let description = runPureEff $ runSourcedPure $ flagDescription flag
@@ -136,12 +138,12 @@ classifyField nums
   | null nums = "\\mathbb{N}"
   | otherwise =
       let maxField = maximum (map fieldOf nums)
-      in case maxField of
-           FReal        -> "\\mathbb{R}"
-           FCyclomatic  -> "\\mathbb{Q}(\\cos)"
-           FIrrational  -> "\\mathbb{Q}(\\sqrt{\\cdot})"
-           FRational    -> "\\mathbb{Q}"
-           FInteger
-             | all isNatural nums -> "\\mathbb{N}"
-             | all isInteger nums -> "\\mathbb{Z}"
-             | otherwise          -> "\\mathbb{Q}"
+       in case maxField of
+            FReal -> "\\mathbb{R}"
+            FCyclomatic -> "\\mathbb{Q}(\\cos)"
+            FIrrational -> "\\mathbb{Q}(\\sqrt{\\cdot})"
+            FRational -> "\\mathbb{Q}"
+            FInteger
+              | all isNatural nums -> "\\mathbb{N}"
+              | all isInteger nums -> "\\mathbb{Z}"
+              | otherwise -> "\\mathbb{Q}"
