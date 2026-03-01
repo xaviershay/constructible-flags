@@ -244,6 +244,7 @@ generateShowPage (svgFile, name, desc, isoCode, _updatedAt, sources, constructio
           H.h2 "Sources"
           formatSourceCards sources
           H.h2 "Provenance"
+          H.a ! A.href (toValue $ isoLower ++ "-prov.json") $ "PROV-JSON"
           H.div ! A.style "overflow:hidden;border:1px solid #ddd;background:#fafafa;cursor:grab" $
             H.preEscapedToHtml ("<svg id=\"prov-hier\" width=\"880\" height=\"500\"></svg>" :: String)
           H.script $ H.preEscapedToHtml $ "initProv(\"" ++ isoLower ++ "-prov.json\");"
