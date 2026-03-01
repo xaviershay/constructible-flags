@@ -155,9 +155,8 @@ generateConstructionPage = renderHtml $ docTypeHtml $ H.html $ do
         "NGonVertex — Regular polygon vertex"
         "$$\\star$$"
         """Computes the k-th vertex of a regular n-gon inscribed in a given
-        circle (centre + first vertex).  For n values that are not
-        constructible with straight-edge and compass (e.g. n\8201=\8201
-        7, 9, 11 \8230) this step marks a flag as non-constructible."""
+        circle (centre + first vertex).  Always marks flag as non-constructible, so only use for n values that can't be constructed with simpler primitives
+        (e.g. n\8201=\8201 7, 9, 11 \8230)."""
         "Input: (centre, firstVertex)  \8594  Point   [n-gon index k, polygon size n]"
     H.h3 "Rendering"
     H.p ! A.class_ "methods-desc" $
