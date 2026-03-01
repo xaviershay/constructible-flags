@@ -305,7 +305,7 @@ formatSourceHeading :: Source -> H.Html
 formatSourceHeading (SourceReference e) = formatEntityLink e
 formatSourceHeading (SourceImpliedReference e) = formatEntityLink e <> " (implied)"
 formatSourceHeading (SourceUnsightedReference e _) = formatEntityLink e <> " (unsighted)"
-formatSourceHeading (SourceEditorial _) = "Editorial decision"
+formatSourceHeading (SourceEditorial refs) = mconcat $ intersperse ", " $ map formatEntityLink refs
 formatSourceHeading (SourceApproximation approxOf _) = "Approximation of " <> H.em (toHtml approxOf)
 
 -- | Render a regular (non-Pantone) screenshot as a block-level image.
@@ -337,7 +337,7 @@ screenshotableEntities :: Source -> [Entity]
 screenshotableEntities (SourceReference e) = [e]
 screenshotableEntities (SourceImpliedReference e) = [e]
 screenshotableEntities (SourceUnsightedReference e refs) = e : refs
-screenshotableEntities (SourceEditorial _) = []
+screenshotableEntities (SourceEditorial refs) = refs
 screenshotableEntities (SourceApproximation _ _) = []
 
 -- ---------------------------------------------------------------------------
