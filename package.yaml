@@ -1,26 +1,26 @@
-name:                constructible-flags
-version:             0.1.0.0
-github:              "xaviershay/constructible-flags"
-license:             BSD-3-Clause
-author:              "Xavier Shay"
-maintainer:          "contact@xaviershay.com"
-copyright:           "2026 Xavier Shay"
+name: constructible-flags
+version: 0.1.0.0
+github: "xaviershay/constructible-flags"
+license: BSD-3-Clause
+author: "Xavier Shay"
+maintainer: "contact@xaviershay.com"
+copyright: "2026 Xavier Shay"
 
 extra-source-files:
-- README.md
-- CHANGELOG.md
+    - README.md
+    - CHANGELOG.md
 
 build-type: Custom
 
 custom-setup:
-  dependencies:
-  - base
-  - Cabal
-  - directory
-  - filepath
-  - aeson
-  - bytestring
-  - text
+    dependencies:
+        - base
+        - Cabal
+        - directory
+        - filepath
+        - aeson
+        - bytestring
+        - text
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -29,109 +29,110 @@ custom-setup:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/xaviershay/constructible-flags#readme>
+description: Please see the README on GitHub at <https://github.com/xaviershay/constructible-flags#readme>
 
 dependencies:
-- base >= 4.7 && < 5
-- colour
-- containers
-- svg-builder
-- directory
-- effectful-core
-- JuicyPixels
-- blaze-html
-- filepath
-- aeson
-- aeson-pretty
-- http-conduit
-- time
-- text
-- webp
-- bytestring
-- unordered-containers
+    - base >= 4.7 && < 5
+    - colour
+    - containers
+    - svg-builder
+    - directory
+    - effectful-core
+    - JuicyPixels
+    - blaze-html
+    - filepath
+    - aeson
+    - aeson-pretty
+    - http-conduit
+    - time
+    - text
+    - webp
+    - bytestring
+    - unordered-containers
+    - hashable
 
 ghc-options:
-- -Wall
-- -Wcompat
-- -Widentities
-- -Wincomplete-record-updates
-- -Wincomplete-uni-patterns
-- -Wmissing-export-lists
-- -Wmissing-home-modules
-- -Wpartial-fields
-- -Wredundant-constraints
+    - -Wall
+    - -Wcompat
+    - -Widentities
+    - -Wincomplete-record-updates
+    - -Wincomplete-uni-patterns
+    - -Wmissing-export-lists
+    - -Wmissing-home-modules
+    - -Wpartial-fields
+    - -Wredundant-constraints
 
 library:
-  source-dirs: src
-  other-modules:
-    - Flag.GeneratedPantone
+    source-dirs: src
+    other-modules:
+        - Flag.GeneratedPantone
 
 executables:
-  constructible-flags-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - constructible-flags
-  debug-flag:
-    main:                DebugFlag.hs
-    source-dirs:         app-debug
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - constructible-flags
-  pantone-sample:
-    main:                PantoneCli.hs
-    source-dirs:         app-pantone
-    ghc-options:
-    - -threaded
-    dependencies:
-    - constructible-flags
+    constructible-flags-exe:
+        main: Main.hs
+        source-dirs: app
+        ghc-options:
+            - -threaded
+            - -rtsopts
+            - -with-rtsopts=-N
+        dependencies:
+            - constructible-flags
+    debug-flag:
+        main: DebugFlag.hs
+        source-dirs: app-debug
+        ghc-options:
+            - -threaded
+            - -rtsopts
+            - -with-rtsopts=-N
+        dependencies:
+            - constructible-flags
+    pantone-sample:
+        main: PantoneCli.hs
+        source-dirs: app-pantone
+        ghc-options:
+            - -threaded
+        dependencies:
+            - constructible-flags
 tests:
-  constructible-flags-test:
-    main:                Spec.hs
-    source-dirs:         test
-    other-modules:
-    - FlagsUnderConstruction
-    - FieldNumberSpec
-    - ArbitraryFieldNumber
-    - ImageGoldenSpec
-    - ConstructionCostSpec
-    - PantoneSpec
-    - PantoneCliSpec
-    - SVGOverlaySpec
-    - ConstructionSpec
-    - GeometrySpec
-    - HtmlSpec
-    - InterpreterSpec
-    - NGonVertexSpec
-    - OptimizeSpec
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N1
-    dependencies:
-    - constructible-flags
-    - filepath
-    - tasty
-    - tasty-hunit
-    - tasty-quickcheck
-    - QuickCheck
-    - process
-  constructible-flags-bench:
-    main:                BenchMain.hs
-    source-dirs:         test
-    other-modules:
-    - FieldNumberBenchSpec
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N1
-    dependencies:
-    - constructible-flags
-    - criterion
+    constructible-flags-test:
+        main: Spec.hs
+        source-dirs: test
+        other-modules:
+            - FlagsUnderConstruction
+            - FieldNumberSpec
+            - ArbitraryFieldNumber
+            - ImageGoldenSpec
+            - ConstructionCostSpec
+            - PantoneSpec
+            - PantoneCliSpec
+            - SVGOverlaySpec
+            - ConstructionSpec
+            - GeometrySpec
+            - HtmlSpec
+            - InterpreterSpec
+            - NGonVertexSpec
+            - OptimizeSpec
+        ghc-options:
+            - -threaded
+            - -rtsopts
+            - -with-rtsopts=-N1
+        dependencies:
+            - constructible-flags
+            - filepath
+            - tasty
+            - tasty-hunit
+            - tasty-quickcheck
+            - QuickCheck
+            - process
+    constructible-flags-bench:
+        main: BenchMain.hs
+        source-dirs: test
+        other-modules:
+            - FieldNumberBenchSpec
+        ghc-options:
+            - -threaded
+            - -rtsopts
+            - -with-rtsopts=-N1
+        dependencies:
+            - constructible-flags
+            - criterion

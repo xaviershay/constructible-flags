@@ -84,6 +84,7 @@ library
     , directory
     , effectful-core
     , filepath
+    , hashable
     , http-conduit
     , svg-builder
     , text
@@ -114,6 +115,7 @@ executable constructible-flags-exe
     , directory
     , effectful-core
     , filepath
+    , hashable
     , http-conduit
     , svg-builder
     , text
@@ -144,6 +146,7 @@ executable debug-flag
     , directory
     , effectful-core
     , filepath
+    , hashable
     , http-conduit
     , svg-builder
     , text
@@ -174,6 +177,7 @@ executable pantone-sample
     , directory
     , effectful-core
     , filepath
+    , hashable
     , http-conduit
     , svg-builder
     , text
@@ -204,6 +208,7 @@ test-suite constructible-flags-bench
     , directory
     , effectful-core
     , filepath
+    , hashable
     , http-conduit
     , svg-builder
     , text
@@ -247,6 +252,7 @@ test-suite constructible-flags-test
     , directory
     , effectful-core
     , filepath
+    , hashable
     , http-conduit
     , process
     , svg-builder
