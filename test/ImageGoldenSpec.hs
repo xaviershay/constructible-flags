@@ -22,9 +22,7 @@ import Flag.Definition (Flag(..))
 import FlagsUnderConstruction (underConstruction)
 import Flag.Construction.Types (Point)
 import Flag.Construction.Interpreter (eval, evalCollectNumbers)
-import Flag.Construction.Optimize (optimize)
 import Flag.Source (runSourcedPure, Sourced)
-import Flag.Render.Diagram (drawingToDiagram)
 
 -- | Tests that render each flag to a PNG and compare to a golden PNG.
 imageGoldenTests :: TestTree

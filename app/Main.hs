@@ -5,7 +5,6 @@ module Main (main) where
 
 import Data.Char (toLower)
 import Data.List (nub)
-import qualified Data.Text.IO as TIO
 import Effectful (runPureEff)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory, copyFile)
 import System.FilePath ((</>), takeDirectory)
@@ -13,13 +12,11 @@ import Control.Monad (unless, when, forM_)
 
 import Flag.Construction.Types (Point)
 import Flag.Construction.Interpreter (Step, steps, evalCollectNumbers)
-import Flag.Construction.Optimize (optimize)
 import Flag.Construction.FieldNumber (FieldNumber, fieldOf, isNatural, isInteger, Field(..))
 import Flag.Construction.Tree (evalTree)
 import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
 import Flag.Definition (Flag(..))
 import Flag.Registry (allCountryFlags)
-import Flag.Render.Diagram (drawingToDiagram)
 import Flag.Render.Html (generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
 import Flag.Render.DebugV2 (writeDebugViewer, writeConstructionJson)

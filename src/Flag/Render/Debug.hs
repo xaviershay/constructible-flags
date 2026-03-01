@@ -12,23 +12,91 @@ module Flag.Render.Debug
     ) where
 
 import Data.List (nub)
-import Diagrams.Prelude (Diagram, pad, phantom, (#), mkWidth)
-import Diagrams.Backend.SVG (B, renderSVG)
+import Data.Maybe (mapMaybe)
 import Effectful (runPureEff)
 import System.Directory (createDirectoryIfMissing)
 
 import Flag.Construction.Types (Point)
-import Flag.Construction.Layers (ConstructionLayer(..), layerInputPoints, layerOutputPoints)
+import Flag.Construction.Layers (ConstructionLayer(..), layerInputPoints, layerOutputPoints, pointDist)
 import Flag.Construction.Tree (ConstructionTree(..), evalTree)
 import Flag.Construction.Optimize (optimize)
 import Flag.Construction.FieldNumber (toDouble)
 import Flag.Source (Sourced, runSourcedPure)
 import Flag.Definition (Flag(..))
-import Flag.Render.Diagram (drawingToDiagram, renderConstructionGeom, renderFill, renderDots)
+import Flag.Render.Diagram (drawingToElement, renderConstructionGeom, renderFill, renderDots)
+import Flag.Render.SVGOverlay (writeSVG, drawingBounds)
 
--- | Convert a Point (Radical, Radical) to (Double, Double) for diagrams.
+-- | Convert a Point (Radical, Radical) to (Double, Double) for rendering.
 toDP :: Point -> (Double, Double)
 toDP (x, y) = (toDouble x, toDouble y)
+
+-- ---------------------------------------------------------------------------
+-- Bounding box helpers (for uniform canvas across debug steps)
+-- ---------------------------------------------------------------------------
+
+type BBox = (Double, Double, Double, Double)  -- (minX, minY, maxX, maxY)
+
+unionBBox :: BBox -> BBox -> BBox
+unionBBox (ax1, ay1, ax2, ay2) (bx1, by1, bx2, by2) =
+    (min ax1 bx1, min ay1 by1, max ax2 bx2, max ay2 by2)
+
+-- | Expand a bounding box uniformly by a scale factor (e.g. 1.3 for 30% padding).
+applyPadding :: Double -> BBox -> BBox
+applyPadding factor (minX, minY, maxX, maxY) =
+    let w  = maxX - minX
+        h  = maxY - minY
+        cx = (minX + maxX) / 2
+        cy = (minY + maxY) / 2
+        hw = w * factor / 2
+        hh = h * factor / 2
+    in (cx - hw, cy - hh, cx + hw, cy + hh)
+
+-- | Compute the bounding box of a 'ConstructionLayer' from its geometry.
+layerBounds :: ConstructionLayer -> Maybe BBox
+layerBounds (LayerIntersectLL p1 p2 p3 p4 pts) =
+    let allPts = map toDP (p1 : p2 : p3 : p4 : pts)
+    in Just (minimum (map fst allPts), minimum (map snd allPts),
+             maximum (map fst allPts), maximum (map snd allPts))
+layerBounds (LayerIntersectLC p1 p2 cc ce pts) =
+    let r = toDouble (pointDist cc ce)
+        (ccx, ccy) = toDP cc
+        linePts = map toDP [p1, p2] ++ map toDP pts
+        xs = map fst linePts ++ [ccx - r, ccx + r]
+        ys = map snd linePts ++ [ccy - r, ccy + r]
+    in Just (minimum xs, minimum ys, maximum xs, maximum ys)
+layerBounds (LayerIntersectCC c1 e1 c2 e2 pts) =
+    let r1 = toDouble (pointDist c1 e1)
+        r2 = toDouble (pointDist c2 e2)
+        (c1x, c1y) = toDP c1
+        (c2x, c2y) = toDP c2
+        pts' = map toDP pts
+        xs = map fst pts' ++ [c1x - r1, c1x + r1, c2x - r2, c2x + r2]
+        ys = map snd pts' ++ [c1y - r1, c1y + r1, c2y - r2, c2y + r2]
+    in Just (minimum xs, minimum ys, maximum xs, maximum ys)
+layerBounds (LayerNGonVertex c e pts) =
+    let r = toDouble (pointDist c e)
+        (cx, cy) = toDP c
+        pts' = map toDP pts
+        xs = map fst pts' ++ [cx - r, cx + r]
+        ys = map snd pts' ++ [cy - r, cy + r]
+    in Just (minimum xs, minimum ys, maximum xs, maximum ys)
+layerBounds (LayerTriangle _ p1 p2 p3) =
+    let pts = map toDP [p1, p2, p3]
+    in Just (minimum (map fst pts), minimum (map snd pts),
+             maximum (map fst pts), maximum (map snd pts))
+layerBounds (LayerCircle _ center edge) =
+    let r = toDouble (pointDist center edge)
+        (cx, cy) = toDP center
+    in Just (cx - r, cy - r, cx + r, cy + r)
+layerBounds (LayerCrescent _ oc oe _ _) =
+    let r = toDouble (pointDist oc oe)
+        (cx, cy) = toDP oc
+    in Just (cx - r, cy - r, cx + r, cy + r)
+layerBounds (LayerSVGOverlay _ center edge) =
+    let (cx, cy) = toDP center
+        (ex, ey) = toDP edge
+        r = sqrt ((ex - cx) ^ (2 :: Int) + (ey - cy) ^ (2 :: Int))
+    in Just (cx - r, cy - r, cx + r, cy + r)
 
 -- ---------------------------------------------------------------------------
 -- Tree-aware step numbering
@@ -109,6 +177,13 @@ buildDebug flag = do
   putStrLn $ "Construction has " ++ show (length leaves) ++ " steps:"
   printNumberedTree 0 numbered
 
+  -- Compute a uniform bounding box from all layers (replacing Diagrams' phantom).
+  -- We also include the initial points with a small epsilon to avoid zero-height boxes.
+  let allBBoxes  = mapMaybe layerBounds allLayers
+      baseBBox   = (0.0, -0.05, 1.0, 0.05) :: BBox  -- covers the two initial points
+      unionBB    = foldl unionBBox baseBBox allBBoxes
+      padded     = applyPadding 1.3 unionBB
+
   -- Compute the set of points that are consumed by step i or later.
   -- liveAfter !! i  =  inputs of steps i .. n-1
   let nSteps = length allLayers
@@ -116,43 +191,41 @@ buildDebug flag = do
                   | i <- [0 .. nSteps] ]
 
   -- Render step 0: initial points, but only those that are live
-  let livePts0 = filter (`elem` (liveAfter !! 0)) initialPts
-      step0Dia = renderDots (map toDP livePts0)
+  let livePts0  = filter (`elem` (liveAfter !! 0)) initialPts
+      step0Elem = renderDots (map toDP livePts0)
 
   -- Render steps 1..n
-  let stepDias = [ let layerIdx    = i - 1
-                       layer       = allLayers !! layerIdx
-                       live        = liveAfter !! i
-                       prevOutputs = concatMap layerOutputPoints (take layerIdx allLayers)
-                       curOutputs  = layerOutputPoints layer
-                       allKnown    = initialPts ++ prevOutputs ++ curOutputs
-                       liveDots    = renderDots (map toDP (filter (`elem` live) allKnown))
-                       geom        = renderConstructionGeom layer
-                       fills       = mconcat [ renderFill l | l <- take i allLayers ]
-                   in  liveDots <> geom <> fills
-                 | i <- [1 .. nSteps]
-                 ]
+  let stepElems = [ let layerIdx    = i - 1
+                        layer       = allLayers !! layerIdx
+                        live        = liveAfter !! i
+                        prevOutputs = concatMap layerOutputPoints (take layerIdx allLayers)
+                        curOutputs  = layerOutputPoints layer
+                        allKnown    = initialPts ++ prevOutputs ++ curOutputs
+                        liveDots    = renderDots (map toDP (filter (`elem` live) allKnown))
+                        geom        = renderConstructionGeom layer
+                        fills       = mconcat [ renderFill l | l <- take i allLayers ]
+                    in  liveDots <> geom <> fills
+                  | i <- [1 .. nSteps]
+                  ]
 
-  let allDias = step0Dia : stepDias
+  let allElems = step0Elem : stepElems
 
-  -- Compute a uniform bounding box from the union of all diagrams,
-  -- so every SVG renders on the same canvas size and position.
-  let combined  = mconcat allDias :: Diagram B
-      frameDia  = phantom combined :: Diagram B
-
-  mapM_ (\(i, dia) -> do
+  mapM_ (\(i, el) -> do
       let path = "out/debug/step-" ++ padNum i ++ ".svg"
-      renderSVG path (mkWidth 400) ((dia <> frameDia) # pad 1.3)
+      writeSVG path 400 padded el
       putStrLn $ "  Wrote " ++ path
-    ) (zip [0::Int ..] allDias)
+    ) (zip [0::Int ..] allElems)
 
-  -- Render the final flag using drawingToDiagram
-  let finalDia = drawingToDiagram (optimize result)
-  renderSVG "out/debug/final.svg" (mkWidth 400) finalDia
+  -- Render the final flag using drawingToElement
+  let finalEl = drawingToElement (optimize result)
+      finalBB = case drawingBounds (optimize result) of
+                  Just bb -> bb
+                  Nothing -> padded
+  writeSVG "out/debug/final.svg" 400 finalBB finalEl
   putStrLn "  Wrote out/debug/final.svg"
 
   -- Generate index.html reflecting the tree structure
-  let indexHtml = generateDebugIndexHtml numbered (length allDias)
+  let indexHtml = generateDebugIndexHtml numbered (length allElems)
   writeFile "out/debug/index.html" indexHtml
   putStrLn "  Wrote out/debug/index.html"
 

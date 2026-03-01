@@ -35,8 +35,7 @@ dependencies:
 - base >= 4.7 && < 5
 - colour
 - containers
-- diagrams-lib
-- diagrams-svg
+- svg-builder
 - directory
 - effectful-core
 - JuicyPixels

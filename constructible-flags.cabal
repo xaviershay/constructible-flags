@@ -81,12 +81,11 @@ library
     , bytestring
     , colour
     , containers
-    , diagrams-lib
-    , diagrams-svg
     , directory
     , effectful-core
     , filepath
     , http-conduit
+    , svg-builder
     , text
     , time
     , unordered-containers
@@ -112,12 +111,11 @@ executable constructible-flags-exe
     , colour
     , constructible-flags
     , containers
-    , diagrams-lib
-    , diagrams-svg
     , directory
     , effectful-core
     , filepath
     , http-conduit
+    , svg-builder
     , text
     , time
     , unordered-containers
@@ -143,12 +141,11 @@ executable debug-flag
     , colour
     , constructible-flags
     , containers
-    , diagrams-lib
-    , diagrams-svg
     , directory
     , effectful-core
     , filepath
     , http-conduit
+    , svg-builder
     , text
     , time
     , unordered-containers
@@ -174,12 +171,11 @@ executable pantone-sample
     , colour
     , constructible-flags
     , containers
-    , diagrams-lib
-    , diagrams-svg
     , directory
     , effectful-core
     , filepath
     , http-conduit
+    , svg-builder
     , text
     , time
     , unordered-containers
@@ -205,12 +201,11 @@ test-suite constructible-flags-bench
     , constructible-flags
     , containers
     , criterion
-    , diagrams-lib
-    , diagrams-svg
     , directory
     , effectful-core
     , filepath
     , http-conduit
+    , svg-builder
     , text
     , time
     , unordered-containers
@@ -249,13 +244,12 @@ test-suite constructible-flags-test
     , colour
     , constructible-flags
     , containers
-    , diagrams-lib
-    , diagrams-svg
     , directory
     , effectful-core
     , filepath
     , http-conduit
     , process
+    , svg-builder
     , tasty
     , tasty-hunit
     , tasty-quickcheck
