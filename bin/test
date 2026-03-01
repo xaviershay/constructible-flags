@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-exec stack test --fast "$@"
+exec stack test constructible-flags:test:constructible-flags-test --fast "$@"

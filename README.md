@@ -40,8 +40,6 @@ stack test
 
 The first run creates new golden files and fails so you can review them. Run `stack test` again to confirm they pass, then commit the updated PNGs.
 
-## TODO
+## Design Notes
 
-* Incorporate source notes out of comments
-* Switch to representing constructible numbers, probably using a simple expression tree
-* Distinguish between Explicit and Implicit source references
+Ideally, numbers would be represented with exact algebra. I tried this a few ways, but it quickly led to exponential blowouts and code full of edge cases. I've now reverted to using double approximations, though still tracking what field the number should exist in. I'm not sure how useful that is, but it also maintains a number abstraction such that we can have another go at exact algebra in the future.

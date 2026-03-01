@@ -4,8 +4,7 @@
 module Main (main) where
 
 import Data.Char (toLower)
-import Data.List (intercalate, nub, sort)
-import Data.Ratio (numerator, denominator)
+import Data.List (nub)
 import qualified Data.Text.IO as TIO
 import Effectful (runPureEff)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory, copyFile)
@@ -13,9 +12,9 @@ import System.FilePath ((</>), takeDirectory)
 import Control.Monad (unless, when, forM_)
 
 import Flag.Construction.Types (Point)
-import Flag.Construction.Interpreter (Step, steps, evalCollectRadicals)
+import Flag.Construction.Interpreter (Step, steps, evalCollectNumbers)
 import Flag.Construction.Optimize (optimize)
-import Flag.Construction.Radical (Radical, isNatural, isInteger, radicands)
+import Flag.Construction.FieldNumber (FieldNumber, fieldOf, isNatural, isInteger, Field(..))
 import Flag.Construction.Tree (evalTree)
 import Flag.Source (Sourced, SourcedElement, runSourcedPure, runSourcedCollect)
 import Flag.Definition (Flag(..))
@@ -53,10 +52,10 @@ dropEditorNote (a,b,c,d,e,f,g,h,_) = (a,b,c,d,e,f,g,h)
 buildHtml :: IO ()
 buildHtml = do
   createDirectoryIfMissing True "out"
-  
+
   -- Generate SVG for each flag and collect metadata for index
   flagData <- mapM processFlag allCountryFlags
-  
+
   -- Generate show pages for each flag
   mapM_ (\fd@(_, _, _, iso, _, _, _, _, _) -> do
     let showHtml = generateShowPage fd
@@ -66,7 +65,7 @@ buildHtml = do
   -- Generate index.html
   let html = generateIndex (map dropEditorNote flagData)
   writeFile "out/index.html" html
-  
+
   putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
 
 
@@ -102,7 +101,7 @@ processFlag flag = do
 
   -- Evaluate the arrow on a unit input to get the Drawing
   let flagInput = ((0, 0), (1, 0)) :: (Point, Point)
-      (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
+      (drawing, intermediateNumbers) = evalCollectNumbers flagArrow flagInput
       svgOutputWidth = 300 :: Double
 
   -- render the optimized drawing using the shared pipeline (including
@@ -128,28 +127,24 @@ processFlag flag = do
   let constructionSteps = steps flagArrow
 
   -- Determine the number field from all intermediate construction points
-  let fieldStr = classifyField intermediateRadicals
+  let fieldStr = classifyField intermediateNumbers
 
   putStrLn $ "Generated " ++ svgFile ++ " (" ++ flagName flag ++ ")"
 
   pure (svgFile, flagName flag, description, flagIsoCode flag, flagUpdatedAt flag, allSources, constructionSteps, fieldStr, flagEditorNote flag)
 
 -- | Classify the number field required by all intermediate construction points.
-classifyField :: [Radical] -> String
-classifyField rads =
-  let allRads = nub $ sort $ concatMap radicands rads
-  in if not (null allRads)
-     then let extensions = map radToKaTeX allRads
-          in "\\mathbb{Q}(" ++ intercalate ", " extensions ++ ")"
-     else if all isNatural rads
-          then "\\mathbb{N}"
-          else if all isInteger rads
-               then "\\mathbb{Z}"
-               else "\\mathbb{Q}"
-  where
-    radToKaTeX (r, 2) = "\\sqrt{" ++ ratToKaTeX r ++ "}"
-    radToKaTeX (r, n) = "\\sqrt[" ++ show n ++ "]{" ++ ratToKaTeX r ++ "}"
-    ratToKaTeX r
-      | denominator r == 1 = show (numerator r)
-      | otherwise = "\\frac{" ++ show (numerator r) ++ "}{" ++ show (denominator r) ++ "}"
-
+classifyField :: [FieldNumber] -> String
+classifyField nums
+  | null nums = "\\mathbb{N}"
+  | otherwise =
+      let maxField = maximum (map fieldOf nums)
+      in case maxField of
+           FReal        -> "\\mathbb{R}"
+           FCyclomatic  -> "\\mathbb{Q}(\\cos)"
+           FIrrational  -> "\\mathbb{Q}(\\sqrt{\\cdot})"
+           FRational    -> "\\mathbb{Q}"
+           FInteger
+             | all isNatural nums -> "\\mathbb{N}"
+             | all isInteger nums -> "\\mathbb{Z}"
+             | otherwise          -> "\\mathbb{Q}"

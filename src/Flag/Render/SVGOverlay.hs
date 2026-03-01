@@ -21,7 +21,7 @@ import Numeric (showFFloat)
 
 import Flag.Construction.Types (Drawing(..))
 import Control.Monad (when)
-import Flag.Construction.Radical (toDouble)
+import Flag.Construction.FieldNumber (toDouble)
 import Flag.Construction.Optimize (optimize)
 import Flag.Render.Diagram (drawingToDiagram)
 import Diagrams.Backend.SVG (renderSVG)

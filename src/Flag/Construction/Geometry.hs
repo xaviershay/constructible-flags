@@ -6,9 +6,8 @@ module Flag.Construction.Geometry
     , dist
     ) where
 
-import Flag.Construction.Types (Point)
-import Flag.Construction.Radical (Radical(..), isZero)
-import Debug.Trace
+import Flag.Construction.Types (Point, Number)
+import Flag.Construction.FieldNumber (isZero)
 
 -- | Line-line intersection from defining points
 evalIntersectLL' :: ((Point, Point), (Point, Point)) -> Point
@@ -48,7 +47,6 @@ evalIntersectLC' ((lp1, lp2), (cc, ce)) =
 -- | Circle-circle intersection from defining points.
 --
 -- Optimised to divide by d² (a sum of squares) instead of d (a sqrt).
--- This avoids divR by irrational denominators, which causes expression blowup.
 --
 -- Derivation: let ad = a/d, hd = h/d.  Then
 --   ad = (r1² - r2² + d²) / (2·d²)
@@ -74,20 +72,19 @@ evalIntersectCC' ((c1, e1), (c2, e2)) =
      , (mx - hd * dy, my + hd * dx)
      )
 
--- | Euclidean distance between two points (exact)
-dist :: Point -> Point -> Radical
+-- | Euclidean distance between two points
+dist :: Point -> Point -> Number
 dist (x1, y1) (x2, y2) = sqrt ((x2 - x1)^(2::Int) + (y2 - y1)^(2::Int))
 
 
 -- | Evaluate the k-th vertex of a regular n-gon given (center, firstVertex).
--- Uses floating-point trigonometry via 'Real' values; any subsequent
--- arithmetic with 'Ext' will collapse to 'Real'.
+-- Uses trigonometry via the Floating instance.
 evalNGonVertex :: Int -> Int -> (Point, Point) -> Point
 evalNGonVertex _ 0 ((_, _), (vx, vy)) = (vx, vy)
 evalNGonVertex n k ((cx, cy), (vx, vy)) =
   let theta = 2 * pi * fromIntegral k / fromIntegral n
-      cosT = Real (cos theta)
-      sinT = Real (sin theta)
+      cosT = cos theta
+      sinT = sin theta
       dx = vx - cx
       dy = vy - cy
       newx = cx + dx * cosT - dy * sinT

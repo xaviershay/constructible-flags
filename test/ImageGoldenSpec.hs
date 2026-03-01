@@ -21,7 +21,7 @@ import Flag.Registry (allCountryFlags)
 import Flag.Definition (Flag(..))
 import FlagsUnderConstruction (underConstruction)
 import Flag.Construction.Types (Point)
-import Flag.Construction.Interpreter (eval, evalCollectRadicals)
+import Flag.Construction.Interpreter (eval, evalCollectNumbers)
 import Flag.Construction.Optimize (optimize)
 import Flag.Source (runSourcedPure, Sourced)
 import Flag.Render.Diagram (drawingToDiagram)
@@ -63,7 +63,7 @@ goldenTestFor flag = do
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       flagInput = ((0, 0), (1, 0)) :: (Point, Point)
       --drawing = eval flagArrow flagInput
-      (drawing, intermediateRadicals) = evalCollectRadicals flagArrow flagInput
+      (drawing, _intermediateNumbers) = evalCollectNumbers flagArrow flagInput
 
   renderDrawingToSVG tmpSvgPath svgWidth drawing
   callProcess "convert" [tmpSvgPath, tmpPath]

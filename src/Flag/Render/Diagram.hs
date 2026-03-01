@@ -14,14 +14,14 @@ import Diagrams.Backend.SVG
 import Flag.Construction.Types (Drawing(..))
 import qualified Flag.Construction.Types as T
 import Flag.Construction.Layers (ConstructionLayer(..), pointDist)
-import Flag.Construction.Radical (Radical, toDouble)
+import Flag.Construction.FieldNumber (FieldNumber, toDouble)
 
--- | Convert a Point (Radical, Radical) to (Double, Double) for diagrams.
+-- | Convert a Point to (Double, Double) for diagrams.
 toDP :: T.Point -> (Double, Double)
 toDP (x, y) = (toDouble x, toDouble y)
 
--- | Convert a Radical to Double for diagrams.
-toD :: Radical -> Double
+-- | Convert a Number to Double for diagrams.
+toD :: FieldNumber -> Double
 toD = toDouble
 
 -- ---------------------------------------------------------------------------

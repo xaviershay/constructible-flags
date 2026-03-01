@@ -2,11 +2,12 @@
 
 module Flag.Construction.Types
     ( -- * Core types
-      Point
+      Number
+    , Point
     , Drawing(..)
     , FlagA(..)
     , showFlagA
-    , drawingRadicals
+    , drawingNumbers
     ) where
 
 import Prelude hiding (id, (.))
@@ -15,21 +16,24 @@ import Control.Arrow
 import Data.Colour
 import qualified Prelude
 
-import Flag.Construction.Radical (Radical, toDouble)
+import Flag.Construction.FieldNumber (FieldNumber, toDouble)
 import Numeric (showFFloat)
 
--- | A 2D point with exact radical coordinates
-type Point = (Radical, Radical)
+-- | The numeric type used for all coordinates and radii.
+type Number = FieldNumber
+
+-- | A 2D point with coordinates
+type Point = (Number, Number)
 
 -- | An abstract drawing instruction
 data Drawing
   = DrawTriangle (Colour Double) Point Point Point
   | DrawPath (Colour Double) [Point]  -- ^ A closed polygon as an ordered list of vertices
-  | DrawCircle (Colour Double) Point Radical  -- ^ A filled circle: colour, center, radius
+  | DrawCircle (Colour Double) Point Number  -- ^ A filled circle: colour, center, radius
   | DrawSVGOverlay FilePath Point Point  -- ^ An external SVG overlay: file path, center, edge
   | Overlay Drawing Drawing
   | EmptyDrawing
-  
+
 
 -- | Pretty-print a 'Drawing' with one operation per line, indenting
 -- according to overlay depth and showing numerical approximations
@@ -86,7 +90,7 @@ data FlagA a b where
   IntersectLL  :: FlagA ((Point, Point), (Point, Point)) Point
   IntersectLC  :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
   IntersectCC  :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
-  
+
   -- | The k-th vertex of a regular n-gon inscribed in the given circle.
   -- Input: (center, firstVertex). Output: the k-th vertex (0-indexed).
   NGonVertex   :: !Int -> !Int -> FlagA (Point, Point) Point
@@ -131,19 +135,19 @@ showFlagA n fa = indent n ++ case fa of
     indent i = replicate i ' '
 
 -- ---------------------------------------------------------------------------
--- Radical extraction
+-- Number extraction
 -- ---------------------------------------------------------------------------
 
--- | Collect all 'Radical' values from a 'Drawing' (coordinates and radii).
-drawingRadicals :: Drawing -> [Radical]
-drawingRadicals EmptyDrawing = []
-drawingRadicals (DrawTriangle _ (x1,y1) (x2,y2) (x3,y3)) =
+-- | Collect all 'Number' values from a 'Drawing' (coordinates and radii).
+drawingNumbers :: Drawing -> [Number]
+drawingNumbers EmptyDrawing = []
+drawingNumbers (DrawTriangle _ (x1,y1) (x2,y2) (x3,y3)) =
   [x1, y1, x2, y2, x3, y3]
-drawingRadicals (DrawPath _ pts) =
+drawingNumbers (DrawPath _ pts) =
   concatMap (\(x, y) -> [x, y]) pts
-drawingRadicals (DrawCircle _ (cx, cy) r) =
+drawingNumbers (DrawCircle _ (cx, cy) r) =
   [cx, cy, r]
-drawingRadicals (DrawSVGOverlay _ (cx, cy) (ex, ey)) =
+drawingNumbers (DrawSVGOverlay _ (cx, cy) (ex, ey)) =
   [cx, cy, ex, ey]
-drawingRadicals (Overlay a b) =
-  drawingRadicals a ++ drawingRadicals b
+drawingNumbers (Overlay a b) =
+  drawingNumbers a ++ drawingNumbers b

@@ -10,7 +10,7 @@ module Flag.Construction.Debug
 
 import qualified Debug.Trace as DT
 
-import Flag.Construction.Radical (toKaTeX)
+import Flag.Construction.FieldNumber (toKaTeX)
 import Flag.Construction.Types
 import Flag.Construction.Geometry
 import Flag.Construction.Optimize

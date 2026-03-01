@@ -17,7 +17,7 @@ import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
 
-import Flag.Construction.Radical (Radical, toDouble, toKaTeX)
+import Flag.Construction.FieldNumber (FieldNumber, toDouble, toKaTeX)
 import Flag.Construction.Types (Point)
 import Flag.Construction.Layers (ConstructionLayer(..), layerInputPoints,
                                  layerOutputPoints, pointDist)
@@ -28,8 +28,8 @@ import Flag.Render.Debug (NumberedEntry(..), numberTree, numberedLeaves)
 toDP :: Point -> (Double, Double)
 toDP (x, y) = (toDouble x, toDouble y)
 
--- | Convert a Radical to Double for SVG rendering.
-toD :: Radical -> Double
+-- | Convert a Number to Double for SVG rendering.
+toD :: FieldNumber -> Double
 toD = toDouble
 
 -- ---------------------------------------------------------------------------

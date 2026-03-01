@@ -37,11 +37,11 @@ library
   exposed-modules:
       Flag
       Flag.Construction.Debug
+      Flag.Construction.FieldNumber
       Flag.Construction.Geometry
       Flag.Construction.Interpreter
       Flag.Construction.Layers
       Flag.Construction.Optimize
-      Flag.Construction.Radical
       Flag.Construction.Tree
       Flag.Construction.Types
       Flag.Constructions
@@ -102,37 +102,6 @@ executable bench-json
   hs-source-dirs:
       app-bench
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      JuicyPixels
-    , aeson
-    , aeson-pretty
-    , base >=4.7 && <5
-    , blaze-html
-    , bytestring
-    , colour
-    , constructible-flags
-    , containers
-    , diagrams-lib
-    , diagrams-svg
-    , directory
-    , effectful-core
-    , filepath
-    , http-conduit
-    , text
-    , time
-    , unordered-containers
-    , webp
-  default-language: Haskell2010
-
-executable bench-radical
-  main-is: BenchRadical.hs
-  other-modules:
-      Paths_constructible_flags
-  autogen-modules:
-      Paths_constructible_flags
-  hs-source-dirs:
-      app-bench-radical
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N -O2
   build-depends:
       JuicyPixels
     , aeson
@@ -248,20 +217,58 @@ executable pantone-sample
     , webp
   default-language: Haskell2010
 
+test-suite constructible-flags-bench
+  type: exitcode-stdio-1.0
+  main-is: BenchMain.hs
+  other-modules:
+      FieldNumberBenchSpec
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N1
+  build-depends:
+      JuicyPixels
+    , aeson
+    , aeson-pretty
+    , base >=4.7 && <5
+    , blaze-html
+    , bytestring
+    , colour
+    , constructible-flags
+    , containers
+    , diagrams-lib
+    , diagrams-svg
+    , directory
+    , effectful-core
+    , filepath
+    , http-conduit
+    , tasty-bench
+    , text
+    , time
+    , unordered-containers
+    , webp
+  default-language: Haskell2010
+
 test-suite constructible-flags-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
       FlagsUnderConstruction
-      RadicalSpec
+      FieldNumberSpec
+      ArbitraryFieldNumber
       ImageGoldenSpec
       ConstructionCostSpec
       PantoneSpec
       PantoneCliSpec
       SVGOverlaySpec
+      ConstructionSpec
+      GeometrySpec
+      HtmlSpec
+      InterpreterSpec
+      NGonVertexSpec
+      OptimizeSpec
   hs-source-dirs:
       test
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N1
   build-depends:
       JuicyPixels
     , QuickCheck
@@ -281,6 +288,7 @@ test-suite constructible-flags-test
     , http-conduit
     , process
     , tasty
+    , tasty-bench
     , tasty-hunit
     , tasty-quickcheck
     , text

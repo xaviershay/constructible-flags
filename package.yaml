@@ -95,16 +95,6 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - constructible-flags
-  bench-radical:
-    main:                BenchRadical.hs
-    source-dirs:         app-bench-radical
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    - -O2
-    dependencies:
-    - constructible-flags
   pantone-sample:
     main:                PantoneCli.hs
     source-dirs:         app-pantone
@@ -118,21 +108,41 @@ tests:
     source-dirs:         test
     other-modules:
     - FlagsUnderConstruction
-    - RadicalSpec
+    - FieldNumberSpec
+    - ArbitraryFieldNumber
     - ImageGoldenSpec
     - ConstructionCostSpec
     - PantoneSpec
     - PantoneCliSpec
     - SVGOverlaySpec
+    - ConstructionSpec
+    - GeometrySpec
+    - HtmlSpec
+    - InterpreterSpec
+    - NGonVertexSpec
+    - OptimizeSpec
     ghc-options:
     - -threaded
     - -rtsopts
-    - -with-rtsopts=-N
+    - -with-rtsopts=-N1
     dependencies:
     - constructible-flags
     - filepath
     - tasty
     - tasty-hunit
     - tasty-quickcheck
+    - tasty-bench
     - QuickCheck
     - process
+  constructible-flags-bench:
+    main:                BenchMain.hs
+    source-dirs:         test
+    other-modules:
+    - FieldNumberBenchSpec
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N1
+    dependencies:
+    - constructible-flags
+    - tasty-bench

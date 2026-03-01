@@ -10,7 +10,6 @@ module Flag.Construction.Layers
 
 import Data.Colour
 
-import Flag.Construction.Radical (Radical)
 import Flag.Construction.Types
 import Flag.Construction.Geometry
 
@@ -59,7 +58,7 @@ layerOutputPoints (LayerCircle _ _ _)            = []
 layerOutputPoints (LayerSVGOverlay _ _ _)        = []
 
 -- | Euclidean distance (exported for rendering code that derives radii).
-pointDist :: Point -> Point -> Radical
+pointDist :: Point -> Point -> Number
 pointDist = dist
 
 -- | Evaluate a construction arrow, producing the result and a list of

@@ -4,11 +4,11 @@ module NGonVertexSpec (ngonVertexTests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
-import ArbitraryRadical ()
+import ArbitraryFieldNumber ()
 import Flag.Construction.Types (Point)
 import Flag.Construction.Interpreter (eval)
 import Flag.Construction.Geometry (evalNGonVertex)
-import Flag.Construction.Radical (toDouble)
+import Flag.Construction.FieldNumber (toDouble)
 
 approxEq :: Double -> Double -> Double -> Bool
 approxEq eps a b = abs (a - b) <= eps

@@ -13,9 +13,9 @@ import Flag.Constructions (naturalMult, rationalMult, perpendicular, parallel, m
 import Flag.Construction.Interpreter (eval)
 import Flag.Construction.Types (Point, Drawing(..))
 import Flag.Construction.Geometry (dist)
-import Flag.Construction.Radical (Radical(..), toDouble)
+import Flag.Construction.FieldNumber (FieldNumber, toDouble, fnRational)
 import Data.Ratio (Ratio, (%))
-import ArbitraryRadical ()
+import ArbitraryFieldNumber ()
 
 -- | Flatten a Drawing into its constituent triangles.
 flattenTriangles :: Drawing -> [(Point, Point, Point)]
@@ -23,7 +23,7 @@ flattenTriangles (DrawTriangle _ p1 p2 p3) = [(p1, p2, p3)]
 flattenTriangles (Overlay a b) = flattenTriangles a ++ flattenTriangles b
 flattenTriangles _ = []
 
--- | Approximate equality for points, converting Radical to Double.
+-- | Approximate equality for points, converting FieldNumber to Double.
 approxEqual :: String -> Point -> Point -> Assertion
 approxEqual msg (x1, y1) (x2, y2) = do
   assertBool (msg ++ " x: expected " ++ show x1 ++ " got " ++ show x2)
@@ -31,8 +31,8 @@ approxEqual msg (x1, y1) (x2, y2) = do
   assertBool (msg ++ " y: expected " ++ show y1 ++ " got " ++ show y2)
     (abs (toDouble y1 - toDouble y2) < 1e-9)
 
--- | Assert two Radicals are approximately equal (via Double conversion).
-approxEqualD :: String -> Radical -> Radical -> Assertion
+-- | Assert two FieldNumbers are approximately equal (via Double conversion).
+approxEqualD :: String -> FieldNumber -> FieldNumber -> Assertion
 approxEqualD msg expected actual =
   assertBool (msg ++ ": expected " ++ show expected ++ " got " ++ show actual)
     (abs (toDouble expected - toDouble actual) < 1e-9)
@@ -150,7 +150,7 @@ constructionTests = testGroup "Constructions"
     , testCase "bisects angle not from origin" $ do
         let o = (0, -3)
             a = (0, 0)
-            b = (3, (Rational ((-3) % 2)))
+            b = (3, fnRational ((-3) % 2))
             (_, q) = evalBisect (o, (a, b))
             (dxA, dyA) = (fst a - fst o, snd a - snd o)
             (dxB, dyB) = (fst b - fst o, snd b - snd o)
@@ -212,13 +212,10 @@ constructionTests = testGroup "Constructions"
             m = evalMid (a, b)
         approxEqualD "equidistant" (dist a m) (dist m b)
 
-    , testCase "midpoint of Rational and Ext point" $ do
-        -- This previously hung: midpoint construction introduces √3
-        -- from intersectCC alongside the input's √5, creating a
-        -- multi-radicand denominator that caused divR non-termination.
-        let a = (Rational 0, Rational 0) :: Point
-            inner = Ext (Rational 1) (Rational 2) (Rational 5) 2
-            b = (inner, Rational 3) :: Point
+    , testCase "midpoint of rational and irrational point" $ do
+        -- Midpoint via geometric bisection construction.
+        let a = (0, 0) :: Point
+            b = (1 + 2 * sqrt 5, 3) :: Point
             m = evalMid (a, b)
             expectedX = (1 + 2 * sqrt 5) / 2
         assertBool "midpoint x"
@@ -297,53 +294,5 @@ constructionTests = testGroup "Constructions"
             a = (1, 0) :: Point
             d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
         length (flattenTriangles d) @?= 8
-
-    --, testCase "outer pentagon: 5 unique vertices on circumscribed circle" $ do
-    --    let o = (0, 0) :: Point
-    --        a = (1, 0) :: Point
-    --        d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
-    --        allPts = nub $ concatMap (\(p1,p2,p3) -> [p1,p2,p3]) (flattenTriangles d)
-    --        r = toDouble (dist o a)
-    --        outerPts = filter (\p -> abs (toDouble (dist o p) - r) < 1e-9) allPts
-    --    length outerPts @?= 5
-
-    --, testCase "inner pentagon: 5 unique vertices on a smaller concentric circle" $ do
-    --    let o = (0, 0) :: Point
-    --        a = (1, 0) :: Point
-    --        d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
-    --        allPts = nub $ concatMap (\(p1,p2,p3) -> [p1,p2,p3]) (flattenTriangles d)
-    --        r = toDouble (dist o a)
-    --        innerPts = filter (\p -> abs (toDouble (dist o p) - r) > 1e-9) allPts
-    --        innerDists = map (toDouble . dist o) innerPts
-    --    length innerPts @?= 5
-    --    let innerR = head innerDists
-    --    mapM_ (\d' -> assertBool ("inner vertex equidistant: " ++ show d') (abs (d' - innerR) < 1e-9)) innerDists
-
-    --, testCase "outer vertices evenly spaced at 72°" $ do
-    --    let o = (0, 0) :: Point
-    --        a = (1, 0) :: Point
-    --        d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
-    --        allPts = nub $ concatMap (\(p1,p2,p3) -> [p1,p2,p3]) (flattenTriangles d)
-    --        r = toDouble (dist o a)
-    --        outerPts = filter (\p -> abs (toDouble (dist o p) - r) < 1e-9) allPts
-    --        angles = sort [ atan2 (toDouble (snd p) - toDouble (snd o))
-    --                              (toDouble (fst p) - toDouble (fst o))
-    --                      | p <- outerPts ]
-    --        gaps = zipWith (-) (tail angles ++ [head angles + 2*pi]) angles
-    --        expected = 2 * pi / 5
-    --    mapM_ (\g -> assertBool ("gap ≈ 72°: " ++ show g) (abs (g - expected) < 1e-9)) gaps
-
-    --, testCase "inner radius is R/φ²" $ do
-    --    let o = (0, 0) :: Point
-    --        a = (1, 0) :: Point
-    --        d = eval (fillStar5 (sRGB24 255 0 0)) (o, a)
-    --        allPts = nub $ concatMap (\(p1,p2,p3) -> [p1,p2,p3]) (flattenTriangles d)
-    --        r = toDouble (dist o a)
-    --        innerPts = filter (\p -> abs (toDouble (dist o p) - r) > 1e-9) allPts
-    --        innerR = toDouble (dist o (head innerPts))
-    --        phi = (1 + sqrt 5) / 2
-    --        expectedInnerR = r / (phi * phi)
-    --    assertBool ("inner radius " ++ show innerR ++ " ≈ " ++ show expectedInnerR)
-    --        (abs (innerR - expectedInnerR) < 1e-9)
     ]
   ]

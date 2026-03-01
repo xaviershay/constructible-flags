@@ -4,12 +4,12 @@ module Flag.Construction.Interpreter
     ( Step(..)
     , steps
     , eval
-    , evalCollectRadicals
+    , evalCollectNumbers
     ) where
 
 import Flag.Construction.Types
 import Flag.Construction.Geometry
-import Flag.Construction.Radical (Radical)
+import Flag.Construction.FieldNumber (FieldNumber)
 
 -- | A labeled construction step for introspection
 data Step
@@ -56,37 +56,37 @@ eval (FillCircle c)   = \(center, edge) -> DrawCircle c center (dist center edge
 eval (OverlaySVG path) = \(center, edge) -> DrawSVGOverlay path center edge
 eval (Group _ f)      = eval f
 
--- | Evaluate a construction arrow, collecting all 'Radical' values
+-- | Evaluate a construction arrow, collecting all 'Number' values
 -- produced by intersection operations (intermediate construction points).
-evalCollectRadicals :: FlagA a b -> a -> (b, [Radical])
-evalCollectRadicals (Arr _ f) a = let b = f a in b `seq` (b, [])
-evalCollectRadicals (Compose f g) a =
-  let (b, r1) = evalCollectRadicals f a
-      (c, r2) = evalCollectRadicals g b
+evalCollectNumbers :: FlagA a b -> a -> (b, [FieldNumber])
+evalCollectNumbers (Arr _ f) a = let b = f a in b `seq` (b, [])
+evalCollectNumbers (Compose f g) a =
+  let (b, r1) = evalCollectNumbers f a
+      (c, r2) = evalCollectNumbers g b
   in (c, r1 ++ r2)
-evalCollectRadicals (First f) (a, c) =
-  let (b, rs) = evalCollectRadicals f a
+evalCollectNumbers (First f) (a, c) =
+  let (b, rs) = evalCollectNumbers f a
   in ((b, c), rs)
-evalCollectRadicals (Par f g) (a, c) =
-  let (b, r1) = evalCollectRadicals f a
-      (d, r2) = evalCollectRadicals g c
+evalCollectNumbers (Par f g) (a, c) =
+  let (b, r1) = evalCollectNumbers f a
+      (d, r2) = evalCollectNumbers g c
   in ((b, d), r1 ++ r2)
-evalCollectRadicals IntersectLL input =
+evalCollectNumbers IntersectLL input =
   let p@(x, y) = evalIntersectLL' input
   in (p, [x, y])
-evalCollectRadicals IntersectLC input =
+evalCollectNumbers IntersectLC input =
   let ps@((x1,y1),(x2,y2)) = evalIntersectLC' input
   in (ps, [x1, y1, x2, y2])
-evalCollectRadicals IntersectCC input =
+evalCollectNumbers IntersectCC input =
   let ps@((x1,y1),(x2,y2)) = evalIntersectCC' input
   in (ps, [x1, y1, x2, y2])
-evalCollectRadicals (NGonVertex n k) input =
+evalCollectNumbers (NGonVertex n k) input =
   let p@(x, y) = evalNGonVertex n k input
   in (p, [x, y])
-evalCollectRadicals (FillTriangle c) (p1, p2, p3) =
+evalCollectNumbers (FillTriangle c) (p1, p2, p3) =
   (DrawTriangle c p1 p2 p3, [])
-evalCollectRadicals (FillCircle c) (center, edge) =
+evalCollectNumbers (FillCircle c) (center, edge) =
   (DrawCircle c center (dist center edge), [])
-evalCollectRadicals (OverlaySVG path) (center, edge) =
+evalCollectNumbers (OverlaySVG path) (center, edge) =
   (DrawSVGOverlay path center edge, [])
-evalCollectRadicals (Group _ f) a = evalCollectRadicals f a
+evalCollectNumbers (Group _ f) a = evalCollectNumbers f a
