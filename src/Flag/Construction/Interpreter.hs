@@ -18,6 +18,7 @@ data Step
   | StepIntersectCC
   | StepFillTriangle
   | StepFillCircle
+  | StepFillCrescent
   | StepNGonVertex
   | StepSVGOverlay   -- ^ an external SVG overlay counts as a single cost
   deriving (Show, Eq)
@@ -36,6 +37,7 @@ steps IntersectCC      = [StepIntersectCC]
 steps (NGonVertex _ _) = [StepNGonVertex]
 steps (FillTriangle _) = [StepFillTriangle]
 steps (FillCircle _)   = [StepFillCircle]
+steps (FillCrescent _) = [StepFillCrescent]
 steps (OverlaySVG _)   = [StepSVGOverlay]
 steps (Group _ f)      = steps f
 
@@ -53,6 +55,8 @@ eval IntersectCC      = evalIntersectCC'
 eval (NGonVertex n k) = evalNGonVertex n k
 eval (FillTriangle c) = \(p1, p2, p3) -> DrawTriangle c p1 p2 p3
 eval (FillCircle c)   = \(center, edge) -> DrawCircle c center (dist center edge)
+eval (FillCrescent c) = \((outerCenter, outerEdge), (innerCenter, innerEdge)) ->
+    DrawCrescent c outerCenter (dist outerCenter outerEdge) innerCenter (dist innerCenter innerEdge)
 eval (OverlaySVG path) = \(center, edge) -> DrawSVGOverlay path center edge
 eval (Group _ f)      = eval f
 
@@ -87,6 +91,8 @@ evalCollectNumbers (FillTriangle c) (p1, p2, p3) =
   (DrawTriangle c p1 p2 p3, [])
 evalCollectNumbers (FillCircle c) (center, edge) =
   (DrawCircle c center (dist center edge), [])
+evalCollectNumbers (FillCrescent c) ((outerCenter, outerEdge), (innerCenter, innerEdge)) =
+  (DrawCrescent c outerCenter (dist outerCenter outerEdge) innerCenter (dist innerCenter innerEdge), [])
 evalCollectNumbers (OverlaySVG path) (center, edge) =
   (DrawSVGOverlay path center edge, [])
 evalCollectNumbers (Group _ f) a = evalCollectNumbers f a

@@ -34,6 +34,7 @@ data ConstructionLayer
       [Point]           -- ^ Result point
   | LayerTriangle (Colour Double) Point Point Point  -- ^ A filled triangle
   | LayerCircle (Colour Double) Point Point  -- ^ A filled circle (center, edge)
+  | LayerCrescent (Colour Double) Point Point Point Point  -- ^ A crescent (outerCenter, outerEdge, innerCenter, innerEdge)
   | LayerSVGOverlay FilePath Point Point  -- ^ An external SVG overlay (path, center, edge)
   deriving (Show)
 
@@ -45,6 +46,7 @@ layerInputPoints (LayerIntersectCC c1 e1 c2 e2 _)   = [c1, e1, c2, e2]
 layerInputPoints (LayerNGonVertex c e _)              = [c, e]
 layerInputPoints (LayerTriangle _ p1 p2 p3)          = [p1, p2, p3]
 layerInputPoints (LayerCircle _ center edge)         = [center, edge]
+layerInputPoints (LayerCrescent _ oc oe ic ie)       = [oc, oe, ic, ie]
 layerInputPoints (LayerSVGOverlay _ center edge)     = [center, edge]
 
 -- | The points produced as outputs by a construction layer.
@@ -55,6 +57,7 @@ layerOutputPoints (LayerIntersectCC _ _ _ _ pts) = pts
 layerOutputPoints (LayerNGonVertex _ _ pts)      = pts
 layerOutputPoints (LayerTriangle _ _ _ _)        = []
 layerOutputPoints (LayerCircle _ _ _)            = []
+layerOutputPoints (LayerCrescent _ _ _ _ _)      = []
 layerOutputPoints (LayerSVGOverlay _ _ _)        = []
 
 -- | Euclidean distance (exported for rendering code that derives radii).
@@ -89,6 +92,9 @@ evalLayers (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
 evalLayers (FillCircle col) (center, edge) =
     (DrawCircle col center (dist center edge), [LayerCircle col center edge])
+evalLayers (FillCrescent col) ((outerCenter, outerEdge), (innerCenter, innerEdge)) =
+    (DrawCrescent col outerCenter (dist outerCenter outerEdge) innerCenter (dist innerCenter innerEdge),
+     [LayerCrescent col outerCenter outerEdge innerCenter innerEdge])
 evalLayers (OverlaySVG path) (center, edge) =
     (DrawSVGOverlay path center edge, [LayerSVGOverlay path center edge])
 evalLayers (Group _ f)        x = evalLayers f x

@@ -9,6 +9,7 @@ module Flag.Constructions
       -- * Drawing primitives
     , fillTriangle
     , fillCircle
+    , fillCrescent
     , fillStar7x2
     , fillStar7x3
     , fillStar5
@@ -377,6 +378,11 @@ fillStar5Inner scale col = group "Fill 5-point inner star" $ proc (o, a) -> do
 -- | Fill a circle defined by its center and an edge point
 fillCircle :: Colour Double -> FlagA (Point, Point) Drawing
 fillCircle = FillCircle
+
+-- | Fill a crescent: the first circle masked by the second circle.
+-- Takes ((outerCenter, outerEdge), (innerCenter, innerEdge)).
+fillCrescent :: Colour Double -> FlagA ((Point, Point), (Point, Point)) Drawing
+fillCrescent = FillCrescent
 
 -- | Overlay an external SVG file, scaled to fit within a bounding circle
 -- defined by its center and an edge point. The SVG's native aspect ratio

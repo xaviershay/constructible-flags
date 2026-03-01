@@ -226,6 +226,15 @@ layerGeomJson (LayerCircle _ cc ce) =
     in jObj [ ("type", jStr "circle")
             , ("cx", jNum cx), ("cy", jNum cy), ("r", jNum r)
             ]
+layerGeomJson (LayerCrescent _ oc oe ic ie) =
+    let (ocx, ocy) = toDP oc
+        or' = toD (pointDist oc oe)
+        (icx, icy) = toDP ic
+        ir = toD (pointDist ic ie)
+    in jObj [ ("type", jStr "crescent")
+            , ("outerCx", jNum ocx), ("outerCy", jNum ocy), ("outerR", jNum or')
+            , ("innerCx", jNum icx), ("innerCy", jNum icy), ("innerR", jNum ir)
+            ]
 layerGeomJson (LayerSVGOverlay _ _ _) = Aeson.Null
 
 -- | Structured description of the persistent fill for a layer.
@@ -245,6 +254,16 @@ layerFillJson (LayerCircle col cc ce) =
         r = toD (pointDist cc ce)
     in jObj [ ("type", jStr "circle")
             , ("cx", jNum cx), ("cy", jNum cy), ("r", jNum r)
+            , ("color", jStr (colourToHex col))
+            ]
+layerFillJson (LayerCrescent col oc oe ic ie) =
+    let (ocx, ocy) = toDP oc
+        or' = toD (pointDist oc oe)
+        (icx, icy) = toDP ic
+        ir = toD (pointDist ic ie)
+    in jObj [ ("type", jStr "crescent")
+            , ("outerCx", jNum ocx), ("outerCy", jNum ocy), ("outerR", jNum or')
+            , ("innerCx", jNum icx), ("innerCy", jNum icy), ("innerR", jNum ir)
             , ("color", jStr (colourToHex col))
             ]
 layerFillJson _ = Aeson.Null

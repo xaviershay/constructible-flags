@@ -44,8 +44,15 @@ algeria =
       redC <- referencePantoneAsRGB flagSpec ("Red", "186-C")
 
       pure $ proc (o, unit) -> do
+        (tl, tr, br, bl) <- boxNatural 3 2 -< (o, unit)
+
+        outerCrescentRadius <- rationalMult (1 % 4) -< (tl, bl)
+        innerCrescentRadius <- rationalMult (1 % 5) -< (tl, bl)
+
         -- Find a vector we can translate to center to find midpoint of star
-        starRadius <- rationalMult (1 % 8) -< (o, unit)
+        starRadiusDown <- rationalMult (1 % 8) -< (tl, bl)
+        (_, starRadius) <- perpendicular -< (tl, starRadiusDown)
+
         (q, _) <- perpendicular -< (o, starRadius)
 
         mq <- midpoint -< (o, q)
@@ -53,16 +60,29 @@ algeria =
         (f2, _) <- intersectLC -< ((o, starRadius), (o, n2))
         g2 <- midpoint -< (o, f2)
 
-        (tl, tr, br, bl) <- boxNatural 2 1 -< (o, unit)
-
         topMid <- midpoint -< (tl, tr)
         bottomMid <- midpoint -< (bl, br)
         center <- midpoint -< (topMid, bottomMid)
 
         (_, starCenter) <- translate -< ((g2, o), center)
         (_, starEdge) <- translate -< ((o, starRadius), starCenter)
+        (_, outerCrescentEdge) <- translate -< ((tl, outerCrescentRadius), center)
+
+        let outerCrescentCenter = center
+
+        (_, p) <- intersectCC -< ((outerCrescentCenter, outerCrescentEdge), (outerCrescentEdge, outerCrescentCenter))
+        (_, q) <- intersectCC -< ((outerCrescentCenter, p), (p, outerCrescentCenter))
+
+        (_, pEdge) <- translate -< ((o, innerCrescentRadius), p)
+        (_, qEdge) <- translate -< ((o, innerCrescentRadius), q)
+
+        (_, innerCrescentCenter) <- intersectCC -< ((p, pEdge), (q, qEdge))
+        (_, innerCrescentEdge) <- translate -< ((tl, innerCrescentRadius), innerCrescentCenter)
 
         bgL <- fillRectangle greenC -< (tl, topMid, bottomMid, bl)
         bgR <- fillRectangle whiteC -< (topMid, bottomMid, br, tr)
         star <- fillStar5 redC -< (starCenter, starEdge)
-        returnA -< bgL <> bgR <> star
+        -- outerCrescent <- fillCircle redC -< (outerCrescentCenter, outerCrescentEdge)
+        -- innerCrescent <- fillCircle whiteC -< (innerCrescentCenter, innerCrescentEdge)
+        crescent <- fillCrescent redC -< ((outerCrescentCenter, outerCrescentEdge), (innerCrescentCenter, innerCrescentEdge))
+        returnA -< bgL <> bgR <> star <> crescent

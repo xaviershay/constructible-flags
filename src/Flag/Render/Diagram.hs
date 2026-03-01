@@ -63,6 +63,18 @@ drawingToDiagram (DrawCircle col center rd) =
           # fcA (col `withOpacity` 1.0)
           # lwG 0
           # moveTo (p2 (cx, cy))
+drawingToDiagram (DrawCrescent col outerCenter outerR innerCenter innerR) =
+    let (ocx, ocy) = toDP outerCenter
+        or' = toD outerR
+        (icx, icy) = toDP innerCenter
+        ir = toD innerR
+        outerPath = (circle or' :: Path V2 Double) # translate (r2 (ocx, ocy))
+        innerPath = (circle ir :: Path V2 Double) # translate (r2 (icx, icy))
+        crescentPath = outerPath <> innerPath
+    in  stroke crescentPath
+          # fcA (col `withOpacity` 1.0)
+          # fillRule EvenOdd
+          # lwG 0
 drawingToDiagram (DrawSVGOverlay _ _ _) = mempty
 
 -- ---------------------------------------------------------------------------
@@ -95,6 +107,10 @@ renderConstructionGeom (LayerTriangle _ _ _ _) = mempty
 renderConstructionGeom (LayerCircle _ center edge) =
     renderCircle (toDP center) (toD (pointDist center edge))
     <> renderDots (map toDP [center, edge])
+renderConstructionGeom (LayerCrescent _ oc oe ic ie) =
+    renderCircle (toDP oc) (toD (pointDist oc oe))
+    <> renderCircle (toDP ic) (toD (pointDist ic ie))
+    <> renderDots (map toDP [oc, oe, ic, ie])
 renderConstructionGeom (LayerSVGOverlay _ _ _) = mempty
 
 -- | Render the persistent fill for a layer (only triangles and circles produce fills)
@@ -118,6 +134,19 @@ renderFill (LayerCircle col center edge) =
           # lc col
           # lwG 0.02
           # moveTo (p2 (cx, cy))
+renderFill (LayerCrescent col oc oe ic ie) =
+    let (ocx, ocy) = toDP oc
+        or' = toD (pointDist oc oe)
+        (icx, icy) = toDP ic
+        ir = toD (pointDist ic ie)
+        outerPath = (circle or' :: Path V2 Double) # translate (r2 (ocx, ocy))
+        innerPath = (circle ir :: Path V2 Double) # translate (r2 (icx, icy))
+        crescentPath = outerPath <> innerPath
+    in  stroke crescentPath
+          # fcA (col `withOpacity` 0.6)
+          # fillRule EvenOdd
+          # lc col
+          # lwG 0.02
 renderFill _ = mempty
 
 -- | Render a dotted construction line connecting two points

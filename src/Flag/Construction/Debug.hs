@@ -55,6 +55,8 @@ trace fa input = do
         pure $ DrawTriangle c p1 p2 p3
     go _ (FillCircle c) (center, edge) =
         pure $ DrawCircle c center (dist center edge)
+    go _ (FillCrescent c) ((outerCenter, outerEdge), (innerCenter, innerEdge)) =
+        pure $ DrawCrescent c outerCenter (dist outerCenter outerEdge) innerCenter (dist innerCenter innerEdge)
     go n (NGonVertex n' k') input' = do
         let result = evalNGonVertex n' k' input'
         putStrLn $ indent n ++ "NGonVertex " ++ show n' ++ " " ++ show k' ++ " " ++ show input' ++ " => " ++ show result

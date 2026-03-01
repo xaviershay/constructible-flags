@@ -80,6 +80,7 @@ layerLabel LayerIntersectCC {}     = "Intersect circle–circle"
 layerLabel LayerNGonVertex {}      = "N-gon vertex"
 layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
 layerLabel (LayerCircle _ _ _)     = "Fill circle"
+layerLabel LayerCrescent {}        = "Fill crescent"
 layerLabel (LayerSVGOverlay p _ _) = "SVG overlay: " ++ p
 
 -- | Zero-pad a step number to 2 digits

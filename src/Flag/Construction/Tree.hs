@@ -44,6 +44,9 @@ evalTree (FillTriangle col) (p1, p2, p3) =
     (DrawTriangle col p1 p2 p3, [TreeLayer (LayerTriangle col p1 p2 p3)])
 evalTree (FillCircle col) (center, edge) =
     (DrawCircle col center (dist center edge), [TreeLayer (LayerCircle col center edge)])
+evalTree (FillCrescent col) ((outerCenter, outerEdge), (innerCenter, innerEdge)) =
+    (DrawCrescent col outerCenter (dist outerCenter outerEdge) innerCenter (dist innerCenter innerEdge),
+     [TreeLayer (LayerCrescent col outerCenter outerEdge innerCenter innerEdge)])
 evalTree (OverlaySVG path) (center, edge) =
     (DrawSVGOverlay path center edge, [TreeLayer (LayerSVGOverlay path center edge)])
 evalTree (Group label f) x =
