@@ -6,7 +6,6 @@ module Flag.Country.GBR
     ( unitedKingdom
     ) where
 
-import Data.Colour.SRGB (sRGB24)
 import Effectful
 
 import Flag.Source

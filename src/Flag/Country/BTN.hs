@@ -9,7 +9,6 @@ module Flag.Country.BTN
 where
 
 import Control.Arrow (returnA)
-import Data.Colour.SRGB (sRGB24)
 import Data.Ratio ((%))
 import Effectful
 import Flag.Construction.Types (Drawing, FlagA, Point)
@@ -76,8 +75,8 @@ bhutan =
       pure $ proc origin -> do
         (tl, tr, br, bl) <- boxNatural w h -< origin
 
-        leftMid <- midpoint -< (tl, bl)
-        rightMid <- midpoint -< (tr, br)
+        _ <- midpoint -< (tl, bl)
+        _ <- midpoint -< (tr, br)
 
         bg1 <- fillTriangle yellowC -< (tl, tr, bl)
         bg2 <- fillTriangle orangeC -< (bl, tr, br)

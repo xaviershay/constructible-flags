@@ -102,12 +102,12 @@ algeria =
         let outerCrescentCenter = center
 
         (_, p) <- intersectCC -< ((outerCrescentCenter, outerCrescentEdge), (outerCrescentEdge, outerCrescentCenter))
-        (_, q) <- intersectCC -< ((outerCrescentCenter, p), (p, outerCrescentCenter))
+        (_, q2) <- intersectCC -< ((outerCrescentCenter, p), (p, outerCrescentCenter))
 
         (_, pEdge) <- translate -< ((o, innerCrescentRadius), p)
-        (_, qEdge) <- translate -< ((o, innerCrescentRadius), q)
+        (_, q2Edge) <- translate -< ((o, innerCrescentRadius), q2)
 
-        (_, innerCrescentCenter) <- intersectCC -< ((p, pEdge), (q, qEdge))
+        (_, innerCrescentCenter) <- intersectCC -< ((p, pEdge), (q2, q2Edge))
         (_, innerCrescentEdge) <- translate -< ((tl, innerCrescentRadius), innerCrescentCenter)
 
         bgL <- fillRectangle greenC -< (tl, topMid, bottomMid, bl)

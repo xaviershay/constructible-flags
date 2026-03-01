@@ -7,7 +7,6 @@ module Flag.Country.BGD
     ( bangladesh
     ) where
 
-import Data.Colour.SRGB (sRGB24)
 import Control.Arrow (returnA)
 import Effectful
 

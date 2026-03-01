@@ -35,6 +35,7 @@ pantone = mkEntity "Pantone" "https://www.pantone.com/"
 pantoneToRGB :: Sourced :> es => String -> String -> Eff es (Colour Double)
 pantoneToRGB fromLabel key =
   case generatedPantoneRGB key of
+    Nothing -> error $ "Unknown Pantone key: " ++ key
     Just (r,g,b) ->
       case generatedPantoneSourceUrl key of
         Just url ->

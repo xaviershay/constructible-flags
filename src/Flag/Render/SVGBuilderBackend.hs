@@ -7,7 +7,6 @@ module Flag.Render.SVGBuilderBackend
 import Graphics.Svg (Element)
 
 
-import Flag.Construction.Types (Drawing)
 import Flag.Render.Backend (RenderBackend(..))
 
 import Flag.Render.Diagram

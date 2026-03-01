@@ -24,7 +24,10 @@ import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
 
+unionJackBlueRGB :: Colour Double
 unionJackBlueRGB = sRGB24 1 33 105
+
+unionJackRedRGB :: Colour Double
 unionJackRedRGB = sRGB24 200 16 46
 
 constructedAt :: String

@@ -265,8 +265,8 @@ formatSourceCards elems =
       bySource = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) pairs
       -- Each group becomes (elementNames, [sources])
       sourceGroups =
-        [ (nub $ map fst grp, [snd (head grp)])
-        | grp <- bySource
+        [ (nub $ map fst grp, [snd g])
+        | grp@(g : _) <- bySource
         ]
       -- Pass 2: merge groups that share the same element names
       merged = mergeByNames $ sortOn fst sourceGroups
@@ -329,14 +329,6 @@ renderPantoneChips chips =
           H.img ! A.src (toValue $ "/images/" ++ path)
       Nothing -> mempty
 
--- | Get all entities from a Source (flat list), for link/reference display.
-sourceEntitiesFlat :: Source -> [Entity]
-sourceEntitiesFlat (SourceReference e) = [e]
-sourceEntitiesFlat (SourceImpliedReference e) = [e]
-sourceEntitiesFlat (SourceUnsightedReference e refs) = e : refs
-sourceEntitiesFlat (SourceEditorial refs) = refs
-sourceEntitiesFlat (SourceApproximation _ refs) = refs
-
 -- | Entities whose screenshots should be displayed in the sources view.
 -- Screenshots are shown for directly-cited and corroborating sources, but not
 -- for editorial or approximation supporting refs (which are influences, not
@@ -381,13 +373,6 @@ formatSteps ss =
             H.preEscapedToHtml $
               "$$\\begin{aligned}" ++ intercalate "\\\\" rows ++ "\\end{aligned}$$"
 
-formatSources :: [SourcedElement] -> H.Html
-formatSources [] = H.em "None"
-formatSources elems =
-  let pairs = map elementDisplayPair elems
-      grouped = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) pairs
-   in H.ul $ mapM_ formatSourceGroup grouped
-
 sourceKey :: Source -> String
 sourceKey (SourceReference e) = "1" ++ entityTitle e
 sourceKey (SourceImpliedReference e) = "2" ++ entityTitle e
@@ -395,27 +380,8 @@ sourceKey (SourceUnsightedReference e _) = "3" ++ entityTitle e
 sourceKey (SourceEditorial _) = "4"
 sourceKey (SourceApproximation approxOf _) = "5" ++ approxOf
 
-formatSourceGroup :: [(String, Source)] -> H.Html
-formatSourceGroup [] = mempty
-formatSourceGroup grp@((_, src) : _) =
-  let elementNames = map fst grp
-      elementsStr = H.span ! A.class_ "elements" $ "(" <> toHtml (joinElements elementNames) <> ")"
-   in formatSourceWithElements src elementsStr
-
 joinElements :: [String] -> String
 joinElements xs = intercalate ", " xs
-
-formatSourceWithElements :: Source -> H.Html -> H.Html
-formatSourceWithElements (SourceReference e) elems =
-  H.li $ formatEntityLink e <> " " <> elems
-formatSourceWithElements (SourceImpliedReference e) elems =
-  H.li $ formatEntityLink e <> " (implied) " <> elems
-formatSourceWithElements (SourceUnsightedReference e _) elems =
-  H.li $ formatEntityLink e <> " (unsighted) " <> elems
-formatSourceWithElements (SourceEditorial _) elems =
-  H.li $ "Editorial decision " <> elems
-formatSourceWithElements (SourceApproximation approxOf _) elems =
-  H.li $ "Approximation of " <> H.em (toHtml approxOf) <> " " <> elems
 
 formatEntityLink :: Entity -> H.Html
 formatEntityLink e
