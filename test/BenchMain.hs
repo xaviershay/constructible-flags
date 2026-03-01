@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Test.Tasty.Bench
+import Criterion.Main (defaultMain)
 
 import FieldNumberBenchSpec (fieldNumberBenchmarks)
 
