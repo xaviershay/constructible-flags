@@ -32,8 +32,15 @@ toD :: FieldNumber -> Double
 toD = toDouble
 
 -- | Format a Double with enough precision for SVG attributes.
+-- Trailing zeros after the decimal point are trimmed, and a lone
+-- trailing decimal point is also removed (e.g. 1.500000 → "1.5",
+-- 2.000000 → "2").
 sd :: Double -> T.Text
-sd d = T.pack (showFFloat (Just 6) d "")
+sd d = T.pack (trimZeros (showFFloat (Just 6) d ""))
+  where
+    trimZeros s
+      | '.' `elem` s = reverse (dropWhile (== '.') (dropWhile (== '0') (reverse s)))
+      | otherwise = s
 
 -- | Format a Colour as an SVG hex colour string #rrggbb.
 colHex :: Colour Double -> T.Text
