@@ -16,6 +16,7 @@ import Flag.Constructions
 import Flag.Definition (Flag, editorNote, mkCountryFlag)
 import Flag.Pantone
 import Flag.Source
+import Flag.SharedSources
 
 bhutan :: (Sourced :> es) => Flag es
 bhutan =
@@ -37,7 +38,7 @@ bhutan =
     constructedAt = "2026-02-21"
     gov = mkAgentOrg "bgd_gov" "Government of Bhutan"
 
-    locEntity = mkAgentOrg "loc2012" "London Organising Committee of the Olympic Games and Paralympic Games Limited"
+    -- London Organising Committee of the Olympic Games and Paralympic Games Limited
     tocEntity = mkAgentOrg "toc2020" "Tokyo Organising Committee of the Olympic and Paralympic Games"
 
     toc =
@@ -47,12 +48,7 @@ bhutan =
             "Flags and Anthems Manual, Tokyo 2020"
             "https://library.olympics.com/Default/doc/SYRACUSE/1568069/flags-and-anthems-manual-tokyo-2020-the-tokyo-organising-committee-of-the-olympic-and-paralympic-gam?_lg=en-GB"
 
-    loc =
-      screenshot constructedAt "btn/loc.png" $
-        attributeTo locEntity $
-          mkEntity
-            "Flags and Anthems Manual, London 2012"
-            "https://library.olympics.com/Default/doc/SYRACUSE/34593/flags-and-anthems-manual-london-2012-spp-final-version-london-organising-committee-of-the-olympic-ga?_lg=en-GB"
+    locWithScreenshot = screenshot constructedAt "btn/loc.png" londonOlympicsFlagsManual
 
     flagRules =
       screenshot constructedAt "btn/flag-rules.png" $
@@ -67,8 +63,8 @@ bhutan =
     design :: (Sourced :> es) => Eff es (FlagA (Point, Point) Drawing)
     design = do
       (w, h) <- reference "Proportion" flagRules (3, 2)
-      orangeC <- referencePantoneAsRGB loc ("Orange", "165-C")
-      yellowC <- referencePantoneAsRGB loc ("Yellow", "116-C")
+      orangeC <- referencePantoneAsRGB locWithScreenshot ("Orange", "165-C")
+      yellowC <- referencePantoneAsRGB locWithScreenshot ("Yellow", "116-C")
       dragonDesign <- reference "Dragon Design" commons "data/images/btn/dragon.svg"
       dragonScale <- editorial "Dragon" [toc, commons, fotw] (3 % 4)
 

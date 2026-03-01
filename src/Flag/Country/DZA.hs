@@ -18,6 +18,7 @@ import Flag.Constructions
 import Flag.Definition (Flag, editorNote, mkCountryFlag)
 import Flag.Pantone
 import Flag.Source
+import Flag.SharedSources
 
 algeria :: (Sourced :> es) => Flag es
 algeria =
@@ -37,9 +38,10 @@ algeria =
       "DZA"
       "Algeria"
       constructedAt
-      ( reference
+      ( unsightedReference
           "Description"
           flagLaw
+          []
           """
           The flag of the Democratic and Popular Republic of Algeria is constituted by a green and white rectangle embossed by a red star and a red crescent.
           """
@@ -57,22 +59,15 @@ algeria =
             "Appendix of the law #63-145"
             "https://web.archive.org/web/20120205045854/http://www.algeria-un.org/default.asp?doc=-flag"
 
-    locEntity = mkAgentOrg "loc2012" "London Organising Committee of the Olympic Games and Paralympic Games Limited"
-
-    -- 2012
-    loc =
-      screenshot constructedAt "dza/loc.png" $
-        attributeTo locEntity $
-          mkEntity
-            "Flags and Anthems Manual, London 2012"
-            "https://library.olympics.com/Default/doc/SYRACUSE/34593/flags-and-anthems-manual-london-2012-spp-final-version-london-organising-committee-of-the-olympic-ga?_lg=en-GB"
+    locWithScreenshot = screenshot constructedAt "dza/loc.png" londonOlympicsFlagsManual
 
     design :: (Sourced :> es) => Eff es (FlagA (Point, Point) Drawing)
     design = do
       -- TODO: source dimensions from flagSpec
       whiteC <- editorial "White" [] (sRGB24 255 255 255)
-      greenC <- referencePantoneAsRGB loc ("Green", "356-C")
-      redC <- referencePantoneAsRGB loc ("Red", "186-C")
+      -- Attach DZA-specific screenshot to shared LOC source
+      greenC <- referencePantoneAsRGB locWithScreenshot ("Green", "356-C")
+      redC <- referencePantoneAsRGB locWithScreenshot ("Red", "186-C")
 
       pure $ proc (o, unit) -> do
         (tl, tr, br, bl) <- boxNatural 3 2 -< (o, unit)

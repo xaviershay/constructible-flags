@@ -69,6 +69,7 @@ library
       Flag.Render.Prov
       Flag.Render.SVGBuilderBackend
       Flag.Render.SVGOverlay
+      Flag.SharedSources
       Flag.Source
   other-modules:
       Flag.GeneratedPantone
