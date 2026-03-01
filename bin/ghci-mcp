@@ -1,0 +1,214 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "mcp"
+require "open3"
+require "timeout"
+
+Dir.chdir(File.expand_path("../..", __FILE__))
+
+PROMPT      = "##GHCI_MCP_PROMPT##"
+PROMPT_CONT = "##GHCI_MCP_PROMPT_CONT##"
+TIMEOUT     = 120 # seconds — long enough for a full test run
+
+# ---------------------------------------------------------------------------
+# GHCi subprocess wrapper
+# ---------------------------------------------------------------------------
+
+class GhciProcess
+  def initialize(command)
+    @stdin, @stdout, @wait_thread = Open3.popen2e(command)
+    @mutex = Mutex.new
+
+    # Inject sentinel prompts and drain the startup banner.
+    raw_send(":set prompt \"#{PROMPT}\\n\"")
+    raw_send(":set prompt-cont \"#{PROMPT_CONT}\\n\"")
+    read_until_prompt # drain everything up to the first clean prompt
+  end
+
+  # Send one or more commands in sequence, accumulating all output.
+  # Each command's output is collected separately then joined.
+  def run(*commands)
+    @mutex.synchronize do
+      raise "GHCi process has exited. Restart the MCP server to reconnect." unless alive?
+
+      accumulated = []
+
+      commands.each do |command|
+        raw_send(command)
+        output = Timeout.timeout(TIMEOUT) { read_until_prompt }
+        accumulated << output
+      end
+
+      accumulated.reject(&:empty?).join("\n")
+    end
+  rescue Timeout::Error
+    Process.kill("INT", @wait_thread.pid) rescue nil
+    sleep 0.3
+    drain_prompt
+    raise
+  end
+
+  def quit
+    raw_send(":quit") if alive?
+    @stdin.close
+    @wait_thread.join(5)
+  end
+
+  def alive?
+    @wait_thread.alive?
+  end
+
+  private
+
+  def raw_send(command)
+    @stdin.puts(command)
+    @stdin.flush
+  end
+
+  def read_until_prompt
+    lines = []
+    while (line = @stdout.gets)
+      stripped = line.chomp
+      break if stripped == PROMPT
+      lines << stripped
+    end
+    lines.join("\n").strip
+  end
+
+  def drain_prompt
+    Timeout.timeout(5) { read_until_prompt }
+  rescue Timeout::Error
+    nil
+  end
+end
+
+def reload_failed?(output)
+  output.include?("Failed,")
+end
+
+def tool_response(text)
+  MCP::Tool::Response.new([{ type: "text", text: text.empty? ? "(no output)" : text }])
+end
+
+def error_response(text)
+  MCP::Tool::Response.new([{ type: "text", text: text }], error: true)
+end
+
+# ---------------------------------------------------------------------------
+# Spawn both GHCi processes
+# ---------------------------------------------------------------------------
+
+$stderr.puts "[ghci-mcp] Starting test GHCi process..."
+test_ghci = GhciProcess.new(
+  "stack ghci --test --main-is constructible-flags:test:constructible-flags-test"
+)
+$stderr.puts "[ghci-mcp] Test GHCi ready."
+
+$stderr.puts "[ghci-mcp] Starting exe GHCi process..."
+exe_ghci = GhciProcess.new(
+  "stack ghci --main-is constructible-flags:constructible-flags-exe"
+)
+$stderr.puts "[ghci-mcp] Exe GHCi ready."
+
+# ---------------------------------------------------------------------------
+# MCP server
+# ---------------------------------------------------------------------------
+
+server = MCP::Server.new(name: "ghci-mcp", version: "1.0.0")
+
+# --- ghci_run_test ----------------------------------------------------------
+
+server.define_tool(
+  name: "ghci_run_test",
+  description: "Reload the test GHCi session then run the test suite. " \
+               "If a pattern is provided, only matching tests are run. " \
+               "Returns compile errors without running tests if reload fails.",
+  input_schema: {
+    properties: {
+      pattern: {
+        type: "string",
+        description: "Optional tasty -p pattern to filter tests, e.g. \"geometry\""
+      }
+    }
+  }
+) do |args, server_context:|
+  begin
+    pattern = args[:pattern].to_s.strip
+
+    reload_output = test_ghci.run(":reload")
+
+    if reload_failed?(reload_output)
+      next tool_response(reload_output)
+    end
+
+    set_args_cmd = if pattern.empty?
+      ":set args"
+    else
+      ":set args \"-p \\\"/#{pattern}/\\\"\""
+    end
+
+    run_output = test_ghci.run(set_args_cmd, "main")
+
+    tool_response([reload_output, run_output].reject(&:empty?).join("\n"))
+  rescue RuntimeError => e
+    error_response(e.message)
+  rescue Timeout::Error
+    error_response("Timed out after #{TIMEOUT}s.")
+  end
+end
+
+# --- ghci_full_build --------------------------------------------------------
+
+server.define_tool(
+  name: "ghci_full_build",
+  description: "Reload the exe GHCi session then run main. " \
+               "Returns compiler output and program output, or just compiler " \
+               "errors if reload failed."
+) do |_args, server_context:|
+  begin
+    reload_output = exe_ghci.run(":reload")
+
+    if reload_failed?(reload_output)
+      next tool_response(reload_output)
+    end
+
+    run_output = exe_ghci.run("main")
+
+    tool_response([reload_output, run_output].reject(&:empty?).join("\n"))
+  rescue RuntimeError => e
+    error_response(e.message)
+  rescue Timeout::Error
+    error_response("Timed out after #{TIMEOUT}s.")
+  end
+end
+
+# --- ghci_quick_build -------------------------------------------------------
+
+server.define_tool(
+  name: "ghci_quick_build",
+  description: "Reload the test GHCi session and report any compile errors. " \
+               "Does not run any tests. Use for fast feedback after edits."
+) do |_args, server_context:|
+  begin
+    output = test_ghci.run(":reload")
+    tool_response(output)
+  rescue RuntimeError => e
+    error_response(e.message)
+  rescue Timeout::Error
+    error_response("Timed out after #{TIMEOUT}s.")
+  end
+end
+
+# ---------------------------------------------------------------------------
+# Start stdio transport
+# ---------------------------------------------------------------------------
+
+at_exit do
+  $stderr.puts "[ghci-mcp] Shutting down..."
+  test_ghci.quit
+  exe_ghci.quit
+end
+
+transport = MCP::Server::Transports::StdioTransport.new(server)
+transport.open

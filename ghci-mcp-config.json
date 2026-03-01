@@ -1,0 +1,9 @@
+{
+    "mcpServers": {
+        "ghci": {
+            "command": "bundle",
+            "args": ["exec", "ruby", "bin/ghci-mcp"],
+            "cwd": "/home/xavier/code/constructible-flags"
+        }
+    }
+}

@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "mcp"
+
+server = MCP::Server.new(name: "ghci-mcp", version: "1.0.0")
+
+server.define_tool(
+  name: "ghci_ping",
+  description: "Returns pong. Used to verify the MCP server is reachable."
+) do |_args, server_context:|
+  MCP::Tool::Response.new([{ type: "text", text: "pong" }])
+end
+
+transport = MCP::Server::Transports::StdioTransport.new(server)
+transport.open
