@@ -14,7 +14,7 @@ import Flag.Construction.Types (Point)
 import Flag.Definition (Flag (..))
 import Flag.Registry (allCountryFlags)
 import Flag.Render.DebugV2 (writeConstructionJson, writeDebugViewer)
-import Flag.Render.Html (generateIndex, generateShowPage)
+import Flag.Render.Html (generateConstructionPage, generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
 import Flag.Render.SVGBuilderBackend (SVGBuilderBackend (..))
 import Flag.Render.SVGOverlay (renderDrawingToSVG)
@@ -66,7 +66,10 @@ buildHtml = do
   let html = generateIndex (map dropEditorNote flagData)
   writeFile "out/index.html" html
 
-  putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s) and index.html"
+  -- Generate construction.html
+  writeFile "out/construction.html" generateConstructionPage
+
+  putStrLn $ "Generated " ++ show (length flagData) ++ " flag(s), index.html, and construction.html"
 
 -- | Recursively copy directory contents from src to dst
 copyDirRecursive :: FilePath -> FilePath -> IO ()
