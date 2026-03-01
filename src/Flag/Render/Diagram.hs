@@ -46,13 +46,14 @@ colHex col =
 pointsAttr :: [(Double, Double)] -> T.Text
 pointsAttr pts = T.intercalate " " [sd x <> "," <> sd y | (x, y) <- pts]
 
--- | Build the SVG arc path string for a complete circle traced as two
--- semicircular arcs.  Used for the EvenOdd crescent construction.
-circleArcPath :: Double -> Double -> Double -> T.Text
-circleArcPath cx cy r =
-    "M " <> sd (cx - r) <> " " <> sd cy
-    <> " a " <> sd r <> " " <> sd r <> " 0 1 0 " <> sd (2 * r) <> " 0"
-    <> " a " <> sd r <> " " <> sd r <> " 0 1 0 " <> sd ((-2) * r) <> " 0"
+-- | Create a valid XML ID component from a Double by replacing
+-- periods with 'p' and minus signs with 'n'.
+sdId :: Double -> T.Text
+sdId d = T.map esc (sd d)
+  where
+    esc '.' = 'p'
+    esc '-' = 'n'
+    esc c   = c
 
 -- ---------------------------------------------------------------------------
 -- Drawing → Element
@@ -94,13 +95,21 @@ drawingToElement (CT.DrawCrescent col outerCenter outerR innerCenter innerR) =
         or'        = toD outerR
         (icx, icy) = toDP innerCenter
         ir         = toD innerR
-        dPath      = circleArcPath ocx ocy or' <> " " <> circleArcPath icx icy ir
-    in path_ [ D_            <<- dPath
-             , Fill_         <<- colHex col
-             , Fill_opacity_ <<- "1"
-             , Fill_rule_    <<- "evenodd"
-             , Stroke_       <<- "none"
-             ]
+        maskId     = "cres" <> sdId ocx <> "x" <> sdId ocy
+    in defs_ []
+           (mask_ [makeAttribute "id" maskId]
+               (  circle_ [Cx_ <<- sd ocx, Cy_ <<- sd ocy, R_ <<- sd or', Fill_ <<- "white"]
+               <> circle_ [Cx_ <<- sd icx, Cy_ <<- sd icy, R_ <<- sd ir,  Fill_ <<- "black"]
+               )
+           )
+       <> circle_ [ Cx_           <<- sd ocx
+                  , Cy_           <<- sd ocy
+                  , R_            <<- sd or'
+                  , Fill_         <<- colHex col
+                  , Fill_opacity_ <<- "1"
+                  , Stroke_       <<- "none"
+                  , makeAttribute "mask" ("url(#" <> maskId <> ")")
+                  ]
 drawingToElement (CT.DrawSVGOverlay _ _ _) = mempty
 
 -- ---------------------------------------------------------------------------
@@ -162,14 +171,22 @@ renderFill (LayerCrescent col oc oe ic ie) =
         or'        = toD (pointDist oc oe)
         (icx, icy) = toDP ic
         ir         = toD (pointDist ic ie)
-        dPath      = circleArcPath ocx ocy or' <> " " <> circleArcPath icx icy ir
-    in path_ [ D_            <<- dPath
-             , Fill_         <<- colHex col
-             , Fill_opacity_ <<- "0.6"
-             , Fill_rule_    <<- "evenodd"
-             , Stroke_       <<- colHex col
-             , Stroke_width_ <<- sd 0.02
-             ]
+        maskId     = "layer-cres" <> sdId ocx <> "x" <> sdId ocy
+    in defs_ []
+           (mask_ [makeAttribute "id" maskId]
+               (  circle_ [Cx_ <<- sd ocx, Cy_ <<- sd ocy, R_ <<- sd or', Fill_ <<- "white"]
+               <> circle_ [Cx_ <<- sd icx, Cy_ <<- sd icy, R_ <<- sd ir,  Fill_ <<- "black"]
+               )
+           )
+       <> circle_ [ Cx_           <<- sd ocx
+                  , Cy_           <<- sd ocy
+                  , R_            <<- sd or'
+                  , Fill_         <<- colHex col
+                  , Fill_opacity_ <<- "0.6"
+                  , Stroke_       <<- colHex col
+                  , Stroke_width_ <<- sd 0.02
+                  , makeAttribute "mask" ("url(#" <> maskId <> ")")
+                  ]
 renderFill _ = mempty
 
 -- | Render a dotted construction line connecting two points.
