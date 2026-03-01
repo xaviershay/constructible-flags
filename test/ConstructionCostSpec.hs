@@ -23,6 +23,7 @@ expectedCosts =
   , ("BGD", 55)
   , ("BTN", 30)
   , ("BWA", 78)
+  , ("DZA", 117)
   , ("GBR", 191)
   , ("FRA", 35)
   , ("JOR", 102)
