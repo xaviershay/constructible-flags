@@ -1,0 +1,5 @@
+#!/bin/bash
+
+rm test/golden/$1.png
+
+bin/test || bin/test
