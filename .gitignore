@@ -5,3 +5,4 @@ test/tmp
 .DS_Store
 .vscode/settings.json
 test/failures
+.DS_Store
