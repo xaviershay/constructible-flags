@@ -15,6 +15,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Key as Key
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 
 import Flag.Construction.FieldNumber (FieldNumber, toDouble, toKaTeX)
@@ -46,22 +47,27 @@ writeDebugViewer = do
   putStrLn "  Wrote out/debug-v2/debug-v2.js"
 
 -- | Write the construction JSON for a single flag.
--- Takes the flag name, ISO code, initial points, and pre-evaluated construction tree.
-writeConstructionJson :: String -> String -> (Point, Point) -> [ConstructionTree] -> IO ()
-writeConstructionJson name isoCode input tree = do
+-- Takes the flag name, ISO code, initial points, pre-evaluated construction tree,
+-- and a list of labelled points collected via 'evalLabels'.
+writeConstructionJson :: String -> String -> (Point, Point) -> [ConstructionTree] -> [(Point, String)] -> IO ()
+writeConstructionJson name isoCode input tree labelList = do
   createDirectoryIfMissing True "out/construction"
 
-  let (_, numbered) = numberTree 1 tree
+  let labelMap = Map.fromList labelList
+      (_, numbered) = numberTree 1 tree
       leaves = numberedLeaves numbered
       allLayers = map snd leaves
       initialPts = [fst input, snd input]
 
   -- Compute bounding box from all points (convert to Double for SVG viewBox)
-  let allPoints = initialPts
+  -- Filter non-finite coordinates (NaN/Infinity from degenerate constructions)
+  -- to prevent them from poisoning the bounding box.
+  let finite x = not (isNaN x || isInfinite x)
+      allPoints = initialPts
                   ++ concatMap layerInputPoints allLayers
                   ++ concatMap layerOutputPoints allLayers
-      xs = map (toDouble . fst) allPoints
-      ys = map (toDouble . snd) allPoints
+      xs = filter finite $ map (toDouble . fst) allPoints
+      ys = filter finite $ map (toDouble . snd) allPoints
       minX = minimum xs
       maxX = maximum xs
       minY = minimum ys
@@ -76,8 +82,8 @@ writeConstructionJson name isoCode input tree = do
 
   -- Compute fill bounding box from only filled layers (triangles + circles)
   let fillBounds = concatMap fillBoundingPoints allLayers
-      fxs = map fst fillBounds
-      fys = map snd fillBounds
+      fxs = filter finite $ map fst fillBounds
+      fys = filter finite $ map snd fillBounds
       fMinX = minimum fxs
       fMaxX = maximum fxs
       fMinY = minimum fys
@@ -102,7 +108,7 @@ writeConstructionJson name isoCode input tree = do
             [ jsonPoint (fst input) "A"
             , jsonPoint (snd input) "B"
             ])
-        , ("tree", treeToJson numbered)
+        , ("tree", treeToJson labelMap numbered)
         ]
 
   let isoLower = map toLower isoCode
@@ -130,10 +136,13 @@ fromList = foldl (\v x -> v <> pure x) mempty
 -- Tree → JSON
 -- ---------------------------------------------------------------------------
 
-treeToJson :: [NumberedEntry] -> Aeson.Value
-treeToJson entries =
+treeToJson :: Map.Map Point String -> [NumberedEntry] -> Aeson.Value
+treeToJson labelMap entries =
     Aeson.Array $ fromList (map entryToJson entries)
   where
+    lookupLabel :: Point -> String
+    lookupLabel p = Map.findWithDefault "" p labelMap
+
     entryToJson :: NumberedEntry -> Aeson.Value
     entryToJson (NLeaf idx label layer) =
       let curOutputs = layerOutputPoints layer
@@ -143,8 +152,8 @@ treeToJson entries =
         , ("label", jStr label)
         , ("geom", layerGeomJson layer)
         , ("fill", layerFillJson layer)
-        , ("points", Aeson.Array $ fromList (map (\p -> jsonPoint p "") curOutputs))
-        , ("inputPoints", Aeson.Array $ fromList (map (\p -> jsonPoint p "") (layerInputPoints layer)))
+        , ("points", Aeson.Array $ fromList (map (\p -> jsonPoint p (lookupLabel p)) curOutputs))
+        , ("inputPoints", Aeson.Array $ fromList (map (\p -> jsonPoint p (lookupLabel p)) (layerInputPoints layer)))
         ]
 
     entryToJson (NGroup label children) =
@@ -188,6 +197,11 @@ fillBoundingPoints (LayerCircle _ cc ce) =
     let (cx, cy) = toDP cc
         r = toD (pointDist cc ce)
     in [(cx - r, cy - r), (cx + r, cy + r)]
+fillBoundingPoints (LayerCrescent _ oc oe _ _) =
+    let (cx, cy) = toDP oc
+        r = toD (pointDist oc oe)
+    in [(cx - r, cy - r), (cx + r, cy + r)]
+fillBoundingPoints (LayerLabel _ _) = []
 fillBoundingPoints _ = []
 
 -- ---------------------------------------------------------------------------
@@ -236,6 +250,7 @@ layerGeomJson (LayerCrescent _ oc oe ic ie) =
             , ("innerCx", jNum icx), ("innerCy", jNum icy), ("innerR", jNum ir)
             ]
 layerGeomJson (LayerSVGOverlay _ _ _) = Aeson.Null
+layerGeomJson (LayerLabel _ _) = Aeson.Null
 
 -- | Structured description of the persistent fill for a layer.
 -- Returns Null for layers that don't produce a filled shape.
@@ -266,6 +281,7 @@ layerFillJson (LayerCrescent col oc oe ic ie) =
             , ("innerCx", jNum icx), ("innerCy", jNum icy), ("innerR", jNum ir)
             , ("color", jStr (colourToHex col))
             ]
+layerFillJson (LayerLabel _ _) = Aeson.Null
 layerFillJson _ = Aeson.Null
 
 -- ---------------------------------------------------------------------------

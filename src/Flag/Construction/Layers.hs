@@ -16,6 +16,8 @@ import Flag.Construction.Geometry
 -- | A single layer of construction output, capturing what was built at each step.
 -- This is decoupled from any rendering backend. Each intersection step stores
 -- its defining points (so data dependencies can be traced) and result points.
+-- 'LayerLabel' is a transparent annotation: it carries the label name and the
+-- point value but does not count as a construction step.
 data ConstructionLayer
   = LayerIntersectLL
       Point Point       -- ^ First line defining points
@@ -36,6 +38,7 @@ data ConstructionLayer
   | LayerCircle (Colour Double) Point Point  -- ^ A filled circle (center, edge)
   | LayerCrescent (Colour Double) Point Point Point Point  -- ^ A crescent (outerCenter, outerEdge, innerCenter, innerEdge)
   | LayerSVGOverlay FilePath Point Point  -- ^ An external SVG overlay (path, center, edge)
+  | LayerLabel String Point              -- ^ A named annotation on a point (not a construction step)
   deriving (Show)
 
 -- | The points consumed as inputs by a construction layer.
@@ -48,6 +51,7 @@ layerInputPoints (LayerTriangle _ p1 p2 p3)          = [p1, p2, p3]
 layerInputPoints (LayerCircle _ center edge)         = [center, edge]
 layerInputPoints (LayerCrescent _ oc oe ic ie)       = [oc, oe, ic, ie]
 layerInputPoints (LayerSVGOverlay _ center edge)     = [center, edge]
+layerInputPoints (LayerLabel _ _)                    = []
 
 -- | The points produced as outputs by a construction layer.
 layerOutputPoints :: ConstructionLayer -> [Point]
@@ -59,6 +63,7 @@ layerOutputPoints (LayerTriangle _ _ _ _)        = []
 layerOutputPoints (LayerCircle _ _ _)            = []
 layerOutputPoints (LayerCrescent _ _ _ _ _)      = []
 layerOutputPoints (LayerSVGOverlay _ _ _)        = []
+layerOutputPoints (LayerLabel _ p)               = [p]
 
 -- | Euclidean distance (exported for rendering code that derives radii).
 pointDist :: Point -> Point -> Number
@@ -98,3 +103,4 @@ evalLayers (FillCrescent col) ((outerCenter, outerEdge), (innerCenter, innerEdge
 evalLayers (OverlaySVG path) (center, edge) =
     (DrawSVGOverlay path center edge, [LayerSVGOverlay path center edge])
 evalLayers (Group _ f)        x = evalLayers f x
+evalLayers (LabelPoint _ )    p = (p, [])

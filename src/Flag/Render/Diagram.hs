@@ -152,6 +152,7 @@ renderConstructionGeom (LayerCrescent _ oc oe ic ie) =
     <> renderCircle (toDP ic) (toD (pointDist ic ie))
     <> renderDots (map toDP [oc, oe, ic, ie])
 renderConstructionGeom (LayerSVGOverlay _ _ _) = mempty
+renderConstructionGeom (LayerLabel _ p) = renderDots [toDP p]
 
 -- | Render the persistent fill for a layer.
 renderFill :: ConstructionLayer -> Element

@@ -84,6 +84,7 @@ layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
 layerLabel (LayerCircle _ _ _) = "Fill circle"
 layerLabel LayerCrescent {} = "Fill crescent"
 layerLabel (LayerSVGOverlay p _ _) = "SVG overlay: " ++ p
+layerLabel (LayerLabel name _) = "Label: " ++ name
 
 -- | Zero-pad a step number to 2 digits
 padNum :: Int -> String

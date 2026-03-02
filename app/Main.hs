@@ -8,7 +8,7 @@ import Data.Char (toLower)
 import Data.List (nub)
 import Effectful (runPureEff)
 import Flag.Construction.FieldNumber (Field (..), FieldNumber, fieldOf, isInteger, isNatural)
-import Flag.Construction.Interpreter (Step, evalCollectNumbers, steps)
+import Flag.Construction.Interpreter (Step, evalCollectNumbers, evalLabels, steps)
 import Flag.Construction.Tree (evalTree)
 import Flag.Construction.Types (Point)
 import Flag.Definition (Flag (..))
@@ -35,7 +35,8 @@ writeConstructionJsonForFlag flag = do
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       input = ((0, 0), (1, 0)) :: (Point, Point)
       (_, tree) = evalTree flagArrow input
-  writeConstructionJson (flagName flag) (flagIsoCode flag) input tree
+      labels    = evalLabels flagArrow input
+  writeConstructionJson (flagName flag) (flagIsoCode flag) input tree labels
 
 -- ---------------------------------------------------------------------------
 -- HTML index build

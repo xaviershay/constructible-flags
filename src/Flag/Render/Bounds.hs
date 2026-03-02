@@ -114,3 +114,5 @@ layerBounds (LayerSVGOverlay _ center edge) =
         (ex, ey) = toDP edge
         r = sqrt ((ex - cx) ^ (2 :: Int) + (ey - cy) ^ (2 :: Int))
     in Just (circleBBox (cx, cy) r)
+layerBounds (LayerLabel _ p) =
+    Just (pointBBox [toDP p])

@@ -22,6 +22,10 @@ module Flag.Constructions
 
       -- * Grouping
     , group
+    , label
+    , labelFirst
+    , labelSecond
+    , labelPair
 
       -- * Composite constructors
     , perpendicular
@@ -38,7 +42,7 @@ module Flag.Constructions
     , horizontalStripes
     ) where
 
-import Control.Arrow (returnA, arr)
+import Control.Arrow (returnA, arr, first, second, (***))
 import Data.Colour
 import Data.Ratio (Ratio, numerator, denominator)
 
@@ -393,6 +397,32 @@ overlaySVG = OverlaySVG
 -- | Group a sub-computation under a label for documentation / debugging
 group :: String -> FlagA a b -> FlagA a b
 group = Group
+
+-- | Attach a human-readable label to a point for display in the debug viewer.
+-- The label travels with the point through the construction pipeline and is
+-- shown as a persistent annotation in the debug viewer rather than requiring
+-- a hover. This is a pure pass-through: the point value is unchanged.
+label :: String -> FlagA Point Point
+label = LabelPoint
+
+-- | Label the first component of a pair, passing the second through unchanged.
+-- Equivalent to @first (label name)@. Useful with arrows that return @(Point, Point)@
+-- when only the first component is kept:
+-- @(a, _) <- someArrow >>> labelFirst "A" -< input@
+labelFirst :: String -> FlagA (Point, Point) (Point, Point)
+labelFirst name = first (label name)
+
+-- | Label the second component of a pair, passing the first through unchanged.
+-- Equivalent to @second (label name)@. Useful with arrows that return @(Point, Point)@
+-- when only the second component is kept:
+-- @(_, b) <- someArrow >>> labelSecond "B" -< input@
+labelSecond :: String -> FlagA (Point, Point) (Point, Point)
+labelSecond name = second (label name)
+
+-- | Label both components of a pair independently.
+-- Equivalent to @label n1 *** label n2@.
+labelPair :: String -> String -> FlagA (Point, Point) (Point, Point)
+labelPair n1 n2 = label n1 *** label n2
 
 -- ---------------------------------------------------------------------------
 -- Composite constructions

@@ -5,6 +5,7 @@ module Flag.Construction.Interpreter
     , steps
     , eval
     , evalCollectNumbers
+    , evalLabels
     ) where
 
 import Flag.Construction.Types
@@ -40,6 +41,7 @@ steps (FillCircle _)   = [StepFillCircle]
 steps (FillCrescent _) = [StepFillCrescent]
 steps (OverlaySVG _)   = [StepSVGOverlay]
 steps (Group _ f)      = steps f
+steps (LabelPoint _)   = []
 
 -- | Evaluate a construction arrow to produce a concrete function.
 -- This is one possible interpreter; others could generate SVG, trace
@@ -59,6 +61,7 @@ eval (FillCrescent c) = \((outerCenter, outerEdge), (innerCenter, innerEdge)) ->
     DrawCrescent c outerCenter (dist outerCenter outerEdge) innerCenter (dist innerCenter innerEdge)
 eval (OverlaySVG path) = \(center, edge) -> DrawSVGOverlay path center edge
 eval (Group _ f)      = eval f
+eval (LabelPoint _)   = id
 
 -- | Evaluate a construction arrow, collecting all 'Number' values
 -- produced by intersection operations (intermediate construction points).
@@ -96,3 +99,24 @@ evalCollectNumbers (FillCrescent c) ((outerCenter, outerEdge), (innerCenter, inn
 evalCollectNumbers (OverlaySVG path) (center, edge) =
   (DrawSVGOverlay path center edge, [])
 evalCollectNumbers (Group _ f) a = evalCollectNumbers f a
+evalCollectNumbers (LabelPoint _) p = (p, [])
+
+-- | Walk the construction DAG collecting all 'LabelPoint' annotations.
+-- Returns a list of @(point, name)@ pairs in encounter order.
+-- Reuses 'eval' to thread the intermediate values forward.
+evalLabels :: FlagA a b -> a -> [(Point, String)]
+evalLabels (Arr _ f)        a     = let b = f a in b `seq` []
+evalLabels (Compose f g)    a     = let b = eval f a
+                                    in  evalLabels f a ++ evalLabels g b
+evalLabels (First f)        (a,c) = evalLabels f a
+evalLabels (Par f g)        (a,c) = evalLabels f a ++ evalLabels g c
+evalLabels IntersectLL      _     = []
+evalLabels IntersectLC      _     = []
+evalLabels IntersectCC      _     = []
+evalLabels (NGonVertex _ _) _     = []
+evalLabels (FillTriangle _) _     = []
+evalLabels (FillCircle _)   _     = []
+evalLabels (FillCrescent _) _     = []
+evalLabels (OverlaySVG _)   _     = []
+evalLabels (Group _ f)      a     = evalLabels f a
+evalLabels (LabelPoint name) p    = [(p, name)]

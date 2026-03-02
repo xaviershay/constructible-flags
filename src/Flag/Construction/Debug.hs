@@ -64,6 +64,9 @@ trace fa input = do
     go n (Group label f) a = do
         putStrLn $ indent n ++ ">> " ++ label
         go (n + 1) f a
+    go n (LabelPoint label) p = do
+        putStrLn $ indent n ++ "Label " ++ show label ++ " => " ++ show p
+        pure p
 
 -- | Trace a list of points to stderr as KaTeX expressions, returning
 -- the list unchanged. For use in proc blocks:

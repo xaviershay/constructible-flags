@@ -106,6 +106,9 @@ data FlagA a b where
   -- Grouping (label a sub-computation for documentation / debugging)
   Group :: String -> FlagA a b -> FlagA a b
 
+  -- Point labelling (attach a human-readable name to a point for the debug viewer)
+  LabelPoint :: String -> FlagA Point Point
+
 instance Category FlagA where
   id  = Arr "id" Prelude.id
   (.) = flip Compose
@@ -135,6 +138,7 @@ showFlagA n fa = indent n ++ case fa of
   FillCrescent _  -> "FillCrescent"
   OverlaySVG p    -> "OverlaySVG " ++ show p
   Group label f   -> "Group " ++ show label ++ "\n" ++ showFlagA (n+2) f
+  LabelPoint name -> "LabelPoint " ++ show name
   where
     indent i = replicate i ' '
 
