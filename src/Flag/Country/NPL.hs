@@ -76,7 +76,13 @@ nepal =
 
         -- TODO: Add the moon triangles
         topCrescent <- fillCrescent whiteC -< ((m, p), (l, p))
-        let moon = topCrescent
+        topCircle <- fillCircle whiteC -< (t, m)
+        (_, v2) <- intersectCC -< ((t, s), (s, t))
+        v3 <- midpoint -< (s, v2)
+        v4 <- midpoint -< (s, v3)
+        (_, v6) <- intersectLC -< ((t, v4), (t, s))
+        topStar <- fillStar12InnerC whiteC -< (t, m, v6)
+        let moon = topCrescent <> topCircle <> topStar
 
         u <- rationalMult (1 % 2) >>> label "U" -< (a, f)
         (v', _) <- perpendicular -< (u, a)
