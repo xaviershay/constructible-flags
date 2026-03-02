@@ -10,6 +10,8 @@ module Flag.Constructions
     fillTriangle,
     fillCircle,
     fillCrescent,
+    maskDrawing,
+    clipDrawing,
     fillStar7x2,
     fillStar7x3,
     fillStar5,
@@ -436,7 +438,7 @@ fillStar12InnerC :: Colour Double -> FlagA (Point, Point, Point) Drawing
 fillStar12InnerC col = group "Fill 12-point inner star inner" $ proc (o, ivEdge, ovEdge) -> do
   (ov0, ov1, ov2, ov3, ov4, ov5, ov6, ov7, ov8, ov9, ov10, ov11) <- fan12 -< (o, ovEdge)
   iv0' <- midpoint -< (ov0, ov1)
-  (_, iv0) <- intersectLC >>> labelSecond "IV0" -< ((o, iv0'), (o, ivEdge))
+  (_, iv0) <- intersectLC -< ((o, iv0'), (o, ivEdge))
 
   (_, iv1, iv2, iv3, iv4, iv5, iv6, iv7, iv8, iv9, iv10, iv11) <- fan12 -< (o, iv0)
 
@@ -491,10 +493,27 @@ fillStar12InnerC col = group "Fill 12-point inner star inner" $ proc (o, ivEdge,
 fillCircle :: Colour Double -> FlagA (Point, Point) Drawing
 fillCircle = FillCircle
 
--- | Fill a crescent: the first circle masked by the second circle.
+-- | Mask a drawing by another drawing.
+-- Shapes in the mask drawing become transparent (cut-out) areas in the content drawing.
+-- Uses an SVG mask with a white background and black shapes.
+maskDrawing :: FlagA (Drawing, Drawing) Drawing
+maskDrawing = MaskDrawing Mask
+
+-- | Clip a drawing by another drawing.
+-- Shapes in the mask drawing define the visible area of the content drawing.
+-- Everything outside the shapes is hidden. Uses an SVG clipPath.
+clipDrawing :: FlagA (Drawing, Drawing) Drawing
+clipDrawing = MaskDrawing Clip
+
+-- | Fill a crescent: an outer filled disc with an inner disc cut out.
 -- Takes ((outerCenter, outerEdge), (innerCenter, innerEdge)).
+-- Implemented via maskDrawing: the inner circle punches a transparent hole
+-- in the outer circle.
 fillCrescent :: Colour Double -> FlagA ((Point, Point), (Point, Point)) Drawing
-fillCrescent = FillCrescent
+fillCrescent col = proc ((outerCenter, outerEdge), (innerCenter, innerEdge)) -> do
+  outer <- fillCircle col -< (outerCenter, outerEdge)
+  inner <- fillCircle col -< (innerCenter, innerEdge)
+  maskDrawing -< (outer, inner)
 
 -- | Overlay an external SVG file, scaled to fit within a bounding circle
 -- defined by its center and an edge point. The SVG's native aspect ratio

@@ -18,7 +18,7 @@ import Data.Hashable (Hashable, hashWithSalt)
 import qualified Data.Text as T
 import Flag.Construction.FieldNumber (FieldNumber, toDouble)
 import Flag.Construction.Layers (ConstructionLayer (..), pointDist)
-import Flag.Construction.Types (Drawing (..))
+import Flag.Construction.Types (Drawing (..), MaskMode (..))
 import qualified Flag.Construction.Types as CT
 import Graphics.Svg
 import Numeric (showFFloat, showHex)
@@ -64,6 +64,95 @@ sdId xs = T.pack (showHex (fromIntegral combined :: Word) "")
     combined = foldl hashWithSalt 0 xs
 
 -- ---------------------------------------------------------------------------
+-- Drawing key (for stable SVG IDs)
+-- ---------------------------------------------------------------------------
+
+-- | Extract a small list of representative doubles from a drawing, used to
+-- derive a stable hash key for unique SVG IDs.
+drawingKey :: CT.Drawing -> [Double]
+drawingKey (CT.DrawTriangle _ p _ _) = let (x, y) = toDP p in [x, y]
+drawingKey (CT.DrawPath _ (p : _)) = let (x, y) = toDP p in [x, y]
+drawingKey (CT.DrawPath _ []) = [0, 0]
+drawingKey (CT.DrawCircle _ c _) = let (x, y) = toDP c in [x, y]
+drawingKey (CT.DrawSVGOverlay _ p _) = let (x, y) = toDP p in [x, y]
+drawingKey (CT.Overlay d _) = drawingKey d
+drawingKey (CT.DrawMasked _ d _) = drawingKey d
+drawingKey CT.EmptyDrawing = [0, 0]
+
+-- ---------------------------------------------------------------------------
+-- Shape-only rendering (for use inside <mask> and <clipPath>)
+-- ---------------------------------------------------------------------------
+
+-- | Render a 'Drawing' as pure shape elements with every fill replaced by the
+-- given colour text.  Used to populate SVG @\<mask\>@ and @\<clipPath\>@ elements.
+-- In a @\<mask\>@, pass @"black"@ so the shapes become transparent cut-outs
+-- (SVG masks: white = visible, black = transparent).
+-- In a @\<clipPath\>@, the fill colour is irrelevant — the shape boundary alone
+-- defines the clip region.
+drawingToShapes :: T.Text -> CT.Drawing -> Element
+drawingToShapes _ CT.EmptyDrawing = mempty
+drawingToShapes col (CT.Overlay a b) =
+  drawingToShapes col a <> drawingToShapes col b
+drawingToShapes col (CT.DrawTriangle _ p1 p2 p3) =
+  polygon_
+    [ Points_ <<- pointsAttr (map toDP [p1, p2, p3]),
+      Fill_ <<- col,
+      Fill_opacity_ <<- "1",
+      Stroke_ <<- "none",
+      Stroke_width_ <<- "0"
+    ]
+drawingToShapes col (CT.DrawPath _ pts@(_ : _)) =
+  polygon_
+    [ Points_ <<- pointsAttr (map toDP pts),
+      Fill_ <<- col,
+      Fill_opacity_ <<- "1",
+      Stroke_ <<- "none",
+      Stroke_width_ <<- "0"
+    ]
+drawingToShapes _ (CT.DrawPath _ []) = mempty
+drawingToShapes col (CT.DrawCircle _ center rd) =
+  let (cx, cy) = toDP center
+      r = toD rd
+   in circle_
+        [ Cx_ <<- sd cx,
+          Cy_ <<- sd cy,
+          R_ <<- sd r,
+          Fill_ <<- col,
+          Fill_opacity_ <<- "1",
+          Stroke_ <<- "none"
+        ]
+drawingToShapes col (CT.DrawMasked CT.Mask content maskD) =
+  -- Nested Mask: white background with black shapes punched out, then recoloured.
+  let innerId = "smsk-" <> sdId (drawingKey content)
+   in defs_
+        []
+        ( mask_
+            [makeAttribute "id" innerId]
+            ( rect_
+                [ makeAttribute "x" "-1000",
+                  makeAttribute "y" "-1000",
+                  makeAttribute "width" "2000",
+                  makeAttribute "height" "2000",
+                  Fill_ <<- "white"
+                ]
+                <> drawingToShapes "black" maskD
+            )
+        )
+        <> g_
+          [makeAttribute "mask" ("url(#" <> innerId <> ")")]
+          (drawingToShapes col content)
+drawingToShapes col (CT.DrawMasked CT.Clip content maskD) =
+  -- Nested Clip: clip shapes define the visible region, then recolour.
+  let innerId = "sclp-" <> sdId (drawingKey content)
+   in defs_
+        []
+        (clipPath_ [makeAttribute "id" innerId] (drawingToShapes col maskD))
+        <> g_
+          [makeAttribute "clip-path" ("url(#" <> innerId <> ")")]
+          (drawingToShapes col content)
+drawingToShapes _ (CT.DrawSVGOverlay _ _ _) = mempty
+
+-- ---------------------------------------------------------------------------
 -- Drawing → Element
 -- ---------------------------------------------------------------------------
 
@@ -94,29 +183,37 @@ drawingToElement (CT.DrawCircle col center rd) =
           Fill_opacity_ <<- "1",
           Stroke_ <<- "none"
         ]
-drawingToElement (CT.DrawCrescent col outerCenter outerR innerCenter innerR) =
-  let (ocx, ocy) = toDP outerCenter
-      or' = toD outerR
-      (icx, icy) = toDP innerCenter
-      ir = toD innerR
-      maskId = "cres" <> sdId [ocx, ocy]
+-- \| Mask mode: white background rect makes everything visible by default;
+-- black shapes from the mask drawing punch transparent holes in the content.
+drawingToElement (CT.DrawMasked CT.Mask content maskD) =
+  let maskId = "msk-" <> sdId (drawingKey content)
+      contentElem = drawingToElement content
+      maskShapes = drawingToShapes "black" maskD
    in defs_
         []
         ( mask_
             [makeAttribute "id" maskId]
-            ( circle_ [Cx_ <<- sd ocx, Cy_ <<- sd ocy, R_ <<- sd or', Fill_ <<- "white"]
-                <> circle_ [Cx_ <<- sd icx, Cy_ <<- sd icy, R_ <<- sd ir, Fill_ <<- "black"]
+            ( rect_
+                [ makeAttribute "x" "-1000",
+                  makeAttribute "y" "-1000",
+                  makeAttribute "width" "2000",
+                  makeAttribute "height" "2000",
+                  Fill_ <<- "white"
+                ]
+                <> maskShapes
             )
         )
-        <> circle_
-          [ Cx_ <<- sd ocx,
-            Cy_ <<- sd ocy,
-            R_ <<- sd or',
-            Fill_ <<- colHex col,
-            Fill_opacity_ <<- "1",
-            Stroke_ <<- "none",
-            makeAttribute "mask" ("url(#" <> maskId <> ")")
-          ]
+        <> g_ [makeAttribute "mask" ("url(#" <> maskId <> ")")] contentElem
+-- \| Clip mode: shapes from the mask drawing define the visible region;
+-- everything outside those shapes is hidden.
+drawingToElement (CT.DrawMasked CT.Clip content maskD) =
+  let clipId = "clp-" <> sdId (drawingKey content)
+      contentElem = drawingToElement content
+      clipShapes = drawingToShapes "black" maskD
+   in defs_
+        []
+        (clipPath_ [makeAttribute "id" clipId] clipShapes)
+        <> g_ [makeAttribute "clip-path" ("url(#" <> clipId <> ")")] contentElem
 drawingToElement (CT.DrawSVGOverlay _ _ _) = mempty
 
 -- ---------------------------------------------------------------------------
@@ -147,10 +244,7 @@ renderConstructionGeom (LayerTriangle _ _ _ _) = mempty
 renderConstructionGeom (LayerCircle _ center edge) =
   renderCircle (toDP center) (toD (pointDist center edge))
     <> renderDots (map toDP [center, edge])
-renderConstructionGeom (LayerCrescent _ oc oe ic ie) =
-  renderCircle (toDP oc) (toD (pointDist oc oe))
-    <> renderCircle (toDP ic) (toD (pointDist ic ie))
-    <> renderDots (map toDP [oc, oe, ic, ie])
+renderConstructionGeom (LayerMasked _ _ _) = mempty
 renderConstructionGeom (LayerSVGOverlay _ _ _) = mempty
 renderConstructionGeom (LayerLabel _ p) = renderDots [toDP p]
 
@@ -176,30 +270,11 @@ renderFill (LayerCircle col center edge) =
           Stroke_ <<- colHex col,
           Stroke_width_ <<- sd 0.02
         ]
-renderFill (LayerCrescent col oc oe ic ie) =
-  let (ocx, ocy) = toDP oc
-      or' = toD (pointDist oc oe)
-      (icx, icy) = toDP ic
-      ir = toD (pointDist ic ie)
-      maskId = "layer-cres" <> sdId [ocx, ocy]
-   in defs_
-        []
-        ( mask_
-            [makeAttribute "id" maskId]
-            ( circle_ [Cx_ <<- sd ocx, Cy_ <<- sd ocy, R_ <<- sd or', Fill_ <<- "white"]
-                <> circle_ [Cx_ <<- sd icx, Cy_ <<- sd icy, R_ <<- sd ir, Fill_ <<- "black"]
-            )
-        )
-        <> circle_
-          [ Cx_ <<- sd ocx,
-            Cy_ <<- sd ocy,
-            R_ <<- sd or',
-            Fill_ <<- colHex col,
-            Fill_opacity_ <<- "0.6",
-            Stroke_ <<- colHex col,
-            Stroke_width_ <<- sd 0.02,
-            makeAttribute "mask" ("url(#" <> maskId <> ")")
-          ]
+-- \| Use `opacity` (not `fill-opacity`) so it applies to the whole composited group.
+renderFill (LayerMasked mode content maskD) =
+  g_
+    [makeAttribute "opacity" "0.6"]
+    (drawingToElement (CT.DrawMasked mode content maskD))
 renderFill _ = mempty
 
 -- | Render a dotted construction line connecting two points.

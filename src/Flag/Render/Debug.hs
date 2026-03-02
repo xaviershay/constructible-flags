@@ -82,7 +82,7 @@ layerLabel LayerIntersectCC {} = "Intersect circle–circle"
 layerLabel LayerNGonVertex {} = "N-gon vertex"
 layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
 layerLabel (LayerCircle _ _ _) = "Fill circle"
-layerLabel LayerCrescent {} = "Fill crescent"
+layerLabel (LayerMasked _ _ _) = "Masked drawing"
 layerLabel (LayerSVGOverlay p _ _) = "SVG overlay: " ++ p
 layerLabel (LayerLabel name _) = "Label: " ++ name
 

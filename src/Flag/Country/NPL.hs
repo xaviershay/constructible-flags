@@ -82,7 +82,9 @@ nepal =
         v4 <- midpoint -< (s, v3)
         (_, v6) <- intersectLC -< ((t, v4), (t, s))
         topStar <- fillStar12InnerC whiteC -< (t, m, v6)
-        let moon = topCrescent <> topCircle <> topStar
+        clipCircle <- fillCircle whiteC -< (m, q)
+        topStarClipped <- clipDrawing -< (topStar, clipCircle)
+        let moon = topCrescent <> topCircle <> topStarClipped
 
         u <- rationalMult (1 % 2) >>> label "U" -< (a, f)
         (v', _) <- perpendicular -< (u, a)

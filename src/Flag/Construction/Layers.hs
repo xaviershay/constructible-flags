@@ -1,17 +1,17 @@
 {-# LANGUAGE GADTs #-}
 
 module Flag.Construction.Layers
-    ( ConstructionLayer(..)
-    , layerInputPoints
-    , layerOutputPoints
-    , pointDist
-    , evalLayers
-    ) where
+  ( ConstructionLayer (..),
+    layerInputPoints,
+    layerOutputPoints,
+    pointDist,
+    evalLayers,
+  )
+where
 
 import Data.Colour
-
-import Flag.Construction.Types
 import Flag.Construction.Geometry
+import Flag.Construction.Types
 
 -- | A single layer of construction output, capturing what was built at each step.
 -- This is decoupled from any rendering backend. Each intersection step stores
@@ -20,50 +20,73 @@ import Flag.Construction.Geometry
 -- point value but does not count as a construction step.
 data ConstructionLayer
   = LayerIntersectLL
-      Point Point       -- ^ First line defining points
-      Point Point       -- ^ Second line defining points
-      [Point]           -- ^ Result point
+      Point
+      -- | First line defining points
+      Point
+      Point
+      -- | Second line defining points
+      Point
+      -- | Result point
+      [Point]
   | LayerIntersectLC
-      Point Point       -- ^ Line defining points
-      Point Point       -- ^ Circle defining points (center, edge)
-      [Point]           -- ^ Result points
+      Point
+      -- | Line defining points
+      Point
+      Point
+      -- | Circle defining points (center, edge)
+      Point
+      -- | Result points
+      [Point]
   | LayerIntersectCC
-      Point Point       -- ^ First circle (center, edge)
-      Point Point       -- ^ Second circle (center, edge)
-      [Point]           -- ^ Result points
+      Point
+      -- | First circle (center, edge)
+      Point
+      Point
+      -- | Second circle (center, edge)
+      Point
+      -- | Result points
+      [Point]
   | LayerNGonVertex
-      Point Point       -- ^ Circle defining points (center, edge)
-      [Point]           -- ^ Result point
-  | LayerTriangle (Colour Double) Point Point Point  -- ^ A filled triangle
-  | LayerCircle (Colour Double) Point Point  -- ^ A filled circle (center, edge)
-  | LayerCrescent (Colour Double) Point Point Point Point  -- ^ A crescent (outerCenter, outerEdge, innerCenter, innerEdge)
-  | LayerSVGOverlay FilePath Point Point  -- ^ An external SVG overlay (path, center, edge)
-  | LayerLabel String Point              -- ^ A named annotation on a point (not a construction step)
+      Point
+      -- | Circle defining points (center, edge)
+      Point
+      -- | Result point
+      [Point]
+  | -- | A filled triangle
+    LayerTriangle (Colour Double) Point Point Point
+  | -- | A filled circle (center, edge)
+    LayerCircle (Colour Double) Point Point
+  | -- | content drawing with mask drawing applied
+    LayerMasked MaskMode Drawing Drawing
+  | -- | An external SVG overlay (path, center, edge)
+    LayerSVGOverlay FilePath Point Point
+  | -- | A named annotation on a point (not a construction step)
+    LayerLabel String Point
   deriving (Show)
 
 -- | The points consumed as inputs by a construction layer.
 layerInputPoints :: ConstructionLayer -> [Point]
 layerInputPoints (LayerIntersectLL lp1 lp2 lp3 lp4 _) = [lp1, lp2, lp3, lp4]
 layerInputPoints (LayerIntersectLC lp1 lp2 cc ce _) = [lp1, lp2, cc, ce]
-layerInputPoints (LayerIntersectCC c1 e1 c2 e2 _)   = [c1, e1, c2, e2]
-layerInputPoints (LayerNGonVertex c e _)              = [c, e]
-layerInputPoints (LayerTriangle _ p1 p2 p3)          = [p1, p2, p3]
-layerInputPoints (LayerCircle _ center edge)         = [center, edge]
-layerInputPoints (LayerCrescent _ oc oe ic ie)       = [oc, oe, ic, ie]
-layerInputPoints (LayerSVGOverlay _ center edge)     = [center, edge]
-layerInputPoints (LayerLabel _ _)                    = []
+layerInputPoints (LayerIntersectCC c1 e1 c2 e2 _) = [c1, e1, c2, e2]
+layerInputPoints (LayerNGonVertex c e _) = [c, e]
+layerInputPoints (LayerTriangle _ p1 p2 p3) = [p1, p2, p3]
+layerInputPoints (LayerCircle _ center edge) = [center, edge]
+layerInputPoints (LayerMasked _ _ _) = []
+layerInputPoints (LayerSVGOverlay _ center edge) = [center, edge]
+layerInputPoints (LayerLabel _ _) = []
 
 -- | The points produced as outputs by a construction layer.
 layerOutputPoints :: ConstructionLayer -> [Point]
 layerOutputPoints (LayerIntersectLL _ _ _ _ pts) = pts
 layerOutputPoints (LayerIntersectLC _ _ _ _ pts) = pts
 layerOutputPoints (LayerIntersectCC _ _ _ _ pts) = pts
-layerOutputPoints (LayerNGonVertex _ _ pts)      = pts
-layerOutputPoints (LayerTriangle _ _ _ _)        = []
-layerOutputPoints (LayerCircle _ _ _)            = []
-layerOutputPoints (LayerCrescent _ _ _ _ _)      = []
-layerOutputPoints (LayerSVGOverlay _ _ _)        = []
-layerOutputPoints (LayerLabel _ p)               = [p]
+layerOutputPoints (LayerNGonVertex _ _ pts) = pts
+layerOutputPoints (LayerTriangle _ _ _ _) = []
+layerOutputPoints (LayerCircle _ _ _) = []
+layerOutputPoints (LayerMasked _ _ _) = []
+layerOutputPoints (LayerSVGOverlay _ _ _) = []
+layerOutputPoints (LayerLabel _ p) = [p]
 
 -- | Euclidean distance (exported for rendering code that derives radii).
 pointDist :: Point -> Point -> Number
@@ -72,35 +95,37 @@ pointDist = dist
 -- | Evaluate a construction arrow, producing the result and a list of
 -- construction layers (one per construction step).
 evalLayers :: FlagA a b -> a -> (b, [ConstructionLayer])
-evalLayers (Arr _ f)        x     = (f x, [])
-evalLayers (Compose f g)    x     = let (mid, l1) = evalLayers f x
-                                        (res, l2) = evalLayers g mid
-                                    in  (res, l1 ++ l2)
-evalLayers (First f)        (a,c) = let (b, ls) = evalLayers f a
-                                    in  ((b, c), ls)
-evalLayers (Par f g)        (a,c) = let (b, l1) = evalLayers f a
-                                        (d, l2) = evalLayers g c
-                                    in  ((b, d), l1 ++ l2)
-evalLayers IntersectLL      inp@((lp1, lp2), (lp3, lp4)) =
-    let p = evalIntersectLL' inp
-    in  (p, [LayerIntersectLL lp1 lp2 lp3 lp4 [p]])
-evalLayers IntersectLC      inp@((lp1, lp2), (cc, ce)) =
-    let (p1, p2) = evalIntersectLC' inp
-    in  ((p1, p2), [LayerIntersectLC lp1 lp2 cc ce [p1, p2]])
-evalLayers IntersectCC      inp@((c1, e1), (c2, e2)) =
-    let (p1, p2) = evalIntersectCC' inp
-    in  ((p1, p2), [LayerIntersectCC c1 e1 c2 e2 [p1, p2]])
+evalLayers (Arr _ f) x = (f x, [])
+evalLayers (Compose f g) x =
+  let (mid, l1) = evalLayers f x
+      (res, l2) = evalLayers g mid
+   in (res, l1 ++ l2)
+evalLayers (First f) (a, c) =
+  let (b, ls) = evalLayers f a
+   in ((b, c), ls)
+evalLayers (Par f g) (a, c) =
+  let (b, l1) = evalLayers f a
+      (d, l2) = evalLayers g c
+   in ((b, d), l1 ++ l2)
+evalLayers IntersectLL inp@((lp1, lp2), (lp3, lp4)) =
+  let p = evalIntersectLL' inp
+   in (p, [LayerIntersectLL lp1 lp2 lp3 lp4 [p]])
+evalLayers IntersectLC inp@((lp1, lp2), (cc, ce)) =
+  let (p1, p2) = evalIntersectLC' inp
+   in ((p1, p2), [LayerIntersectLC lp1 lp2 cc ce [p1, p2]])
+evalLayers IntersectCC inp@((c1, e1), (c2, e2)) =
+  let (p1, p2) = evalIntersectCC' inp
+   in ((p1, p2), [LayerIntersectCC c1 e1 c2 e2 [p1, p2]])
 evalLayers (NGonVertex n k) inp@(c, e) =
-    let p = evalNGonVertex n k inp
-    in  (p, [LayerNGonVertex c e [p]])
+  let p = evalNGonVertex n k inp
+   in (p, [LayerNGonVertex c e [p]])
 evalLayers (FillTriangle col) (p1, p2, p3) =
-    (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
+  (DrawTriangle col p1 p2 p3, [LayerTriangle col p1 p2 p3])
 evalLayers (FillCircle col) (center, edge) =
-    (DrawCircle col center (dist center edge), [LayerCircle col center edge])
-evalLayers (FillCrescent col) ((outerCenter, outerEdge), (innerCenter, innerEdge)) =
-    (DrawCrescent col outerCenter (dist outerCenter outerEdge) innerCenter (dist innerCenter innerEdge),
-     [LayerCrescent col outerCenter outerEdge innerCenter innerEdge])
+  (DrawCircle col center (dist center edge), [LayerCircle col center edge])
+evalLayers (MaskDrawing mode) (content, mask) =
+  (DrawMasked mode content mask, [LayerMasked mode content mask])
 evalLayers (OverlaySVG path) (center, edge) =
-    (DrawSVGOverlay path center edge, [LayerSVGOverlay path center edge])
-evalLayers (Group _ f)        x = evalLayers f x
-evalLayers (LabelPoint _ )    p = (p, [])
+  (DrawSVGOverlay path center edge, [LayerSVGOverlay path center edge])
+evalLayers (Group _ f) x = evalLayers f x
+evalLayers (LabelPoint _) p = (p, [])

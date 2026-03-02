@@ -177,12 +177,7 @@ generateConstructionPage = renderHtml $ docTypeHtml $ H.html $ do
         Euclidean distance between the centre and an edge point, so no
         explicit radius value is needed."""
         "Input: (centre, edgePoint)  \8594  Drawing"
-      methodEntry
-        "FillCrescent — Crescent / masked circle"
-        "☽"
-        """Draws a crescent shape: an outer filled disc with an inner disc
-        cut out (masked).  Both circles are given as (centre, edge) pairs. Errors if either radius is zero."""
-        "Input: ((outerCentre, outerEdge), (innerCentre, innerEdge))  \8594  Drawing"
+
       methodEntry
         "SVGOverlay — External SVG overlay"
         "$$+$$"
@@ -352,7 +347,7 @@ formatSteps ss =
       ccCount = length [() | StepIntersectCC <- ss]
       ftCount = length [() | StepFillTriangle <- ss]
       fcCount = length [() | StepFillCircle <- ss]
-      fcrCount = length [() | StepFillCrescent <- ss]
+
       ngonCount = length [() | StepNGonVertex <- ss]
       svgCount = length [() | StepSVGOverlay <- ss]
       rows =
@@ -362,7 +357,6 @@ formatSteps ss =
             if ccCount > 0 then ["\\bigcirc\\!\\cap\\!\\bigcirc &\\times " ++ show ccCount] else [],
             if ftCount > 0 then ["\\blacktriangle &\\times " ++ show ftCount] else [],
             if fcCount > 0 then ["\\bullet &\\times " ++ show fcCount] else [],
-            if fcrCount > 0 then ["\\text{☽} &\\times " ++ show fcrCount] else [],
             if ngonCount > 0 then ["\\star &\\times " ++ show ngonCount] else [],
             if svgCount > 0 then ["+ &\\times " ++ show svgCount] else []
           ]
