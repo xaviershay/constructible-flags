@@ -44,7 +44,7 @@ module Flag.Constructions
   )
 where
 
-import Control.Arrow (arr, first, returnA, second, (***))
+import Control.Arrow (arr, first, returnA, second, (***), (>>>))
 import Data.Colour
 import Data.Ratio (Ratio, denominator, numerator)
 import Flag.Construction.Types
@@ -433,7 +433,59 @@ fillStar5Inner scale col = group "Fill 5-point inner star" $ proc (o, a) -> do
         <> c2
 
 fillStar12InnerC :: Colour Double -> FlagA (Point, Point, Point) Drawing
-fillStar12InnerC = error ""
+fillStar12InnerC col = group "Fill 12-point inner star inner" $ proc (o, ivEdge, ovEdge) -> do
+  (ov0, ov1, ov2, ov3, ov4, ov5, ov6, ov7, ov8, ov9, ov10, ov11) <- fan12 -< (o, ovEdge)
+  iv0' <- midpoint -< (ov0, ov1)
+  (_, iv0) <- intersectLC >>> labelSecond "IV0" -< ((o, iv0'), (o, ivEdge))
+
+  (_, iv1, iv2, iv3, iv4, iv5, iv6, iv7, iv8, iv9, iv10, iv11) <- fan12 -< (o, iv0)
+
+  -- Spikes
+  s1 <- fillTriangle col -< (iv0, ov1, iv1)
+  s2 <- fillTriangle col -< (iv1, ov2, iv2)
+  s3 <- fillTriangle col -< (iv2, ov3, iv3)
+  s4 <- fillTriangle col -< (iv3, ov4, iv4)
+  s5 <- fillTriangle col -< (iv4, ov5, iv5)
+  s6 <- fillTriangle col -< (iv5, ov6, iv6)
+  s7 <- fillTriangle col -< (iv6, ov7, iv7)
+  s8 <- fillTriangle col -< (iv7, ov8, iv8)
+  s9 <- fillTriangle col -< (iv8, ov9, iv9)
+  s10 <- fillTriangle col -< (iv9, ov10, iv10)
+  s11 <- fillTriangle col -< (iv10, ov11, iv11)
+  s12 <- fillTriangle col -< (iv11, ov0, iv0)
+
+  -- Inner
+  i1 <- fillTriangle col -< (o, iv0, iv1)
+  i2 <- fillTriangle col -< (o, iv1, iv2)
+  i3 <- fillTriangle col -< (o, iv2, iv3)
+  i4 <- fillTriangle col -< (o, iv3, iv4)
+  i5 <- fillTriangle col -< (o, iv4, iv5)
+  i6 <- fillTriangle col -< (o, iv5, iv6)
+  i7 <- fillTriangle col -< (o, iv6, iv7)
+  i8 <- fillTriangle col -< (o, iv7, iv8)
+  i9 <- fillTriangle col -< (o, iv8, iv9)
+  i10 <- fillTriangle col -< (o, iv9, iv10)
+  i11 <- fillTriangle col -< (o, iv10, iv11)
+  i12 <- fillTriangle col -< (o, iv11, iv0)
+
+  let s = s1 <> s2 <> s3 <> s4 <> s5 <> s6 <> s7 <> s8 <> s9 <> s10 <> s11 <> s12
+  let i = i1 <> i2 <> i3 <> i4 <> i5 <> i6 <> i7 <> i8 <> i9 <> i10 <> i11 <> i12
+
+  returnA -< i <> s
+  where
+    fan = proc (o, ov0) -> do
+      (ov2, ov10) <- intersectCC -< ((o, ov0), (ov0, o))
+      ov1' <- midpoint -< (ov0, ov2)
+      (_, ov1) <- intersectLC -< ((o, ov1'), (o, ov0))
+      ov11' <- midpoint -< (ov0, ov10)
+      (_, ov11) <- intersectLC -< ((o, ov11'), (o, ov0))
+      returnA -< (ov10, ov11, ov0, ov1, ov2)
+    fan12 = proc (o, ov0) -> do
+      (ov10, ov11, _, ov1, ov2) <- fan -< (o, ov0)
+      (ov6, _) <- intersectLC -< ((o, ov0), (o, ov0))
+      (ov4, ov5, _, ov7, ov8) <- fan -< (o, ov6)
+      (ov3, ov9) <- perpendicular -< (o, ov0)
+      returnA -< (ov0, ov1, ov2, ov3, ov4, ov5, ov6, ov7, ov8, ov9, ov10, ov11)
 
 -- | Fill a circle defined by its center and an edge point
 fillCircle :: Colour Double -> FlagA (Point, Point) Drawing

@@ -87,6 +87,17 @@
         "sampledAt": "2026-02-22T06:13:26Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-280-c.webp"
     },
+    "287-C": {
+        "chip": "images/pantone/287-C.webp",
+        "label": "287-C",
+        "rgb": [
+            0,
+            47,
+            134
+        ],
+        "sampledAt": "2026-03-02T07:49:51Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-287-c.webp"
+    },
     "294-C": {
         "chip": "images/pantone/294-C.webp",
         "label": "294-C",
