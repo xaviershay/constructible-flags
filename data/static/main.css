@@ -157,6 +157,7 @@ ul {
     display: block;
     width: 100%;
     height: auto;
+    max-height: 120px;
     border-bottom: 1px solid #eee;
 }
 .flag-card-body {
