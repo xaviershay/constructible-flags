@@ -54,7 +54,7 @@ goldenTestFor flag = do
       tmpPath = tmpDir </> (iso ++ ".png")
       failurePath = failureDir </> (iso ++ "-diff.png")
       -- Render width (match SVG width used elsewhere)
-      svgWidth = 300 :: Double
+      svgWidth = 600 :: Double
 
   -- Resolve the FlagA arrow and evaluate on unit input
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
@@ -63,7 +63,7 @@ goldenTestFor flag = do
       (drawing, _intermediateNumbers) = evalCollectNumbers flagArrow flagInput
 
   renderDrawingToSVG SVGBuilderBackend tmpSvgPath svgWidth drawing
-  callProcess "convert" [tmpSvgPath, tmpPath]
+  callProcess "rsvg-convert" [tmpSvgPath, "-o", tmpPath]
 
   goldenExists <- doesFileExist goldenPath
   if not goldenExists

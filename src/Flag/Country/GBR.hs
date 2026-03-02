@@ -33,8 +33,7 @@ unitedKingdom = editorNote (
   (do
     blueC <- reference "Royal Blue" unionJackFlagSpec53 unionJackBlueRGB
     redC  <- reference "Red"        unionJackFlagSpec53 unionJackRedRGB
-    --unionJack5to3 blueC redC
-    unionJack2to1 blueC redC
+    unionJack5to3 blueC redC
   )
 
   where

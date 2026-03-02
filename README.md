@@ -12,16 +12,16 @@ Sources and source types are included so that quality can be assessed.
 
 ## Dependencies
 
-### `convert` (ImageMagick)
+### `rsvg-convert` (librsvg)
 
-Golden tests convert SVG output to PNG using the `convert` command from [ImageMagick](https://imagemagick.org/). Install it before running tests:
+Golden tests convert SVG output to PNG using the `rsvg-convert` command from [librsvg](https://gitlab.gnome.org/GNOME/librsvg). Install it before running tests:
 
 ```bash
 # Debian/Ubuntu
-sudo apt install imagemagick
+sudo apt install librsvg2-bin
 
 # macOS
-brew install imagemagick
+brew install librsvg
 ```
 
 ## Regenerating golden tests

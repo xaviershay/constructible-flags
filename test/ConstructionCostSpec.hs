@@ -19,12 +19,12 @@ import FlagsUnderConstruction (underConstruction)
 -- of geometric construction layers.
 expectedCosts :: [(String, Int)]
 expectedCosts =
-  [ ("AUS", 712)
+  [ ("AUS", 765)
   , ("BGD", 55)
   , ("BTN", 30)
   , ("BWA", 78)
   , ("DZA", 117)
-  , ("GBR", 191)
+  , ("GBR", 246)
   , ("FRA", 35)
   , ("JOR", 102)
   , ("JPN", 29)

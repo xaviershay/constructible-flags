@@ -66,8 +66,7 @@ mkUnionJack :: Sourced :> es => Entity -> Int -> Int -> Colour Double -> Colour 
 mkUnionJack spec w h blueC redC = do
     (bigWide, mediumWide) <- reference "Stripe Widths" spec (3 :: Int, 2 :: Int)
     -- whiteC <- reference "White" spec (sRGB24 255 255 255)
-    whiteC <- reference "White" spec (sRGB24 0 255 0)
-    let yellowC = (sRGB24 255 255 0)
+    whiteC <- reference "White" spec (sRGB24 255 255 255)
 
     let
         prop53 = w == 50 && h == 30
@@ -120,6 +119,20 @@ mkUnionJack spec w h blueC redC = do
               r1 <- fillRectangle whiteC -< (top_x_top, midTop_x_top, mid_x_h1, top_x_v4)
               r2 <- fillTriangle whiteC -< (top_x_v4, mid_x_h1, v3_x_h3)
               r3 <- fillTriangle whiteC -< (v3_x_h3, mid_x_h1, diag_x_h1)
+              returnA -< r1 <> r2 <> r3
+          | otherwise = error "Unsupported proportions"
+
+        bgSWArrow
+          | prop53 = proc (bottom_x_bottom, midbottom_x_bottom, bottom_x_v1, mid_x_v1, mid_x_h4, v1_x_h4, v2_x_h2, diag_x_h4) -> do
+              r1 <- fillRectangle whiteC -< (bottom_x_bottom, midbottom_x_bottom, mid_x_v1, bottom_x_v1)
+              r2 <- fillTriangle whiteC -< (v1_x_h4, v2_x_h2, mid_x_v1)
+              r3 <- fillTriangle whiteC -< (v2_x_h2, bottom_x_v1, mid_x_v1)
+              r4 <- fillTriangle whiteC -< (v2_x_h2, v1_x_h4, diag_x_h4)
+              returnA -< r1 <> r2 <> r3 <> r4
+          | prop21 = proc (bottom_x_bottom, midbottom_x_bottom, bottom_x_v1, _mid_x_v1, mid_x_h4, v1_x_h4, v2_x_h2, diag_x_h4) -> do
+              r1 <- fillRectangle whiteC -< (bottom_x_bottom, midbottom_x_bottom, mid_x_h4, bottom_x_v1)
+              r2 <- fillTriangle whiteC -< (bottom_x_v1, mid_x_h4, v2_x_h2)
+              r3 <- fillTriangle whiteC -< (v2_x_h2, mid_x_h4, diag_x_h4)
               returnA -< r1 <> r2 <> r3
           | otherwise = error "Unsupported proportions"
 
@@ -182,11 +195,10 @@ mkUnionJack spec w h blueC redC = do
         v1_x_bottom <- intersectLL -< ((v1, v1Down), (bl, br))
         v4_x_bottom <- intersectLL -< ((v4, v4Down), (bl, br))
 
-        -- bg <- fillRectangle whiteC -< (tl, tr, br, bl)
+        v2_x_h3 <- intersectLL -< ((v2, v2Down), (h3, h3Down))
+        v3_x_h3 <- intersectLL -< ((v3, v3Down), (h3, h3Down))
 
-        -- Red Stripes
-        rVert <- fillRectangle redC -< (v2, v3, v3Down, v2Down)
-        rHorz <- fillRectangle redC -< (h2, h3, h3Down, h2Down)
+        -- bg <- fillRectangle whiteC -< (tl, tr, br, bl)
 
         -- === NW corner (NW→SE diagonal) ===
         topLineNWtoSE_x_top <- intersectLL -< ((tl, tr), topLineNWtoSE)
@@ -247,7 +259,6 @@ mkUnionJack spec w h blueC redC = do
         rSW <- rSWArrow -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_h4, midBottomLineNEtoSW_x_bottom)
 
         -- NW White
-        v2_x_h3 <- intersectLL -< ((v2, v2Down), (h3, h3Down))
 
         bgNW1 <- fillRectangle whiteC -< (bottomLineNWtoSE_x_h1, midBottomLineNWtoSE_x_h1, midBottomLineNWtoSE_x_left, bottomLineNWtoSE_x_left)
         bgNW2 <- fillRectangle whiteC -< (tl, diagNWtoSE_x_h1, topLineNWtoSE_x_v1, topLineNWtoSE_x_top)
@@ -260,8 +271,6 @@ mkUnionJack spec w h blueC redC = do
         let bgNW = bgNW1 <> bgNW2 <> bgNW3 <> bgNW4 <> bgNW5 <> bgNW6 <> bgNW7
 
         -- NE White
-        v3_x_h3 <- intersectLL -< ((v3, v3Down), (h3, h3Down))
-
         bgNE1 <- fillRectangle whiteC -< (bottomLineNEtoSW_x_h1, diagNEtoSW_x_h1, tr, bottomLineNEtoSW_x_right)
         bgNE2and5 <- bgNEArrow -< (topLineNEtoSW_x_top, midTopLineNEtoSW_x_top, topLineNEtoSW_x_v4, midTopLineNEtoSW_x_v4, midTopLineNEtoSW_x_h1, v4_x_h1, v3_x_h3, diagNEtoSW_x_h1)
         bgNE3 <- fillRectangle whiteC -< (v3, v4, topLineNEtoSW_x_v4, v3_x_h3)
@@ -269,10 +278,45 @@ mkUnionJack spec w h blueC redC = do
         bgNE6 <- fillTriangle whiteC -< (v3_x_h3, bottomLineNEtoSW_x_h1, diagNEtoSW_x_h1)
         let bgNE = bgNE1 <> bgNE2and5 <> bgNE3 <> bgNE4 <> bgNE6
 
-        returnA -< rVert <> rHorz
+        -- SE White
+        v3_x_h2 <- intersectLL -< ((v3, v3Down), (h2, h2Down))
+
+        bgSE1 <- fillRectangle whiteC -< (topLineNWtoSE_x_h4, midTopLineNWtoSE_x_h4, midTopLineNWtoSE_x_right, topLineNWtoSE_x_right)
+        bgSE2 <- fillRectangle whiteC -< (br, diagNWtoSE_x_h4, bottomLineNWtoSE_x_v4, bottomLineNWtoSE_x_bottom)
+        bgSE3 <- fillRectangle whiteC -< (h4Down, topLineNWtoSE_x_h4, v3_x_h2, h2Down)
+        bgSE4 <- fillRectangle whiteC -< (v4Down, v3Down, v3_x_h2, bottomLineNWtoSE_x_v4)
+        bgSE5 <- fillTriangle whiteC -< (diagNWtoSE_x_h4, bottomLineNWtoSE_x_v4, v3_x_h2)
+        bgSE6 <- fillTriangle whiteC -< (topLineNWtoSE_x_h4, midTopLineNWtoSE_x_h4, v3_x_h2)
+        bgSE7 <- fillTriangle whiteC -< (midTopLineNWtoSE_x_h4, diagNWtoSE_x_h4, v3_x_h2)
+
+        let bgSE = bgSE1 <> bgSE2 <> bgSE3 <> bgSE4 <> bgSE5 <> bgSE6 <> bgSE7
+
+        -- SW White
+        v2_x_h2 <- intersectLL -< ((v2, v2Down), (h2, h2Down))
+
+        bgSW1 <- fillRectangle whiteC -< (topLineNEtoSW_x_h4, diagNEtoSW_x_h4, bl, topLineNEtoSW_x_left)
+        -- | prop21 = proc (bottom_x_bottom, midbottom_x_bottom, bottom_x_v1, _mid_x_v1, mid_x_h4, v1_x_h4, v2_x_h2, diag_x_h4) -> do
+        bgSW2and5 <- bgSWArrow -< (bottomLineNEtoSW_x_bottom, midBottomLineNEtoSW_x_bottom, bottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_h4, v1_x_h4, v2_x_h2, diagNEtoSW_x_h4)
+        bgSW3 <- fillRectangle whiteC -< (v2Down, v1Down, bottomLineNEtoSW_x_v1, v2_x_h2)
+        bgSW4 <- fillRectangle whiteC -< (h4, h2, v2_x_h2, topLineNEtoSW_x_h4)
+        bgSW6 <- fillTriangle whiteC -< (v2_x_h2, topLineNEtoSW_x_h4, diagNEtoSW_x_h4)
+        let bgSW = bgSW1 <> bgSW2and5 <> bgSW3 <> bgSW4 <> bgSW6
+
+        -- Red Stripes
+        cross1 <- fillRectangle redC -< (v2, v3, v3_x_h3, v2_x_h3)
+        cross2 <- fillRectangle redC -< (h2, h3, v2_x_h3, v2_x_h2)
+        cross3 <- fillRectangle redC -< (v2Down, v3Down, v3_x_h2, v2_x_h2)
+        cross4 <- fillRectangle redC -< (h2Down, h3Down, v3_x_h3, v3_x_h2)
+        cross5 <- fillRectangle redC -< (v3_x_h3, v2_x_h3, v2_x_h2, v3_x_h2)
+
+        let cross = cross1 <> cross2 <> cross3 <> cross4 <> cross5
+
+        returnA -< cross
             <> bNWBig <> bNWSmall <> rNW
             <> bSEBig <> bSESmall <> rSE
             <> bNEBig <> bNESmall <> rNE
             <> bSWBig <> bSWSmall <> rSW
             <> bgNW
             <> bgNE
+            <> bgSE
+            <> bgSW
