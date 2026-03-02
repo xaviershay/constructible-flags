@@ -10,7 +10,7 @@ import Effectful
 
 import Flag.Source
 import Flag.Definition (Flag, mkCountryFlag, editorNote)
-import Flag.Design.UnionJack (unionJack5to3, unionJackGazette, unionJackFlagInstitute, unionJackFlagSpec53, unionJackBlueRGB, unionJackRedRGB)
+import Flag.Design.UnionJack
 
 unitedKingdom :: Sourced :> es => Flag es
 unitedKingdom = editorNote (
@@ -33,7 +33,8 @@ unitedKingdom = editorNote (
   (do
     blueC <- reference "Royal Blue" unionJackFlagSpec53 unionJackBlueRGB
     redC  <- reference "Red"        unionJackFlagSpec53 unionJackRedRGB
-    unionJack5to3 blueC redC
+    --unionJack5to3 blueC redC
+    unionJack2to1 blueC redC
   )
 
   where

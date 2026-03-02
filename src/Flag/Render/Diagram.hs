@@ -73,12 +73,14 @@ sdId xs = T.pack (showHex (fromIntegral combined :: Word) "")
 drawingToElement :: Drawing -> Element
 drawingToElement CT.EmptyDrawing = mempty
 drawingToElement (CT.Overlay a b) = drawingToElement a <> drawingToElement b
+-- TODO: Revert stroke changes
+-- TODO: Implement DrawTriangle with DrawPath
 drawingToElement (CT.DrawTriangle col pt1 pt2 pt3) =
   polygon_
     [ Points_ <<- pointsAttr (map toDP [pt1, pt2, pt3]),
       Fill_ <<- colHex col,
       Fill_opacity_ <<- "1",
-      Stroke_ <<- colHex col,
+      Stroke_ <<- "#000000",
       Stroke_width_ <<- sd 0.02
     ]
 drawingToElement (CT.DrawPath col pts@(_ : _)) =
@@ -86,8 +88,8 @@ drawingToElement (CT.DrawPath col pts@(_ : _)) =
     [ Points_ <<- pointsAttr (map toDP pts),
       Fill_ <<- colHex col,
       Fill_opacity_ <<- "1",
-      Stroke_ <<- "none",
-      Stroke_width_ <<- "0"
+      Stroke_ <<- "#000000",
+      Stroke_width_ <<- sd 0.002
     ]
 drawingToElement (CT.DrawPath _ []) = mempty
 drawingToElement (CT.DrawCircle col center rd) =

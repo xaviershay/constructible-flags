@@ -54,6 +54,7 @@ library
       Flag.Country.GBR
       Flag.Country.JOR
       Flag.Country.JPN
+      Flag.Country.NPL
       Flag.Country.SYC
       Flag.Definition
       Flag.Design.UnionJack

@@ -65,12 +65,14 @@ unionJack2to1 blue red = mkUnionJack unionJackFlagSpec21 60 30 blue red
 mkUnionJack :: Sourced :> es => Entity -> Int -> Int -> Colour Double -> Colour Double -> Eff es (FlagA (Point, Point) Drawing)
 mkUnionJack spec w h blueC redC = do
     (bigWide, mediumWide) <- reference "Stripe Widths" spec (3 :: Int, 2 :: Int)
-    whiteC <- reference "White" spec (sRGB24 255 255 255)
+    -- whiteC <- reference "White" spec (sRGB24 255 255 255)
+    whiteC <- reference "White" spec (sRGB24 0 255 0)
+    let yellowC = (sRGB24 255 255 0)
 
     let
         prop53 = w == 50 && h == 30
         prop21 = w == 60 && h == 30
-    
+
     let mkDiagLines = proc (corner, center', n2, n3) -> do
             (_, a) <- intersectLC -< ((corner, center'), (corner, n3))
             (b, b') <- perpendicular -< (a, corner)
@@ -95,12 +97,30 @@ mkUnionJack spec w h blueC redC = do
           | otherwise = error "Unsupported proportions"
 
         rSWArrow
-          | w == 50 && h == 30 = proc (bl', diag_x_h4, v1_h4, mid_x_v1, mid_x_bottom) -> do
+          | w == 50 && h == 30 = proc (bl', diag_x_h4, v1_h4, mid_x_v1, _, mid_x_bottom) -> do
               r1 <- fillRectangle redC -< (bl', diag_x_h4, v1_h4, mid_x_bottom)
               r2 <- fillTriangle redC -< (v1_h4, mid_x_v1, mid_x_bottom)
               returnA -< r1 <> r2
-          | w == 60 && h == 30 = proc (bl', diag_x_h4, _v1_h4, mid_x_v1, mid_x_bottom) ->
-              fillRectangle redC -< (bl', diag_x_h4, mid_x_v1, mid_x_bottom)
+          | w == 60 && h == 30 = proc (bl', diag_x_h4, _v1_h4, _, mid_x_h4, mid_x_bottom) ->
+              fillRectangle redC -< (bl', diag_x_h4, mid_x_h4, mid_x_bottom)
+          | otherwise = error "Unsupported proportions"
+
+        -- Statically selected based on flag proportions: 5:3 has the mid-line
+        -- intersect v4 before h1, so bgNE2 uses midTopLineNEtoSW_x_v4 as its
+        -- bottom-right corner with no extra triangle. 2:1 uses midTopLineNEtoSW_x_h1
+        -- instead, and needs an extra triangle to fill the gap to v4.
+        bgNEArrow
+          | prop53 = proc (top_x_top, midTop_x_top, top_x_v4, mid_x_v4, mid_x_h1, v4_x_h1, v3_x_h3, diag_x_h1) -> do
+              r1 <- fillRectangle whiteC -< (top_x_top, midTop_x_top, mid_x_v4, top_x_v4)
+              r2 <- fillTriangle whiteC -< (v4_x_h1, v3_x_h3, mid_x_v4)
+              r3 <- fillTriangle whiteC -< (v3_x_h3, top_x_v4, mid_x_v4)
+              r4 <- fillTriangle whiteC -< (v3_x_h3, v4_x_h1, diag_x_h1)
+              returnA -< r1 <> r2 <> r3 <> r4
+          | prop21 = proc (top_x_top, midTop_x_top, top_x_v4, _mid_x_v4, mid_x_h1, v4_x_h1, v3_x_h3, diag_x_h1) -> do
+              r1 <- fillRectangle whiteC -< (top_x_top, midTop_x_top, mid_x_h1, top_x_v4)
+              r2 <- fillTriangle whiteC -< (top_x_v4, mid_x_h1, v3_x_h3)
+              r3 <- fillTriangle whiteC -< (v3_x_h3, mid_x_h1, diag_x_h1)
+              returnA -< r1 <> r2 <> r3
           | otherwise = error "Unsupported proportions"
 
     pure $ proc (tl, tr) -> do
@@ -120,7 +140,7 @@ mkUnionJack spec w h blueC redC = do
         v4' <- naturalMult 5 -< (tl, unit)
         (_, v4) <- translate -< ((tl, v4'), topMid)
         (_, v4Down) <- parallel -< ((tl, bl), v4)
-                                                                                                                                                                   
+
         (v1, _) <- intersectLC -< ((tl, topMid), (topMid, v4))
         (_, v1Down) <- parallel -< ((tl, bl), v1)
 
@@ -162,7 +182,7 @@ mkUnionJack spec w h blueC redC = do
         v1_x_bottom <- intersectLL -< ((v1, v1Down), (bl, br))
         v4_x_bottom <- intersectLL -< ((v4, v4Down), (bl, br))
 
-        bg <- fillRectangle whiteC -< (tl, tr, br, bl)
+        -- bg <- fillRectangle whiteC -< (tl, tr, br, bl)
 
         -- Red Stripes
         rVert <- fillRectangle redC -< (v2, v3, v3Down, v2Down)
@@ -218,15 +238,41 @@ mkUnionJack spec w h blueC redC = do
         bottomLineNEtoSW_x_bottom <- intersectLL -< (bottomLineNEtoSW, (bl, br))
         midBottomLineNEtoSW_x_bottom <- intersectLL -< (midBottomLineNEtoSW, (bl, br))
         midBottomLineNEtoSW_x_v1 <- intersectLL -< (midBottomLineNEtoSW, (v1, v1Down))
+        midBottomLineNEtoSW_x_h4 <- intersectLL -< (midBottomLineNEtoSW, (h4, h4Down))
         diagNEtoSW_x_h4 <- intersectLL -< (diagNEtoSW, (h4, h4Down))
         v1_x_h4 <- intersectLL -< ((v1, v1Down), (h4, h4Down))
 
         bSWBig <- fillTriangle blueC -< (topLineNEtoSW_x_left, topLineNEtoSW_x_h4, h4)
         bSWSmall <- fillTriangle blueC -< (bottomLineNEtoSW_x_v1, v1_x_bottom, bottomLineNEtoSW_x_bottom)
-        rSW <- rSWArrow -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_bottom)
+        rSW <- rSWArrow -< (bl, diagNEtoSW_x_h4, v1_x_h4, midBottomLineNEtoSW_x_v1, midBottomLineNEtoSW_x_h4, midBottomLineNEtoSW_x_bottom)
 
-        returnA -< bg <> rVert <> rHorz
+        -- NW White
+        v2_x_h3 <- intersectLL -< ((v2, v2Down), (h3, h3Down))
+
+        bgNW1 <- fillRectangle whiteC -< (bottomLineNWtoSE_x_h1, midBottomLineNWtoSE_x_h1, midBottomLineNWtoSE_x_left, bottomLineNWtoSE_x_left)
+        bgNW2 <- fillRectangle whiteC -< (tl, diagNWtoSE_x_h1, topLineNWtoSE_x_v1, topLineNWtoSE_x_top)
+        bgNW3 <- fillRectangle whiteC -< (h1, bottomLineNWtoSE_x_h1, v2_x_h3, h3)
+        bgNW4 <- fillRectangle whiteC -< (v1, v2, v2_x_h3, topLineNWtoSE_x_v1)
+        bgNW5 <- fillTriangle whiteC -< (diagNWtoSE_x_h1, topLineNWtoSE_x_v1, v2_x_h3)
+        bgNW6 <- fillTriangle whiteC -< (bottomLineNWtoSE_x_h1, midBottomLineNWtoSE_x_h1, v2_x_h3)
+        bgNW7 <- fillTriangle whiteC -< (midBottomLineNWtoSE_x_h1, diagNWtoSE_x_h1, v2_x_h3)
+
+        let bgNW = bgNW1 <> bgNW2 <> bgNW3 <> bgNW4 <> bgNW5 <> bgNW6 <> bgNW7
+
+        -- NE White
+        v3_x_h3 <- intersectLL -< ((v3, v3Down), (h3, h3Down))
+
+        bgNE1 <- fillRectangle whiteC -< (bottomLineNEtoSW_x_h1, diagNEtoSW_x_h1, tr, bottomLineNEtoSW_x_right)
+        bgNE2and5 <- bgNEArrow -< (topLineNEtoSW_x_top, midTopLineNEtoSW_x_top, topLineNEtoSW_x_v4, midTopLineNEtoSW_x_v4, midTopLineNEtoSW_x_h1, v4_x_h1, v3_x_h3, diagNEtoSW_x_h1)
+        bgNE3 <- fillRectangle whiteC -< (v3, v4, topLineNEtoSW_x_v4, v3_x_h3)
+        bgNE4 <- fillRectangle whiteC -< (h1Down, h3Down, v3_x_h3, bottomLineNEtoSW_x_h1)
+        bgNE6 <- fillTriangle whiteC -< (v3_x_h3, bottomLineNEtoSW_x_h1, diagNEtoSW_x_h1)
+        let bgNE = bgNE1 <> bgNE2and5 <> bgNE3 <> bgNE4 <> bgNE6
+
+        returnA -< rVert <> rHorz
             <> bNWBig <> bNWSmall <> rNW
             <> bSEBig <> bSESmall <> rSE
             <> bNEBig <> bNESmall <> rNE
             <> bSWBig <> bSWSmall <> rSW
+            <> bgNW
+            <> bgNE
