@@ -6,3 +6,4 @@ test/tmp
 .vscode/settings.json
 test/failures
 .DS_Store
+plans
