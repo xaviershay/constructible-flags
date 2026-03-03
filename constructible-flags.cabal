@@ -63,10 +63,12 @@ library
       Flag.Registry
       Flag.Render.Backend
       Flag.Render.Bounds
-      Flag.Render.Debug
       Flag.Render.DebugV2
       Flag.Render.Diagram
       Flag.Render.Html
+      Flag.Render.JSONBackend
+      Flag.Render.JSONHelpers
+      Flag.Render.PNGBackend
       Flag.Render.Prov
       Flag.Render.SVGBuilderBackend
       Flag.Render.SVGOverlay
@@ -91,6 +93,7 @@ library
     , filepath
     , hashable
     , http-conduit
+    , process
     , svg-builder
     , text
     , time
@@ -122,6 +125,7 @@ executable constructible-flags-exe
     , filepath
     , hashable
     , http-conduit
+    , process
     , svg-builder
     , text
     , time
@@ -153,6 +157,7 @@ executable debug-flag
     , filepath
     , hashable
     , http-conduit
+    , process
     , svg-builder
     , text
     , time
@@ -184,6 +189,7 @@ executable pantone-sample
     , filepath
     , hashable
     , http-conduit
+    , process
     , svg-builder
     , text
     , time
@@ -215,6 +221,7 @@ test-suite constructible-flags-bench
     , filepath
     , hashable
     , http-conduit
+    , process
     , svg-builder
     , text
     , time

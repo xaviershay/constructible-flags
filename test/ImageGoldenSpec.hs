@@ -5,19 +5,18 @@
 module ImageGoldenSpec (imageGoldenTests) where
 
 import Codec.Picture
-import Control.Monad (when)
+
 import Effectful (runPureEff)
-import Flag.Construction.Interpreter (eval, evalCollectNumbers)
+import Flag.Construction.Interpreter (evalCollectNumbers)
 import Flag.Construction.Types (Point)
 import Flag.Definition (Flag (..))
 import Flag.Registry (allCountryFlags)
-import Flag.Render.SVGBuilderBackend (SVGBuilderBackend (..))
-import Flag.Render.SVGOverlay (renderDrawingToSVG)
+import Flag.Render.Backend (renderDrawing)
+import Flag.Render.PNGBackend (PNGBackend (..))
 import Flag.Source (Sourced, runSourcedPure)
 import FlagsUnderConstruction (underConstruction)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((</>))
-import System.Process (callProcess)
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -38,20 +37,15 @@ goldenDir = "test/golden"
 failureDir :: FilePath
 failureDir = "test/failures"
 
-tmpDir :: FilePath
-tmpDir = "test/tmp"
-
 -- | Single-flag golden test.
 goldenTestFor :: Flag (Sourced : '[]) -> Assertion
 goldenTestFor flag = do
   createDirectoryIfMissing True goldenDir
   createDirectoryIfMissing True failureDir
-  createDirectoryIfMissing True tmpDir
 
   let iso = map toLower (flagIsoCode flag)
       goldenPath = goldenDir </> (iso ++ ".png")
-      tmpSvgPath = tmpDir </> (iso ++ ".svg")
-      tmpPath = tmpDir </> (iso ++ ".png")
+      tmpPath = failureDir </> (iso ++ "-candidate.png")
       failurePath = failureDir </> (iso ++ "-diff.png")
       -- Render width (match SVG width used elsewhere)
       svgWidth = 600 :: Double
@@ -59,11 +53,9 @@ goldenTestFor flag = do
   -- Resolve the FlagA arrow and evaluate on unit input
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       flagInput = ((0, 0), (1, 0)) :: (Point, Point)
-      -- drawing = eval flagArrow flagInput
       (drawing, _intermediateNumbers) = evalCollectNumbers flagArrow flagInput
 
-  renderDrawingToSVG SVGBuilderBackend tmpSvgPath svgWidth drawing
-  callProcess "rsvg-convert" [tmpSvgPath, "-o", tmpPath]
+  renderDrawing PNGBackend tmpPath svgWidth drawing
 
   goldenExists <- doesFileExist goldenPath
   if not goldenExists

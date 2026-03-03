@@ -50,6 +50,7 @@ dependencies:
     - bytestring
     - unordered-containers
     - hashable
+    - process
 
 ghc-options:
     - -Wall

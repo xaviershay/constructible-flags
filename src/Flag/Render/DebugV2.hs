@@ -7,26 +7,78 @@ module Flag.Render.DebugV2
 where
 
 import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Key as Key
-import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Lazy as BL
 import Data.Char (toLower)
-import Data.Colour (Colour)
-import Data.Colour.SRGB (channelBlue, channelGreen, channelRed, toSRGB)
 import qualified Data.Map.Strict as Map
-import qualified Data.Text as T
-import Flag.Construction.FieldNumber (FieldNumber, toDouble, toKaTeX)
+import Flag.Construction.FieldNumber (FieldNumber, toDouble)
 import Flag.Construction.Layers
   ( ConstructionLayer (..),
     layerInputPoints,
     layerOutputPoints,
     pointDist,
   )
-import Flag.Construction.Tree (ConstructionTree)
+import Flag.Construction.Tree (ConstructionTree (..))
 import Flag.Construction.Types (Point)
-import Flag.Render.Debug (NumberedEntry (..), numberTree, numberedLeaves)
-import Numeric (showFFloat, showHex)
+import Flag.Render.JSONHelpers
+  ( fromList,
+    jNum,
+    jObj,
+    jStr,
+    jsonPoint,
+    layerFillJson,
+    layerGeomJson,
+  )
+import Numeric (showFFloat)
 import System.Directory (copyFile, createDirectoryIfMissing)
+
+-- ---------------------------------------------------------------------------
+-- Tree-aware step numbering (inlined from Flag.Render.Debug)
+-- ---------------------------------------------------------------------------
+
+-- | A numbered entry in the construction tree.
+-- Each leaf gets a sequential step number; groups carry their label and children.
+data NumberedEntry
+  = -- | step number, leaf label, layer
+    NLeaf Int String ConstructionLayer
+  | -- | group label, sub-entries
+    NGroup String [NumberedEntry]
+  deriving (Show)
+
+-- | Assign sequential step numbers to the leaves of a 'ConstructionTree',
+-- starting from the given counter. Returns the updated counter and the
+-- numbered entries.
+numberTree :: Int -> [ConstructionTree] -> (Int, [NumberedEntry])
+numberTree n [] = (n, [])
+numberTree n (TreeLayer l : rest) =
+  let label = layerLabel l
+      (n', rest') = numberTree (n + 1) rest
+   in (n', NLeaf n label l : rest')
+numberTree n (TreeGroup g children : rest) =
+  let (n', numbered) = numberTree n children
+      (n'', rest') = numberTree n' rest
+   in (n'', NGroup g numbered : rest')
+
+-- | Collect the leaves of a numbered tree in order.
+numberedLeaves :: [NumberedEntry] -> [(Int, ConstructionLayer)]
+numberedLeaves [] = []
+numberedLeaves (NLeaf i _ l : rest) = (i, l) : numberedLeaves rest
+numberedLeaves (NGroup _ cs : rest) = numberedLeaves cs ++ numberedLeaves rest
+
+-- | Human-readable label for a construction layer.
+layerLabel :: ConstructionLayer -> String
+layerLabel LayerIntersectLL {} = "Intersect line\x2013line"
+layerLabel LayerIntersectLC {} = "Intersect line\x2013circle"
+layerLabel LayerIntersectCC {} = "Intersect circle\x2013circle"
+layerLabel LayerNGonVertex {}  = "N-gon vertex"
+layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
+layerLabel (LayerCircle _ _ _)     = "Fill circle"
+layerLabel (LayerMasked _ _ _)     = "Masked drawing"
+layerLabel (LayerSVGOverlay p _ _) = "SVG overlay: " ++ p
+layerLabel (LayerLabel name _)     = "Label: " ++ name
+
+-- ---------------------------------------------------------------------------
+-- Point helpers
+-- ---------------------------------------------------------------------------
 
 -- | Convert a Point (Radical, Radical) to (Double, Double) for SVG rendering.
 toDP :: Point -> (Double, Double)
@@ -136,21 +188,7 @@ writeConstructionJson name isoCode input tree labelList = do
   BL.writeFile path (Aeson.encode json)
   putStrLn $ "  Wrote " ++ path
 
--- ---------------------------------------------------------------------------
--- Aeson helpers
--- ---------------------------------------------------------------------------
 
-jObj :: [(T.Text, Aeson.Value)] -> Aeson.Value
-jObj pairs = Aeson.Object $ KM.fromList [(Key.fromText k, v) | (k, v) <- pairs]
-
-jStr :: String -> Aeson.Value
-jStr = Aeson.String . T.pack
-
-jNum :: Double -> Aeson.Value
-jNum = Aeson.Number . realToFrac
-
-fromList :: [Aeson.Value] -> Aeson.Array
-fromList = foldl (\v x -> v <> pure x) mempty
 
 -- ---------------------------------------------------------------------------
 -- Tree → JSON
@@ -182,26 +220,7 @@ treeToJson labelMap entries =
           ("children", Aeson.Array $ fromList (map entryToJson children))
         ]
 
-jsonPoint :: Point -> String -> Aeson.Value
-jsonPoint (x, y) label =
-  jObj
-    [ ("x", jNum (toDouble x)),
-      ("y", jNum (toDouble y)),
-      ("exactX", jStr (toKaTeX x)),
-      ("exactY", jStr (toKaTeX y)),
-      ("label", jStr label)
-    ]
 
--- | Compact [x, y] array for use in geometry instructions.
-jsonXY :: Double -> Double -> Aeson.Value
-jsonXY x y = Aeson.Array $ fromList [jNum x, jNum y]
-
--- | A line as [[x1,y1],[x2,y2]].
-jsonLine :: Point -> Point -> Aeson.Value
-jsonLine p1 p2 =
-  let (x1, y1) = toDP p1
-      (x2, y2) = toDP p2
-   in Aeson.Array $ fromList [jsonXY x1 y1, jsonXY x2 y2]
 
 -- ---------------------------------------------------------------------------
 -- Fill bounding box helpers
@@ -220,103 +239,9 @@ fillBoundingPoints (LayerCircle _ cc ce) =
 fillBoundingPoints (LayerLabel _ _) = []
 fillBoundingPoints _ = []
 
--- ---------------------------------------------------------------------------
--- Layer → structured geometry JSON
--- ---------------------------------------------------------------------------
 
--- | Structured description of the construction geometry for a layer.
--- Returns Null for layers with no construction to display.
-layerGeomJson :: ConstructionLayer -> Aeson.Value
-layerGeomJson (LayerIntersectLL p1 p2 p3 p4 _) =
-  jObj
-    [ ("type", jStr "intersectLL"),
-      ("l1", jsonLine p1 p2),
-      ("l2", jsonLine p3 p4)
-    ]
-layerGeomJson (LayerIntersectLC lp1 lp2 cc ce _) =
-  let (cx, cy) = toDP cc
-      r = toD (pointDist cc ce)
-   in jObj
-        [ ("type", jStr "intersectLC"),
-          ("line", jsonLine lp1 lp2),
-          ("cx", jNum cx),
-          ("cy", jNum cy),
-          ("r", jNum r)
-        ]
-layerGeomJson (LayerIntersectCC c1 e1 c2 e2 _) =
-  let (c1x, c1y) = toDP c1
-      r1 = toD (pointDist c1 e1)
-      (c2x, c2y) = toDP c2
-      r2 = toD (pointDist c2 e2)
-   in jObj
-        [ ("type", jStr "intersectCC"),
-          ("cx1", jNum c1x),
-          ("cy1", jNum c1y),
-          ("r1", jNum r1),
-          ("cx2", jNum c2x),
-          ("cy2", jNum c2y),
-          ("r2", jNum r2)
-        ]
-layerGeomJson (LayerNGonVertex _ _ _) = Aeson.Null
-layerGeomJson (LayerTriangle _ _ _ _) = Aeson.Null
-layerGeomJson (LayerCircle _ cc ce) =
-  let (cx, cy) = toDP cc
-      r = toD (pointDist cc ce)
-   in jObj
-        [ ("type", jStr "circle"),
-          ("cx", jNum cx),
-          ("cy", jNum cy),
-          ("r", jNum r)
-        ]
-layerGeomJson (LayerMasked _ _ _) = Aeson.Null
-layerGeomJson (LayerSVGOverlay _ _ _) = Aeson.Null
-layerGeomJson (LayerLabel _ _) = Aeson.Null
 
--- | Structured description of the persistent fill for a layer.
--- Returns Null for layers that don't produce a filled shape.
-layerFillJson :: ConstructionLayer -> Aeson.Value
-layerFillJson (LayerTriangle col p1 p2 p3) =
-  let (x1, y1) = toDP p1
-      (x2, y2) = toDP p2
-      (x3, y3) = toDP p3
-   in jObj
-        [ ("type", jStr "triangle"),
-          ( "pts",
-            Aeson.Array $
-              fromList
-                [jsonXY x1 y1, jsonXY x2 y2, jsonXY x3 y3]
-          ),
-          ("color", jStr (colourToHex col))
-        ]
-layerFillJson (LayerCircle col cc ce) =
-  let (cx, cy) = toDP cc
-      r = toD (pointDist cc ce)
-   in jObj
-        [ ("type", jStr "circle"),
-          ("cx", jNum cx),
-          ("cy", jNum cy),
-          ("r", jNum r),
-          ("color", jStr (colourToHex col))
-        ]
-layerFillJson (LayerLabel _ _) = Aeson.Null
-layerFillJson _ = Aeson.Null
 
--- ---------------------------------------------------------------------------
--- Colour helpers
--- ---------------------------------------------------------------------------
-
-colourToHex :: Data.Colour.Colour Double -> String
-colourToHex col =
-  let rgb = toSRGB col
-      r = clamp $ round (channelRed rgb * 255) :: Int
-      g = clamp $ round (channelGreen rgb * 255) :: Int
-      b = clamp $ round (channelBlue rgb * 255) :: Int
-   in "#" ++ hexByte r ++ hexByte g ++ hexByte b
-  where
-    clamp x = max 0 (min 255 x)
-    hexByte n
-      | n < 16 = "0" ++ showHex n ""
-      | otherwise = showHex n ""
 
 -- | Show a Double with enough precision
 showF :: Double -> String

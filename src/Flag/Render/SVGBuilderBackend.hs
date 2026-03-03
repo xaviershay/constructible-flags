@@ -1,37 +1,18 @@
-{-# LANGUAGE TypeFamilies #-}
-
 module Flag.Render.SVGBuilderBackend
     ( SVGBuilderBackend(..)
     ) where
 
-import Graphics.Svg (Element)
-
-
 import Flag.Render.Backend (RenderBackend(..))
-
-import Flag.Render.Diagram
-    ( drawingToElement
-    , renderConstructionGeom
-    , renderFill
-    , renderDots
-    )
-import Flag.Render.SVGOverlay (writeSVG)
+import Flag.Render.Diagram (drawingToElement)
+import Flag.Render.SVGOverlay (renderDrawingToText)
 
 -- | The svg-builder rendering backend.
 --
--- This is a simple token type — all state lives in the pure functions
--- imported from 'Flag.Render.Diagram' and 'Flag.Render.SVGOverlay'.
+-- Renders a 'Drawing' to an SVG file by converting it to a
+-- 'Graphics.Svg.Element' canvas via 'Flag.Render.Diagram.drawingToElement',
+-- assembling the full SVG document (including any overlay injection) in
+-- memory via 'renderDrawingToText', and writing it once to disk.
 data SVGBuilderBackend = SVGBuilderBackend
 
 instance RenderBackend SVGBuilderBackend where
-    type Canvas SVGBuilderBackend = Element
-
-    drawingToCanvas _ = drawingToElement
-
-    layerGeomToCanvas _ = renderConstructionGeom
-
-    layerFillToCanvas _ = renderFill
-
-    dotsToCanvas _ = renderDots
-
-    writeCanvas _ path width bbox canvas = writeSVG path width bbox canvas
+    renderDrawing _ = renderDrawingToText drawingToElement

@@ -17,7 +17,7 @@ import Flag.Render.DebugV2 (writeConstructionJson, writeDebugViewer)
 import Flag.Render.Html (generateConstructionPage, generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
 import Flag.Render.SVGBuilderBackend (SVGBuilderBackend (..))
-import Flag.Render.SVGOverlay (renderDrawingToSVG)
+import Flag.Render.Backend (renderDrawing)
 import Flag.Source (Sourced, SourcedElement, runSourcedCollect, runSourcedPure)
 import System.Directory (copyFile, createDirectoryIfMissing, doesDirectoryExist, listDirectory)
 import System.FilePath (takeDirectory, (</>))
@@ -110,7 +110,7 @@ processFlag flag = do
   -- render the optimized drawing using the shared pipeline (including
   -- SVG overlay injection) so that tests and the main executable stay in
   -- sync.
-  renderDrawingToSVG SVGBuilderBackend svgPath svgOutputWidth drawing
+  renderDrawing SVGBuilderBackend svgPath svgOutputWidth drawing
 
   -- Get description
   let description = runPureEff $ runSourcedPure $ flagDescription flag

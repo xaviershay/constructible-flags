@@ -2,6 +2,7 @@
 * Use `stack build` to build the project.
 * Tests use the tasty framework. Run with `./bin/test`.
 * NEVER try to use ghci or a repl.
+* Whenever I ask you to plan something, write a plan document out to a suitably named markdown file in `plans/`. No need to summarize after that, I can just read the file.
 
 ## Project intent — do not optimise away constructions
 

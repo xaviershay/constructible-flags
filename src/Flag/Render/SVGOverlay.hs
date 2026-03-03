@@ -6,8 +6,9 @@ module Flag.Render.SVGOverlay
     loadOverlaySources,
     extractOverlayPlacements,
     injectOverlays,
-    renderDrawingToSVG,
+    assembleSVG,
     writeSVG,
+    renderDrawingToText,
 
     -- * Re-exported from Flag.Render.Bounds
     drawingBounds,
@@ -17,18 +18,17 @@ module Flag.Render.SVGOverlay
   )
 where
 
-import Control.Monad (when)
 import Data.List (nub)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TLIO
 import qualified Data.Text.Read as TR
 import Flag.Construction.FieldNumber (toDouble)
 import Flag.Construction.Optimize (optimize)
 import Flag.Construction.Types (Drawing (..))
-import Flag.Render.Backend (RenderBackend (..))
 import Flag.Render.Bounds (BBox, drawingBounds)
 import Graphics.Svg
 import Numeric (showFFloat)
@@ -58,16 +58,16 @@ data OverlayPlacement = OverlayPlacement
 -- SVG file writing
 -- ---------------------------------------------------------------------------
 
--- | Write an SVG 'Element' to a file at the given pixel width.
+-- | Assemble a canvas 'Element' into a complete SVG document as lazy 'TL.Text',
+-- injecting any overlay sources at the given placements — all in memory.
 -- The bounding box is used to compute the viewBox and aspect ratio.
 -- A y-flip transform is applied so that construction coordinates (y-up)
 -- map correctly to SVG coordinates (y-down).
-writeSVG :: FilePath -> Double -> BBox -> Element -> IO ()
-writeSVG path svgW (minX, minY, maxX, maxY) content = do
+assembleSVG :: Double -> BBox -> Element -> Map FilePath OverlaySource -> [OverlayPlacement] -> TL.Text
+assembleSVG svgW (minX, minY, maxX, maxY) content overlaySources placements =
   let vbW = maxX - minX
       vbH = maxY - minY
       svgH = svgW * vbH / vbW
-      -- translate so (minX,maxY) → (0,0), then flip y-axis
       xform = "translate(" <> showT (-minX) <> "," <> showT maxY <> ") scale(1,-1)"
       doc =
         with
@@ -76,7 +76,36 @@ writeSVG path svgW (minX, minY, maxX, maxY) content = do
             Width_ <<- showT svgW,
             Height_ <<- showT svgH
           ]
-  TLIO.writeFile path (prettyText doc)
+      baseSvg = prettyText doc
+  in if null placements
+       then baseSvg
+       else TL.fromStrict
+              (injectOverlays
+                (TL.toStrict baseSvg)
+                overlaySources
+                placements
+                (minX, minY, maxY))
+
+-- | Write an SVG 'Element' to a file at the given pixel width, injecting
+-- overlays in memory before writing.  No file read-back occurs.
+writeSVG :: FilePath -> Double -> BBox -> Element -> Map FilePath OverlaySource -> [OverlayPlacement] -> IO ()
+writeSVG path svgW bbox content overlaySources placements =
+  TLIO.writeFile path (assembleSVG svgW bbox content overlaySources placements)
+
+-- | Render a 'Drawing' to fully-assembled SVG text in memory, then write to
+-- a file.  Takes a function to convert a 'Drawing' to an 'Element' so that
+-- this module does not need to import 'Flag.Render.Diagram' (which would
+-- create a cycle via 'SVGBuilderBackend').
+renderDrawingToText :: (Drawing -> Element) -> FilePath -> Double -> Drawing -> IO ()
+renderDrawingToText toElement outPath svgWidth drawing = do
+  let optimized = optimize drawing
+      bbox = case drawingBounds optimized of
+               Just bb -> bb
+               Nothing -> (0, 0, 1, 1)
+      placements = extractOverlayPlacements optimized
+      canvas     = toElement optimized
+  overlaySources <- loadOverlaySources optimized
+  TLIO.writeFile outPath (assembleSVG svgWidth bbox canvas overlaySources placements)
 
 -- ---------------------------------------------------------------------------
 -- Loading overlay sources
@@ -353,48 +382,6 @@ renderOverlay sources minX maxY placement =
               <> overlayContent src
               <> "\n</g>\n"
           ]
-
--- ---------------------------------------------------------------------------
--- Top-level rendering
--- ---------------------------------------------------------------------------
-
--- | Render an already-optimized 'Drawing' to an SVG file using the given
--- backend, injecting any SVG overlays found in the drawing.
-renderOptimizedDrawingToSVG ::
-  (RenderBackend b) =>
-  -- | rendering backend
-  b ->
-  -- | output path
-  FilePath ->
-  -- | SVG width (pixels)
-  Double ->
-  -- | optimized drawing (typically produced by 'optimize')
-  Drawing ->
-  IO ()
-renderOptimizedDrawingToSVG backend outPath svgOutputWidth optimizedDrawing = do
-  let bbox@(minX, minY, _maxX, maxY) =
-        case drawingBounds optimizedDrawing of
-          Just bb -> bb
-          Nothing -> (0, 0, 1, 1)
-      placements = extractOverlayPlacements optimizedDrawing
-      canvas = drawingToCanvas backend optimizedDrawing
-  overlaySources <- loadOverlaySources optimizedDrawing
-  writeCanvas backend outPath svgOutputWidth bbox canvas
-  when (not (null placements)) $ do
-    svgText <- TIO.readFile outPath
-    let result =
-          injectOverlays
-            svgText
-            overlaySources
-            placements
-            (minX, minY, maxY)
-    TIO.writeFile outPath result
-
--- | Convenience wrapper that takes an arbitrary 'Drawing', optimizes it,
--- then renders it using the given backend.
-renderDrawingToSVG :: (RenderBackend b) => b -> FilePath -> Double -> Drawing -> IO ()
-renderDrawingToSVG backend outPath svgWidth drawing =
-  renderOptimizedDrawingToSVG backend outPath svgWidth (optimize drawing)
 
 -- ---------------------------------------------------------------------------
 -- Internal text helpers
