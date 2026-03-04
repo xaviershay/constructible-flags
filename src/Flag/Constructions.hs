@@ -18,6 +18,7 @@ module Flag.Constructions
     fillStar5Inner,
     fillStar7Inner,
     fillStar12InnerC,
+    fillStar16InnerC,
     ngonVertex,
 
     -- * SVG overlay
@@ -433,6 +434,69 @@ fillStar5Inner scale col = group "Fill 5-point inner star" $ proc (o, a) -> do
         <> c0
         <> c1
         <> c2
+
+fillStar16InnerC :: Colour Double -> FlagA (Point, Point, Point) Drawing
+fillStar16InnerC col = group "Fill 16-point star" $ proc (o, innerEdge, v0) -> do
+  -- TODO: This logic isn't right yet
+  (v4, v12, v11, v10, v9, v3, v2, v1) <- quarterPoints -< (o, v0)
+  (v8, _, v7, v6, v5, v15, v14, v13) <- quarterPoints -< (o, v12)
+
+  iv0' <- midpoint -< (v0, v1)
+  (_, iv0) <- intersectLC >>> labelSecond "IV0" -< ((o, iv0'), (o, innerEdge))
+
+  (iv4, iv12, iv11, iv10, iv9, iv3, iv2, iv1) <- quarterPoints -< (o, iv0)
+  (iv8, _, iv7, iv6, iv5, iv15, iv14, iv13) <- quarterPoints -< (o, iv12)
+
+  s1 <- fillTriangle col -< (iv0, v1, iv1)
+  s2 <- fillTriangle col -< (iv1, v2, iv2)
+  s3 <- fillTriangle col -< (iv2, v3, iv3)
+  s4 <- fillTriangle col -< (iv3, v4, iv4)
+  s5 <- fillTriangle col -< (iv4, v5, iv5)
+  s6 <- fillTriangle col -< (iv5, v6, iv6)
+  s7 <- fillTriangle col -< (iv6, v7, iv7)
+  s8 <- fillTriangle col -< (iv7, v8, iv8)
+  s9 <- fillTriangle col -< (iv8, v9, iv9)
+  s10 <- fillTriangle col -< (iv9, v10, iv10)
+  s11 <- fillTriangle col -< (iv10, v11, iv11)
+  s12 <- fillTriangle col -< (iv11, v12, iv12)
+  s13 <- fillTriangle col -< (iv12, v13, iv13)
+  s14 <- fillTriangle col -< (iv13, v14, iv14)
+  s15 <- fillTriangle col -< (iv14, v15, iv15)
+  s16 <- fillTriangle col -< (iv15, v0, iv0)
+  let s = s1 <> s2 <> s3 <> s4 <> s5 <> s6 <> s7 <> s8 <> s9 <> s10 <> s11 <> s12 <> s13 <> s14 <> s15 <> s16
+
+  i1 <- fillTriangle col -< (o, iv0, iv1)
+  i2 <- fillTriangle col -< (o, iv1, iv2)
+  i3 <- fillTriangle col -< (o, iv2, iv3)
+  i4 <- fillTriangle col -< (o, iv3, iv4)
+  i5 <- fillTriangle col -< (o, iv4, iv5)
+  i6 <- fillTriangle col -< (o, iv5, iv6)
+  i7 <- fillTriangle col -< (o, iv6, iv7)
+  i8 <- fillTriangle col -< (o, iv7, iv8)
+  i9 <- fillTriangle col -< (o, iv8, iv9)
+  i10 <- fillTriangle col -< (o, iv9, iv10)
+  i11 <- fillTriangle col -< (o, iv10, iv11)
+  i12 <- fillTriangle col -< (o, iv11, iv12)
+  i13 <- fillTriangle col -< (o, iv12, iv13)
+  i14 <- fillTriangle col -< (o, iv13, iv14)
+  i15 <- fillTriangle col -< (o, iv14, iv15)
+  i16 <- fillTriangle col -< (o, iv15, iv0)
+  let i = i1 <> i2 <> i3 <> i4 <> i5 <> i6 <> i7 <> i8 <> i9 <> i10 <> i11 <> i12 <> i13 <> i14 <> i15 <> i16
+
+  returnA -< s <> i
+  where
+    -- \| Given a center and an axis point, constructs the quarter point and the
+    -- 3 intermediate points in the arc from axis to quarter, plus their antipodals.
+    -- Returns (quarter, antiAxis, anti3, anti2, anti1, p3, p2, p1)
+    quarterPoints = proc (ctr, axis) -> do
+      (quarter, anti) <- perpendicular -< (ctr, axis)
+      p2' <- midpoint -< (quarter, axis)
+      p1' <- midpoint -< (p2', axis)
+      p3' <- midpoint -< (p2', quarter)
+      (anti3, p3) <- intersectLC -< ((ctr, p3'), (ctr, axis))
+      (anti2, p2) <- intersectLC -< ((ctr, p2'), (ctr, axis))
+      (anti1, p1) <- intersectLC -< ((ctr, p1'), (ctr, axis))
+      returnA -< (quarter, anti, anti3, anti2, anti1, p3, p2, p1)
 
 fillStar12InnerC :: Colour Double -> FlagA (Point, Point, Point) Drawing
 fillStar12InnerC col = group "Fill 12-point inner star inner" $ proc (o, ivEdge, ovEdge) -> do

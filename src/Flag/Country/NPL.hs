@@ -1,8 +1,8 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultilineStrings #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Flag.Country.NPL
   ( nepal,
@@ -17,8 +17,8 @@ import Flag.Construction.Types (Drawing, FlagA, Point)
 import Flag.Constructions
 import Flag.Definition (Flag, editorNote, mkCountryFlag)
 import Flag.Pantone (referencePantoneAsRGB)
-import Flag.Source
 import Flag.SharedSources
+import Flag.Source
 
 nepal :: (Sourced :> es) => Flag es
 nepal =
@@ -32,30 +32,34 @@ nepal =
 
     I could not find an authority on colors, so defaulted to the Olympic flags manual.
     """
-  $ mkCountryFlag
-    "NPL"
-    "Nepal"
-    constructedAt
-    (reference "Description" flagSpec """
-    The national flag of Nepal consists of two juxtaposed
-    triangular figures with a crimson-coloured base and deep blue borders, there
-    being a white emblem of the crescent moon with eight rays visible out of
-    sixteen in the upper part and a white emblem of a twelve rayed sun in the lower
-    part.
-    """)
-    design
+    $ mkCountryFlag
+      "NPL"
+      "Nepal"
+      constructedAt
+      ( reference
+          "Description"
+          flagSpec
+          """
+          The national flag of Nepal consists of two juxtaposed
+          triangular figures with a crimson-coloured base and deep blue borders, there
+          being a white emblem of the crescent moon with eight rays visible out of
+          sixteen in the upper part and a white emblem of a twelve rayed sun in the lower
+          part.
+          """
+      )
+      design
   where
     constructedAt = "2026-03-04"
     gov = mkAgentOrg "npl_gov" "Government of Nepal"
 
     flagSpec =
-          screenshot constructedAt "npl/constitution-1.png"
-        $ screenshot constructedAt "npl/constitution-2.png"
-        $ screenshot constructedAt "npl/constitution-3.png"
-        $ attributeTo gov $
-            mkEntity
-            "The Constitution of Nepal"
-            "https://ag.gov.np/files/Constitution-of-Nepal_2072_Eng_www.moljpa.gov_.npDate-72_11_16.pdf"
+      screenshot constructedAt "npl/constitution-1.png" $
+        screenshot constructedAt "npl/constitution-2.png" $
+          screenshot constructedAt "npl/constitution-3.png" $
+            attributeTo gov $
+              mkEntity
+                "The Constitution of Nepal"
+                "https://ag.gov.np/files/Constitution-of-Nepal_2072_Eng_www.moljpa.gov_.npDate-72_11_16.pdf"
 
     locWithScreenshot = screenshot constructedAt "npl/loc.png" londonOlympicsFlagsManual
 
@@ -104,7 +108,7 @@ nepal =
         v4 <- midpoint -< (s, v3)
         (_, v6) <- intersectLC -< ((t, v4), (t, s))
         -- TODO: This needs to be 16 points, not 12.
-        topStar <- fillStar12InnerC whiteC -< (t, m, v6)
+        topStar <- fillStar16InnerC whiteC -< (t, m, v6)
         clipCircle <- fillCircle whiteC -< (m, q)
         topStarClipped <- clipDrawing -< (topStar, clipCircle)
         let moon = topCrescent <> topCircle <> topStarClipped
