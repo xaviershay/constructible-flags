@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE MultilineStrings #-}
 
 module Flag.Country.NPL
   ( nepal,
@@ -14,34 +15,56 @@ import Data.Ratio
 import Effectful
 import Flag.Construction.Types (Drawing, FlagA, Point)
 import Flag.Constructions
-import Flag.Definition (Flag, mkCountryFlag)
+import Flag.Definition (Flag, editorNote, mkCountryFlag)
 import Flag.Pantone (referencePantoneAsRGB)
 import Flag.Source
+import Flag.SharedSources
 
 nepal :: (Sourced :> es) => Flag es
 nepal =
-  mkCountryFlag
+  editorNote
+    """
+    The constitution is exact on construction, except for some slight ambiguity on
+    the moon star: eight rays are fully visible, but what of the partial ones?
+    The construction schedule also does not specify a sixteen-pointed star, but this is
+    made clear in the summary description. The version here matches the example
+    graphic in the constitution schedule.
+
+    I could not find an authority on colors, so defaulted to the Olympic flags manual.
+    """
+  $ mkCountryFlag
     "NPL"
     "Nepal"
     constructedAt
-    (reference "Description" flagSpec "TODO: add official flag description")
+    (reference "Description" flagSpec """
+    The national flag of Nepal consists of two juxtaposed
+    triangular figures with a crimson-coloured base and deep blue borders, there
+    being a white emblem of the crescent moon with eight rays visible out of
+    sixteen in the upper part and a white emblem of a twelve rayed sun in the lower
+    part.
+    """)
     design
   where
-    constructedAt = "2026-03-02"
+    constructedAt = "2026-03-04"
     gov = mkAgentOrg "npl_gov" "Government of Nepal"
 
     flagSpec =
-      attributeTo gov $
-        mkEntity
-          "TODO: add official flag specification title"
-          "TODO: add URL"
+          screenshot constructedAt "npl/constitution-1.png"
+        $ screenshot constructedAt "npl/constitution-2.png"
+        $ screenshot constructedAt "npl/constitution-3.png"
+        $ attributeTo gov $
+            mkEntity
+            "The Constitution of Nepal"
+            "https://ag.gov.np/files/Constitution-of-Nepal_2072_Eng_www.moljpa.gov_.npDate-72_11_16.pdf"
+
+    locWithScreenshot = screenshot constructedAt "npl/loc.png" londonOlympicsFlagsManual
 
     design :: (Sourced :> es) => Eff es (FlagA (Point, Point) Drawing)
     design = do
-      -- TODO: source dimensions from flagSpec
-      whiteC <- impliedReference "White" flagSpec (sRGB24 255 255 255)
-      redC <- referencePantoneAsRGB flagSpec ("Red", "186-C")
-      blueC <- referencePantoneAsRGB flagSpec ("Blue", "287-C")
+      _ <- reference "Construction" flagSpec ()
+      whiteC <- editorial "White" [] (sRGB24 255 255 255)
+      redC <- referencePantoneAsRGB locWithScreenshot ("Red", "186-C")
+      blueC <- referencePantoneAsRGB locWithScreenshot ("Blue", "287-C")
       pure $ proc (a, b) -> do
         _ <- label "A" -< a
         _ <- label "B" -< b
@@ -74,13 +97,13 @@ nepal =
         bg3 <- fillTriangle redC -< (c, e, g)
         let bg = bg1 <> bg2 <> bg3
 
-        -- TODO: Add the moon triangles
         topCrescent <- fillCrescent whiteC -< ((m, p), (l, p))
         topCircle <- fillCircle whiteC -< (t, m)
         (_, v2) <- intersectCC -< ((t, s), (s, t))
         v3 <- midpoint -< (s, v2)
         v4 <- midpoint -< (s, v3)
         (_, v6) <- intersectLC -< ((t, v4), (t, s))
+        -- TODO: This needs to be 16 points, not 12.
         topStar <- fillStar12InnerC whiteC -< (t, m, v6)
         clipCircle <- fillCircle whiteC -< (m, q)
         topStarClipped <- clipDrawing -< (topStar, clipCircle)

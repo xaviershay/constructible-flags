@@ -46,7 +46,7 @@ data Entity = Entity
   { entityTitle      :: String
   , entityUrl        :: String
   , entityAgent      :: Maybe Agent
-  , entityScreenshot :: Maybe (String, String)  -- (date, imagePath)
+  , entityScreenshots :: [(String, String)]  -- [(date, imagePath)]
   , entityTranslated :: Maybe String            -- date of translation access
   } deriving (Show, Eq)
 
@@ -122,7 +122,7 @@ mkEntity title url = Entity
   { entityTitle      = title
   , entityUrl        = url
   , entityAgent      = Nothing
-  , entityScreenshot = Nothing
+  , entityScreenshots = []
   , entityTranslated = Nothing
   }
 
@@ -130,9 +130,10 @@ mkEntity title url = Entity
 attributeTo :: Agent -> Entity -> Entity
 attributeTo agent entity = entity { entityAgent = Just agent }
 
--- | Attach a screenshot to an entity
+-- | Attach a screenshot to an entity.  Multiple calls accumulate; all
+-- screenshots are stored and displayed in order.
 screenshot :: String -> String -> Entity -> Entity
-screenshot date path entity = entity { entityScreenshot = Just (date, path) }
+screenshot date path entity = entity { entityScreenshots = (date, path) : entityScreenshots entity }
 
 -- | Mark an entity as a translation (accessed at given date)
 translated :: String -> Entity -> Entity

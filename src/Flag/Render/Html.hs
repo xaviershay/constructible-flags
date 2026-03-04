@@ -281,7 +281,7 @@ formatMergedCard (names, srcs) =
   let screenshotEntities =
         [ e
         | e <- nub (concatMap screenshotableEntities srcs),
-          entityScreenshot e /= Nothing
+          not (null (entityScreenshots e))
         ]
       isPantone e = case entityAgent e of
         Just a -> agentId a == "pantone"
@@ -303,14 +303,14 @@ formatSourceHeading (SourceUnsightedReference e _) = formatEntityLink e <> " (un
 formatSourceHeading (SourceEditorial refs) = mconcat $ intersperse ", " $ map formatEntityLink refs
 formatSourceHeading (SourceApproximation approxOf _) = "Approximation of " <> H.em (toHtml approxOf)
 
--- | Render a regular (non-Pantone) screenshot as a block-level image.
+-- | Render all screenshots for a regular (non-Pantone) entity as block-level images.
 renderScreenshot :: Entity -> H.Html
 renderScreenshot entity =
-  case entityScreenshot entity of
-    Just (_, path) ->
-      H.div ! A.class_ "source-screenshot" $
+  mconcat
+    [ H.div ! A.class_ "source-screenshot" $
         H.img ! A.src (toValue $ "/images/" ++ path)
-    Nothing -> mempty
+    | (_, path) <- entityScreenshots entity
+    ]
 
 -- | Render Pantone chip images grouped together in a row.
 renderPantoneChips :: [Entity] -> H.Html
@@ -318,11 +318,11 @@ renderPantoneChips [] = mempty
 renderPantoneChips chips =
   H.div ! A.class_ "pantone-chips" $ mapM_ renderChip chips
   where
-    renderChip entity = case entityScreenshot entity of
-      Just (_, path) ->
+    renderChip entity = case entityScreenshots entity of
+      ((_, path) : _) ->
         H.div ! A.class_ "pantone-chip" $
           H.img ! A.src (toValue $ "/images/" ++ path)
-      Nothing -> mempty
+      [] -> mempty
 
 -- | Entities whose screenshots should be displayed in the sources view.
 -- Screenshots are shown for directly-cited and corroborating sources, but not

@@ -87,14 +87,14 @@ generateProvJson isoCode flagName' sources =
     entityIdStr :: Entity -> String
     entityIdStr = escId . entityTitle
 
-    screenshotIdStr :: Entity -> String
-    screenshotIdStr e = "screenshot_" ++ entityIdStr e
+    screenshotIdStr :: Entity -> Int -> String
+    screenshotIdStr e i = "screenshot_" ++ entityIdStr e ++ "_" ++ show i
 
     attrId :: String -> String
     attrId name = isoLower ++ "_" ++ escId name
 
-    viewActivityId :: Entity -> String
-    viewActivityId e = cf ("view_" ++ entityIdStr e)
+    viewActivityId :: Entity -> Int -> String
+    viewActivityId e i = cf ("view_" ++ entityIdStr e ++ "_" ++ show i)
 
     translateActivityId :: Entity -> String
     translateActivityId e = cf ("translate_" ++ entityIdStr e)
@@ -138,12 +138,11 @@ generateProvJson isoCode flagName' sources =
           , "prov:type"  .= qname "cf:SourceDocument" ] ++
           [ "prov:location" .= entityUrl e | not (null (entityUrl e)) ]) ] ++
       -- Screenshot entity (if present)
-      maybe [] (\(_, path) ->
-        [ (cf (screenshotIdStr e), object
+      [ (cf (screenshotIdStr e i), object
             [ "prov:label"    .= ("Screenshot of " ++ entityTitle e)
             , "prov:type"     .= qname "cf:Screenshot"
-            , "prov:location" .= path ]) ])
-        (entityScreenshot e)
+            , "prov:location" .= path ])
+        | (i, (_, path)) <- zip [0..] (entityScreenshots e) ]
 
     allEntityEntries :: [(String, Value)]
     allEntityEntries =
@@ -171,13 +170,13 @@ generateProvJson isoCode flagName' sources =
       [ (constructionId, object
           [ "prov:label" .= ("Construction" :: String)
           , "prov:type"  .= qname "cf:Construction" ]) ] ++
-      -- View activities (one per entity that has a screenshot)
-      [ (viewActivityId e, object
+      -- View activities (one per screenshot)
+      [ (viewActivityId e i, object
           [ "prov:label"     .= ("View" :: String)
           , "prov:type"      .= qname "cf:View"
           , "prov:startTime" .= (date ++ "T00:00:00")
           , "prov:endTime"   .= (date ++ "T00:00:00") ])
-        | e <- allEntities, Just (date, _) <- [entityScreenshot e] ] ++
+        | e <- allEntities, (i, (date, _)) <- zip [0..] (entityScreenshots e) ] ++
       -- Translate activities (one per entity that has a translation)
       [ (translateActivityId e, object
           [ "prov:label"     .= ("Translate" :: String)
@@ -201,8 +200,8 @@ generateProvJson isoCode flagName' sources =
       -- Flag wasGeneratedBy construction
       [ object ["prov:entity" .= flagEntityId, "prov:activity" .= constructionId] ] ++
       -- Screenshot wasGeneratedBy view
-      [ object ["prov:entity" .= cf (screenshotIdStr e), "prov:activity" .= viewActivityId e]
-        | e <- allEntities, Just _ <- [entityScreenshot e] ] ++
+      [ object ["prov:entity" .= cf (screenshotIdStr e i), "prov:activity" .= viewActivityId e i]
+        | e <- allEntities, (i, _) <- zip [0..] (entityScreenshots e) ] ++
       -- SourcedAttr wasGeneratedBy translate (translate activity bridges source to attribute)
       [ object ["prov:entity" .= cf (attrId name), "prov:activity" .= translateActivityId e]
         | SourcedAttr name src <- sources
@@ -229,8 +228,8 @@ generateProvJson isoCode flagName' sources =
       [ object ["prov:activity" .= constructionId, "prov:entity" .= cf (attrId name)]
         | DerivedAttr name _ _ <- sources ] ++
       -- View used source entity
-      [ object ["prov:activity" .= viewActivityId e, "prov:entity" .= cf (entityIdStr e)]
-        | e <- allEntities, Just _ <- [entityScreenshot e] ] ++
+      [ object ["prov:activity" .= viewActivityId e i, "prov:entity" .= cf (entityIdStr e)]
+        | e <- allEntities, (i, _) <- zip [0..] (entityScreenshots e) ] ++
       -- Translate used source entity
       [ object ["prov:activity" .= translateActivityId e
                ,"prov:entity"   .= cf (entityIdStr e)]
@@ -243,9 +242,9 @@ generateProvJson isoCode flagName' sources =
     wdfRels :: [Value]
     wdfRels =
       -- Screenshot derived from source entity
-      [ object ["prov:generatedEntity" .= cf (screenshotIdStr e)
+      [ object ["prov:generatedEntity" .= cf (screenshotIdStr e i)
                ,"prov:usedEntity"      .= cf (entityIdStr e)]
-        | e <- allEntities, Just _ <- [entityScreenshot e] ] ++
+        | e <- allEntities, (i, _) <- zip [0..] (entityScreenshots e) ] ++
       -- Attribute derived from source (for reference and unsighted)
       concatMap attrWasDerivedFrom sources
 
@@ -279,8 +278,8 @@ generateProvJson isoCode flagName' sources =
       -- Construction associated with editor
       [ object ["prov:activity" .= constructionId, "prov:agent" .= cf "editor"] ] ++
       -- View associated with editor
-      [ object ["prov:activity" .= viewActivityId e, "prov:agent" .= cf "editor"]
-        | e <- allEntities, Just _ <- [entityScreenshot e] ] ++
+      [ object ["prov:activity" .= viewActivityId e i, "prov:agent" .= cf "editor"]
+        | e <- allEntities, (i, _) <- zip [0..] (entityScreenshots e) ] ++
       -- Translate associated with editor and google_translate
       concatMap (\e ->
         [ object ["prov:activity" .= translateActivityId e, "prov:agent" .= cf "editor"]
