@@ -103,12 +103,10 @@ nepal =
 
         topCrescent <- fillCrescent whiteC -< ((m, p), (l, p))
         topCircle <- fillCircle whiteC -< (t, m)
-        (_, v2) <- intersectCC -< ((t, s), (s, t))
-        v3 <- midpoint -< (s, v2)
-        v4 <- midpoint -< (s, v3)
-        (_, v6) <- intersectLC -< ((t, v4), (t, s))
-        -- TODO: This needs to be 16 points, not 12.
-        topStar <- fillStar16InnerC whiteC -< (t, m, v6)
+
+        moonStarEdge <- halvePerpendicularN 3 -< (t, s)
+
+        topStar <- fillStar16InnerC whiteC -< (t, m, moonStarEdge)
         clipCircle <- fillCircle whiteC -< (m, q)
         topStarClipped <- clipDrawing -< (topStar, clipCircle)
         let moon = topCrescent <> topCircle <> topStarClipped
@@ -155,3 +153,19 @@ nepal =
         let border = b1 <> b2 <> b3 <> b4 <> b5
 
         returnA -< border <> bg <> moon <> sun
+
+    -- | Halve the perpendicular distance n times.
+    -- Given (center, edgePoint), find a perpendicular point, then halve the
+    -- distance n times by repeatedly taking midpoint and projecting back onto
+    -- the circle via intersectLC.
+    halvePerpendicularN :: Int -> FlagA (Point, Point) Point
+    halvePerpendicularN n = group ("Halve perpendicular " ++ show n ++ " times") $ proc (center, edge) -> do
+      (perpPoint, _) <- perpendicular -< (center, edge)
+      halveN n -< (center, edge, perpPoint)
+      where
+        halveN :: Int -> FlagA (Point, Point, Point) Point
+        halveN 0 = proc (_, _, p) -> returnA -< p
+        halveN k = proc (center, edge, perpPoint) -> do
+          midPt <- midpoint -< (edge, perpPoint)
+          (_, newPoint) <- intersectLC -< ((center, midPt), (center, edge))
+          halveN (k - 1) -< (center, edge, newPoint)

@@ -247,6 +247,7 @@ test-suite constructible-flags-test
       InterpreterSpec
       NGonVertexSpec
       OptimizeSpec
+      FillOperationsSpec
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N1

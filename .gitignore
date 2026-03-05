@@ -1,4 +1,6 @@
 .stack-work/
+dist/
+dist-newstyle/
 out
 test/tmp
 .claude

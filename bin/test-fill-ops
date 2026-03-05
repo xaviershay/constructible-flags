@@ -1,0 +1,31 @@
+#!/bin/sh
+# Run fill operation golden tests and prepare debug viewer
+set -e
+
+if [ -d "out/construction" ]; then
+    # List fill operation construction JSON files
+    count=0
+    for json in out/construction/fill*.json; do
+        if [ -f "$json" ]; then
+            count=$((count + 1))
+            name=$(basename "$json" .json)
+            echo "  http://localhost:8000/debug-v2/index.html?flag=$name"
+        fi
+    done
+
+    if [ $count -eq 0 ]; then
+        echo "  (No fill operation constructions found - tests may not have run)"
+    else
+        echo ""
+        echo "Found $count fill operation construction(s)"
+    fi
+else
+    echo "  (No construction directory found - tests haven't run yet)"
+fi
+
+echo ""
+echo "==================================================================="
+echo ""
+echo "Golden images: test/golden/fill-ops/"
+echo "Failure diffs:  test/failures/fill-ops/"
+echo ""

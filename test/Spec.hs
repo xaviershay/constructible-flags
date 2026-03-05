@@ -12,6 +12,7 @@ import OptimizeSpec (optimizeTests)
 import qualified SVGOverlaySpec
 import qualified HtmlSpec
 import FieldNumberSpec (fieldNumberTests)
+import FillOperationsSpec (fillOperationsTests)
 
 main :: IO ()
 main = defaultMain $ localOption (mkTimeout 2000000) $ testGroup "All Tests"
@@ -25,4 +26,5 @@ main = defaultMain $ localOption (mkTimeout 2000000) $ testGroup "All Tests"
   , optimizeTests
   , SVGOverlaySpec.svgOverlayTests
   , fieldNumberTests
+  , fillOperationsTests
   ]

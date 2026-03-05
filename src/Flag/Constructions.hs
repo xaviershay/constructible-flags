@@ -439,13 +439,13 @@ fillStar16InnerC :: Colour Double -> FlagA (Point, Point, Point) Drawing
 fillStar16InnerC col = group "Fill 16-point star" $ proc (o, innerEdge, v0) -> do
   -- TODO: This logic isn't right yet
   (v4, v12, v11, v10, v9, v3, v2, v1) <- quarterPoints -< (o, v0)
-  (v8, _, v7, v6, v5, v15, v14, v13) <- quarterPoints -< (o, v12)
+  (_, v8, v7, v6, v5, v15, v14, v13) <- quarterPoints -< (o, v12)
 
   iv0' <- midpoint -< (v0, v1)
-  (_, iv0) <- intersectLC >>> labelSecond "IV0" -< ((o, iv0'), (o, innerEdge))
+  (_, iv0) <- intersectLC -< ((o, iv0'), (o, innerEdge))
 
   (iv4, iv12, iv11, iv10, iv9, iv3, iv2, iv1) <- quarterPoints -< (o, iv0)
-  (iv8, _, iv7, iv6, iv5, iv15, iv14, iv13) <- quarterPoints -< (o, iv12)
+  (_, iv8, iv7, iv6, iv5, iv15, iv14, iv13) <- quarterPoints -< (o, iv12)
 
   s1 <- fillTriangle col -< (iv0, v1, iv1)
   s2 <- fillTriangle col -< (iv1, v2, iv2)
@@ -491,11 +491,11 @@ fillStar16InnerC col = group "Fill 16-point star" $ proc (o, innerEdge, v0) -> d
     quarterPoints = proc (ctr, axis) -> do
       (quarter, anti) <- perpendicular -< (ctr, axis)
       p2' <- midpoint -< (quarter, axis)
-      p1' <- midpoint -< (p2', axis)
-      p3' <- midpoint -< (p2', quarter)
-      (anti3, p3) <- intersectLC -< ((ctr, p3'), (ctr, axis))
       (anti2, p2) <- intersectLC -< ((ctr, p2'), (ctr, axis))
+      p1' <- midpoint -< (p2, axis)
+      p3' <- midpoint -< (p2, quarter)
       (anti1, p1) <- intersectLC -< ((ctr, p1'), (ctr, axis))
+      (anti3, p3) <- intersectLC -< ((ctr, p3'), (ctr, axis))
       returnA -< (quarter, anti, anti3, anti2, anti1, p3, p2, p1)
 
 fillStar12InnerC :: Colour Double -> FlagA (Point, Point, Point) Drawing
