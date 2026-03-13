@@ -6,10 +6,12 @@ module Flag.Construction.Layers
     layerOutputPoints,
     pointDist,
     evalLayers,
+    pruneLayers,
   )
 where
 
 import Data.Colour
+import qualified Data.Set as S
 import Flag.Construction.Geometry
 import Flag.Construction.Types
 
@@ -91,6 +93,116 @@ layerOutputPoints (LayerLabel _ p) = [p]
 -- | Euclidean distance (exported for rendering code that derives radii).
 pointDist :: Point -> Point -> Number
 pointDist = dist
+
+-- | Prune a flat list of construction layers by removing:
+--
+--   * __Duplicate outputs__: a geometric layer whose output point(s) are
+--     identical to those already produced by an earlier layer.  If the
+--     duplicate layer happens to be a 'LayerLabel', the label is instead
+--     kept (labels are cheap transparent annotations and can sensibly
+--     point to a previously-computed point).
+--
+--   * __Dead computations__: a geometric layer (any layer that produces
+--     output points but is not a fill or SVG layer) whose output point(s)
+--     are never consumed as inputs by any later layer in the list, and
+--     which are not referenced by any 'LayerLabel'.
+--
+-- Fill layers ('LayerTriangle', 'LayerCircle', 'LayerMasked',
+-- 'LayerSVGOverlay') are always kept regardless, because they produce
+-- visible output rather than intermediate points.
+-- 'LayerLabel' annotations are also always kept.
+pruneLayers :: [ConstructionLayer] -> [ConstructionLayer]
+pruneLayers layers = dropDead (dedupOutputs layers)
+
+-- ---------------------------------------------------------------------------
+-- Pass 1: deduplicate outputs
+-- ---------------------------------------------------------------------------
+
+-- | Remove any geometric layer whose output points have all already been
+-- produced by an earlier layer.  A 'LayerLabel' is never removed here
+-- (it is a transparent annotation, not a geometric step).
+dedupOutputs :: [ConstructionLayer] -> [ConstructionLayer]
+dedupOutputs = go S.empty
+  where
+    go _ [] = []
+    go seen (l : ls) =
+      let outs = layerOutputPoints l
+       in case l of
+            -- Labels are transparent: always keep, never update the seen set
+            LayerLabel {} -> l : go seen ls
+            -- Fill / overlay layers produce no intermediate points: always keep
+            _ | null outs -> l : go seen ls
+            -- Geometric layer: drop if every output is already known
+            _ ->
+              let newOuts = filter (`S.notMember` seen) outs
+               in if null newOuts
+                    then go seen ls -- fully duplicate — drop it
+                    else l : go (foldl (flip S.insert) seen outs) ls
+
+-- ---------------------------------------------------------------------------
+-- Pass 2: dead-computation elimination
+-- ---------------------------------------------------------------------------
+
+-- | Drop any geometric layer whose output points are never used as inputs
+-- by any later layer and are not referenced by any 'LayerLabel'.
+-- Fill / overlay layers are always kept.
+dropDead :: [ConstructionLayer] -> [ConstructionLayer]
+dropDead layers =
+  let needed = neededPoints layers
+   in filter (isNeeded needed) layers
+  where
+    -- A layer is needed if it is a fill/overlay (no output points),
+    -- a label, or if at least one of its output points is needed.
+    isNeeded :: S.Set Point -> ConstructionLayer -> Bool
+    isNeeded _ LayerLabel {} = True
+    isNeeded _ LayerTriangle {} = True
+    isNeeded _ LayerCircle {} = True
+    isNeeded _ LayerMasked {} = True
+    isNeeded _ LayerSVGOverlay {} = True
+    isNeeded needed l =
+      any (`S.member` needed) (layerOutputPoints l)
+
+    -- Collect all points that are transitively needed, working backwards
+    -- from fill/overlay/label anchors.
+    --
+    -- A point is needed if:
+    --   1. It is referenced by a label, OR
+    --   2. It is consumed as an input by a fill/overlay layer, OR
+    --   3. It is consumed as an input by a geometric layer that is itself
+    --      needed (i.e. whose output points are in the needed set).
+    --
+    -- We compute this by iterating to a fixed point.
+    neededPoints :: [ConstructionLayer] -> S.Set Point
+    neededPoints ls = fixpoint seed ls
+      where
+        -- Seed: points directly referenced by labels or consumed by fills/overlays
+        seed =
+          S.fromList $
+            [p | LayerLabel _ p <- ls]
+              ++ concatMap anchorInputs ls
+
+        anchorInputs :: ConstructionLayer -> [Point]
+        anchorInputs l@LayerTriangle {} = layerInputPoints l
+        anchorInputs l@LayerCircle {} = layerInputPoints l
+        anchorInputs l@LayerMasked {} = layerInputPoints l
+        anchorInputs l@LayerSVGOverlay {} = layerInputPoints l
+        anchorInputs _ = []
+
+        -- Expand: if any output of a geometric layer is needed, all of its
+        -- inputs become needed too.  Repeat until stable.
+        fixpoint :: S.Set Point -> [ConstructionLayer] -> S.Set Point
+        fixpoint needed geomLayers =
+          let newNeeded = foldl addIfOutputNeeded needed geomLayers
+           in if newNeeded == needed
+                then needed
+                else fixpoint newNeeded geomLayers
+
+        addIfOutputNeeded :: S.Set Point -> ConstructionLayer -> S.Set Point
+        addIfOutputNeeded needed l =
+          let outs = layerOutputPoints l
+           in if not (null outs) && any (`S.member` needed) outs
+                then foldl (flip S.insert) needed (layerInputPoints l)
+                else needed
 
 -- | Evaluate a construction arrow, producing the result and a list of
 -- construction layers (one per construction step).

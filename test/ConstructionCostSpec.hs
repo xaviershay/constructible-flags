@@ -1,9 +1,9 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators #-}
 
 module ConstructionCostSpec (constructionCostTests) where
 
 import Effectful (runPureEff)
+import Flag.Construction.Layers (pruneLayers)
 import Flag.Construction.Tree (evalTree, flattenTree)
 import Flag.Construction.Types (Point)
 import Flag.Definition (Flag (..))
@@ -18,16 +18,16 @@ import Test.Tasty.HUnit
 -- of geometric construction layers.
 expectedCosts :: [(String, Int)]
 expectedCosts =
-  [ ("AUS", 765),
-    ("BGD", 55),
-    ("BTN", 30),
-    ("BWA", 78),
-    ("DZA", 119),
-    ("GBR", 246),
-    ("FRA", 35),
-    ("JOR", 102),
-    ("JPN", 29),
-    ("SYC", 27)
+  [ ("AUS", 582),
+    ("BGD", 49),
+    ("BTN", 24),
+    ("BWA", 71),
+    ("DZA", 100),
+    ("GBR", 229),
+    ("FRA", 25),
+    ("JOR", 84),
+    ("JPN", 27),
+    ("SYC", 24)
   ]
 
 -- Tests to prevent performance regressions in construction.
@@ -41,7 +41,7 @@ constructionCostTests =
             input = ((0, 0), (1, 0)) :: (Point, Point)
             (_, trees) = evalTree flagArrow input
             layers = concatMap flattenTree trees
-            cost = length layers
+            cost = length . pruneLayers $ layers
         case lookup iso expectedCosts of
           Nothing -> assertFailure $ "No expected cost recorded for " ++ iso ++ ". Current computed cost: " ++ show cost ++ "."
           Just expected -> assertEqual ("construction cost for " ++ iso) expected cost
