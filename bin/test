@@ -1,2 +1,10 @@
 #!/usr/bin/env bash
-exec stack test constructible-flags:test:constructible-flags-test --fast "$@"
+args=()
+for arg in "$@"; do
+  if [[ "$arg" == *' '* ]]; then
+    args+=("\"$arg\"")
+  else
+    args+=("$arg")
+  fi
+done
+exec stack test constructible-flags:test:constructible-flags-test --fast --ta "${args[*]}"
