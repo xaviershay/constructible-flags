@@ -66,7 +66,6 @@ marshallIslands =
 
     design :: (Sourced :> es) => Eff es (FlagA (Point, Point) Drawing)
     design = do
-      -- TODO: source dimensions from flagSpec
       blueC <- referencePantoneAsRGB flagSpec ("Blue", "287-C")
       orangeC <- referencePantoneAsRGB flagSpec ("Orange", "152-C")
       whiteC <- editorial "White" [] (sRGB24 255 255 255)
@@ -78,7 +77,6 @@ marshallIslands =
       pLeftBarWidth <- reference "Bar Width, Left Edge" flagSpec (16 % 1000)
       pRightBarWidth <- editorial "Bar Width, Right Edge" [fotw] (196 % 1000)
       pure $ proc origin -> do
-        -- TODO: implement actual flag design
         let tl = fst origin
         tr <- rationalMult pFly >>> label "TR" -< origin
         (bl, _) <- perpendicular >>> labelFirst "BL" -< origin
