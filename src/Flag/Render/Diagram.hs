@@ -64,17 +64,52 @@ sdId d = T.pack (showHex (fromIntegral (hash d) :: Word) "")
 -- Shape-only rendering (for use inside <mask> and <clipPath>)
 -- ---------------------------------------------------------------------------
 
+-- | Collect all @\<defs\>@ content (mask and clip-path definitions) from a
+-- 'Drawing' that will be rendered as shapes.  Returns the inner content to
+-- be placed inside a single @\<defs\>@ element — does *not* wrap in @\<defs\>@
+-- itself.
+collectDefsForShapes :: T.Text -> CT.Drawing -> Element
+collectDefsForShapes _ CT.EmptyDrawing = mempty
+collectDefsForShapes col (CT.Overlay a b) =
+  collectDefsForShapes col a <> collectDefsForShapes col b
+collectDefsForShapes _ (CT.DrawTriangle _ _ _ _) = mempty
+collectDefsForShapes _ (CT.DrawPath _ _) = mempty
+collectDefsForShapes _ (CT.DrawCircle _ _ _) = mempty
+collectDefsForShapes col (CT.DrawMasked CT.Mask content maskD) =
+  let innerId = "smsk-" <> sdId content
+   in mask_
+        [makeAttribute "id" innerId]
+        ( rect_
+            [ makeAttribute "x" "-1000",
+              makeAttribute "y" "-1000",
+              makeAttribute "width" "2000",
+              makeAttribute "height" "2000",
+              Fill_ <<- "white"
+            ]
+            <> drawingToShapesBody col maskD
+        )
+        <> collectDefsForShapes col content
+        <> collectDefsForShapes "black" maskD
+collectDefsForShapes col (CT.DrawMasked CT.Clip content maskD) =
+  let innerId = "sclp-" <> sdId content
+   in clipPath_ [makeAttribute "id" innerId] (drawingToShapesBody col maskD)
+        <> collectDefsForShapes col content
+        <> collectDefsForShapes col maskD
+collectDefsForShapes _ (CT.DrawSVGOverlay _ _ _) = mempty
+
 -- | Render a 'Drawing' as pure shape elements with every fill replaced by the
--- given colour text.  Used to populate SVG @\<mask\>@ and @\<clipPath\>@ elements.
+-- given colour text, *without* any @\<defs\>@ blocks (those are collected
+-- separately by 'collectDefsForShapes').  Used to populate SVG @\<mask\>@ and
+-- @\<clipPath\>@ elements.
 -- In a @\<mask\>@, pass @"black"@ so the shapes become transparent cut-outs
 -- (SVG masks: white = visible, black = transparent).
 -- In a @\<clipPath\>@, the fill colour is irrelevant — the shape boundary alone
 -- defines the clip region.
-drawingToShapes :: T.Text -> CT.Drawing -> Element
-drawingToShapes _ CT.EmptyDrawing = mempty
-drawingToShapes col (CT.Overlay a b) =
-  drawingToShapes col a <> drawingToShapes col b
-drawingToShapes col (CT.DrawTriangle _ p1 p2 p3) =
+drawingToShapesBody :: T.Text -> CT.Drawing -> Element
+drawingToShapesBody _ CT.EmptyDrawing = mempty
+drawingToShapesBody col (CT.Overlay a b) =
+  drawingToShapesBody col a <> drawingToShapesBody col b
+drawingToShapesBody col (CT.DrawTriangle _ p1 p2 p3) =
   polygon_
     [ Points_ <<- pointsAttr (map toDP [p1, p2, p3]),
       Fill_ <<- col,
@@ -82,7 +117,7 @@ drawingToShapes col (CT.DrawTriangle _ p1 p2 p3) =
       Stroke_ <<- "none",
       Stroke_width_ <<- "0"
     ]
-drawingToShapes col (CT.DrawPath _ pts@(_ : _)) =
+drawingToShapesBody col (CT.DrawPath _ pts@(_ : _)) =
   polygon_
     [ Points_ <<- pointsAttr (map toDP pts),
       Fill_ <<- col,
@@ -90,8 +125,8 @@ drawingToShapes col (CT.DrawPath _ pts@(_ : _)) =
       Stroke_ <<- "none",
       Stroke_width_ <<- "0"
     ]
-drawingToShapes _ (CT.DrawPath _ []) = mempty
-drawingToShapes col (CT.DrawCircle _ center rd) =
+drawingToShapesBody _ (CT.DrawPath _ []) = mempty
+drawingToShapesBody col (CT.DrawCircle _ center rd) =
   let (cx, cy) = toDP center
       r = toD rd
    in circle_
@@ -102,49 +137,66 @@ drawingToShapes col (CT.DrawCircle _ center rd) =
           Fill_opacity_ <<- "1",
           Stroke_ <<- "none"
         ]
-drawingToShapes col (CT.DrawMasked CT.Mask content maskD) =
-  -- Nested Mask: white background with black shapes punched out, then recoloured.
+drawingToShapesBody col (CT.DrawMasked CT.Mask content _maskD) =
   let innerId = "smsk-" <> sdId content
-   in defs_
-        []
-        ( mask_
-            [makeAttribute "id" innerId]
-            ( rect_
-                [ makeAttribute "x" "-1000",
-                  makeAttribute "y" "-1000",
-                  makeAttribute "width" "2000",
-                  makeAttribute "height" "2000",
-                  Fill_ <<- "white"
-                ]
-                <> drawingToShapes "black" maskD
-            )
-        )
-        <> g_
-          [makeAttribute "mask" ("url(#" <> innerId <> ")")]
-          (drawingToShapes col content)
-drawingToShapes col (CT.DrawMasked CT.Clip content maskD) =
-  -- Nested Clip: clip shapes define the visible region, then recolour.
+   in g_
+        [makeAttribute "mask" ("url(#" <> innerId <> ")")]
+        (drawingToShapesBody col content)
+drawingToShapesBody col (CT.DrawMasked CT.Clip content _maskD) =
   let innerId = "sclp-" <> sdId content
-   in defs_
-        []
-        (clipPath_ [makeAttribute "id" innerId] (drawingToShapes col maskD))
-        <> g_
-          [makeAttribute "clip-path" ("url(#" <> innerId <> ")")]
-          (drawingToShapes col content)
-drawingToShapes _ (CT.DrawSVGOverlay _ _ _) = mempty
+   in g_
+        [makeAttribute "clip-path" ("url(#" <> innerId <> ")")]
+        (drawingToShapesBody col content)
+drawingToShapesBody _ (CT.DrawSVGOverlay _ _ _) = mempty
 
 -- ---------------------------------------------------------------------------
 -- Drawing → Element
 -- ---------------------------------------------------------------------------
 
--- | Convert a 'Drawing' to a renderable SVG 'Element'.
+-- | Collect all @\<defs\>@ content (mask and clip-path definitions) from a
+-- 'Drawing'.  Returns the inner content to be placed inside a single
+-- @\<defs\>@ element — does *not* wrap in @\<defs\>@ itself.
+collectDefs :: CT.Drawing -> Element
+collectDefs CT.EmptyDrawing = mempty
+collectDefs (CT.Overlay a b) = collectDefs a <> collectDefs b
+collectDefs (CT.DrawTriangle _ _ _ _) = mempty
+collectDefs (CT.DrawPath _ _) = mempty
+collectDefs (CT.DrawCircle _ _ _) = mempty
+-- Mask mode: the mask element itself goes into defs; recurse into both
+-- the content and mask sub-drawings to collect any nested defs.
+collectDefs (CT.DrawMasked CT.Mask content maskD) =
+  let maskId = "msk-" <> sdId content
+   in mask_
+        [makeAttribute "id" maskId]
+        ( rect_
+            [ makeAttribute "x" "-1000",
+              makeAttribute "y" "-1000",
+              makeAttribute "width" "2000",
+              makeAttribute "height" "2000",
+              Fill_ <<- "white"
+            ]
+            <> drawingToShapesBody "black" maskD
+        )
+        <> collectDefs content
+        <> collectDefsForShapes "black" maskD
+-- Clip mode: the clipPath element itself goes into defs; recurse into both
+-- the content and mask sub-drawings to collect any nested defs.
+collectDefs (CT.DrawMasked CT.Clip content maskD) =
+  let clipId = "clp-" <> sdId content
+   in clipPath_ [makeAttribute "id" clipId] (drawingToShapesBody "black" maskD)
+        <> collectDefs content
+        <> collectDefsForShapes "black" maskD
+collectDefs (CT.DrawSVGOverlay _ _ _) = mempty
+
+-- | Convert a 'Drawing' to a renderable SVG 'Element', *without* any
+-- @\<defs\>@ blocks (those are collected separately by 'collectDefs').
 -- SVG overlays are skipped here; they are injected as raw SVG in a
 -- post-processing step (see 'Flag.Render.SVGOverlay.injectOverlays').
-drawingToElement :: Drawing -> Element
-drawingToElement CT.EmptyDrawing = mempty
-drawingToElement (CT.Overlay a b) = drawingToElement a <> drawingToElement b
-drawingToElement (CT.DrawTriangle col pt1 pt2 pt3) = drawingToElement (CT.DrawPath col [pt1, pt2, pt3])
-drawingToElement (CT.DrawPath col pts@(_ : _)) =
+drawingToBody :: CT.Drawing -> Element
+drawingToBody CT.EmptyDrawing = mempty
+drawingToBody (CT.Overlay a b) = drawingToBody a <> drawingToBody b
+drawingToBody (CT.DrawTriangle col pt1 pt2 pt3) = drawingToBody (CT.DrawPath col [pt1, pt2, pt3])
+drawingToBody (CT.DrawPath col pts@(_ : _)) =
   polygon_
     [ Points_ <<- pointsAttr (map toDP pts),
       Fill_ <<- colHex col,
@@ -152,8 +204,8 @@ drawingToElement (CT.DrawPath col pts@(_ : _)) =
       Stroke_ <<- "none",
       Stroke_width_ <<- "0"
     ]
-drawingToElement (CT.DrawPath _ []) = mempty
-drawingToElement (CT.DrawCircle col center rd) =
+drawingToBody (CT.DrawPath _ []) = mempty
+drawingToBody (CT.DrawCircle col center rd) =
   let (cx, cy) = toDP center
       r = toD rd
    in circle_
@@ -164,38 +216,26 @@ drawingToElement (CT.DrawCircle col center rd) =
           Fill_opacity_ <<- "1",
           Stroke_ <<- "none"
         ]
--- \| Mask mode: white background rect makes everything visible by default;
--- black shapes from the mask drawing punch transparent holes in the content.
-drawingToElement (CT.DrawMasked CT.Mask content maskD) =
+-- \| Mask mode: reference the mask by id (defined in the top-level defs block).
+drawingToBody (CT.DrawMasked CT.Mask content _maskD) =
   let maskId = "msk-" <> sdId content
-      contentElem = drawingToElement content
-      maskShapes = drawingToShapes "black" maskD
-   in defs_
-        []
-        ( mask_
-            [makeAttribute "id" maskId]
-            ( rect_
-                [ makeAttribute "x" "-1000",
-                  makeAttribute "y" "-1000",
-                  makeAttribute "width" "2000",
-                  makeAttribute "height" "2000",
-                  Fill_ <<- "white"
-                ]
-                <> maskShapes
-            )
-        )
-        <> g_ [makeAttribute "mask" ("url(#" <> maskId <> ")")] contentElem
--- \| Clip mode: shapes from the mask drawing define the visible region;
--- everything outside those shapes is hidden.
-drawingToElement (CT.DrawMasked CT.Clip content maskD) =
+   in g_ [makeAttribute "mask" ("url(#" <> maskId <> ")")] (drawingToBody content)
+-- \| Clip mode: reference the clipPath by id (defined in the top-level defs block).
+drawingToBody (CT.DrawMasked CT.Clip content _maskD) =
   let clipId = "clp-" <> sdId content
-      contentElem = drawingToElement content
-      clipShapes = drawingToShapes "black" maskD
-   in defs_
-        []
-        (clipPath_ [makeAttribute "id" clipId] clipShapes)
-        <> g_ [makeAttribute "clip-path" ("url(#" <> clipId <> ")")] contentElem
-drawingToElement (CT.DrawSVGOverlay _ _ _) = mempty
+   in g_ [makeAttribute "clip-path" ("url(#" <> clipId <> ")")] (drawingToBody content)
+drawingToBody (CT.DrawSVGOverlay _ _ _) = mempty
+
+-- | Convert a 'Drawing' to a renderable SVG 'Element'.
+-- All mask and clip-path definitions are gathered into a single @\<defs\>@
+-- block prepended to the body.
+-- SVG overlays are skipped here; they are injected as raw SVG in a
+-- post-processing step (see 'Flag.Render.SVGOverlay.injectOverlays').
+drawingToElement :: Drawing -> Element
+drawingToElement d =
+  let defsContent = collectDefs d
+      body = drawingToBody d
+   in defs_ [] defsContent <> body
 
 -- ---------------------------------------------------------------------------
 -- Construction geometry rendering
