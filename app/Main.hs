@@ -8,16 +8,16 @@ import Data.Char (toLower)
 import Data.List (nub)
 import Effectful (runPureEff)
 import Flag.Construction.FieldNumber (Field (..), FieldNumber, fieldOf, isInteger, isNatural)
-import Flag.Construction.Interpreter (Step, evalCollectNumbers, evalLabels, steps)
-import Flag.Construction.Tree (evalTree)
+import Flag.Construction.Interpreter (Step, evalCollectNumbers, evalLabels)
+import Flag.Construction.Tree (evalTree, prunedSteps)
 import Flag.Construction.Types (Point)
 import Flag.Definition (Flag (..))
 import Flag.Registry (allCountryFlags)
+import Flag.Render.Backend (renderDrawing)
 import Flag.Render.DebugV2 (writeConstructionJson, writeDebugViewer)
 import Flag.Render.Html (generateConstructionPage, generateIndex, generateShowPage)
 import Flag.Render.Prov (generateProvJson)
 import Flag.Render.SVGBuilderBackend (SVGBuilderBackend (..))
-import Flag.Render.Backend (renderDrawing)
 import Flag.Source (Sourced, SourcedElement, runSourcedCollect, runSourcedPure)
 import System.Directory (copyFile, createDirectoryIfMissing, doesDirectoryExist, listDirectory)
 import System.FilePath (takeDirectory, (</>))
@@ -35,7 +35,7 @@ writeConstructionJsonForFlag flag = do
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       input = ((0, 0), (1, 0)) :: (Point, Point)
       (_, tree) = evalTree flagArrow input
-      labels    = evalLabels flagArrow input
+      labels = evalLabels flagArrow input
   writeConstructionJson (flagName flag) (flagIsoCode flag) input tree labels
 
 -- ---------------------------------------------------------------------------
@@ -126,8 +126,10 @@ processFlag flag = do
       provJson = generateProvJson (flagIsoCode flag) (flagName flag) allSources
   writeFile provPath provJson
 
-  -- Extract construction steps from the FlagA arrow
-  let constructionSteps = steps flagArrow
+  -- Extract construction steps from the pruned tree, so the cost and
+  -- breakdown shown on the flag page match what the debug viewer displays.
+  let (_, tree) = evalTree flagArrow flagInput
+      constructionSteps = prunedSteps tree
 
   -- Determine the number field from all intermediate construction points
   let fieldStr = classifyField intermediateNumbers

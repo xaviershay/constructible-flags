@@ -1,10 +1,10 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
 
 module ConstructionCostSpec (constructionCostTests) where
 
 import Effectful (runPureEff)
-import Flag.Construction.Layers (pruneLayers)
-import Flag.Construction.Tree (evalTree, flattenTree)
+import Flag.Construction.Tree (evalTree, prunedSteps)
 import Flag.Construction.Types (Point)
 import Flag.Definition (Flag (..))
 import Flag.Registry (allCountryFlags)
@@ -14,20 +14,22 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 -- | Map of expected construction step counts per flag ISO code.
--- When adding a new flag, add an entry here with the expected number
--- of geometric construction layers.
+-- Only geometric steps (IntersectLL, IntersectLC, IntersectCC, NGonVertex)
+-- are counted — drawing primitives (fills, overlays) and labels are excluded.
+-- Counts reflect the pruned tree (duplicate outputs and dead computations
+-- are removed before counting).
 expectedCosts :: [(String, Int)]
 expectedCosts =
-  [ ("AUS", 582),
-    ("BGD", 49),
-    ("BTN", 24),
-    ("BWA", 71),
-    ("DZA", 100),
-    ("GBR", 229),
-    ("FRA", 25),
-    ("JOR", 84),
-    ("JPN", 27),
-    ("SYC", 24)
+  [ ("AUS", 442),
+    ("BGD", 46),
+    ("BTN", 21),
+    ("BWA", 61),
+    ("DZA", 85),
+    ("FRA", 19),
+    ("GBR", 155),
+    ("JOR", 65),
+    ("JPN", 24),
+    ("SYC", 18)
   ]
 
 -- Tests to prevent performance regressions in construction.
@@ -40,8 +42,7 @@ constructionCostTests =
             flagArrow = runPureEff $ runSourcedPure $ flagDesign f
             input = ((0, 0), (1, 0)) :: (Point, Point)
             (_, trees) = evalTree flagArrow input
-            layers = concatMap flattenTree trees
-            cost = length . pruneLayers $ layers
+            cost = length (prunedSteps trees)
         case lookup iso expectedCosts of
           Nothing -> assertFailure $ "No expected cost recorded for " ++ iso ++ ". Current computed cost: " ++ show cost ++ "."
           Just expected -> assertEqual ("construction cost for " ++ iso) expected cost

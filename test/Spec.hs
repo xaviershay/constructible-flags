@@ -10,7 +10,7 @@ import ImageGoldenSpec (imageGoldenTests)
 import InterpreterSpec (interpreterTests)
 import qualified NGonVertexSpec
 import OptimizeSpec (optimizeTests)
-import PruneLayersSpec (pruneLayersTests)
+import PruneLayersSpec (pruneLayersTests, pruneTreeTests)
 import qualified SVGOverlaySpec
 import Test.Tasty
 
@@ -29,6 +29,7 @@ main =
           interpreterTests,
           optimizeTests,
           pruneLayersTests,
+          pruneTreeTests,
           SVGOverlaySpec.svgOverlayTests,
           fieldNumberTests,
           fillOperationsTests

@@ -4,11 +4,15 @@ module Flag.Construction.Tree
   ( ConstructionTree (..),
     evalTree,
     flattenTree,
+    pruneTree,
+    prunedSteps,
   )
 where
 
+import qualified Data.IntSet as IS
 import Flag.Construction.Geometry
-import Flag.Construction.Layers (ConstructionLayer (..))
+import Flag.Construction.Interpreter (Step, layerStep)
+import Flag.Construction.Layers (ConstructionLayer (..), pruneLayers)
 import Flag.Construction.Types
 
 -- | A tree of construction output that preserves group structure.
@@ -63,3 +67,61 @@ evalTree (LabelPoint _) p = (p, [])
 flattenTree :: ConstructionTree -> [ConstructionLayer]
 flattenTree (TreeLayer l) = [l]
 flattenTree (TreeGroup _ children) = concatMap flattenTree children
+
+-- | The canonical cost calculation: prune the forest, flatten to layers,
+-- and return only the geometric construction steps (no drawing primitives,
+-- no labels).  This is the single source of truth for the cost figure
+-- shown on flag pages and checked in regression tests.
+prunedSteps :: [ConstructionTree] -> [Step]
+prunedSteps forest =
+  [s | l <- concatMap flattenTree (pruneTree forest), Just s <- [layerStep l]]
+
+-- | Prune a forest of 'ConstructionTree' nodes using the same two-pass
+-- logic as 'pruneLayers' (duplicate-output elimination followed by
+-- dead-computation elimination), but preserving the group structure.
+--
+-- Pruning crosses group boundaries: a layer inside one group may be
+-- removed because its output is only consumed by a layer in a different
+-- group, and vice versa.  The decision of what to keep is made globally
+-- on the flattened layer list; the surviving layers are then used to
+-- reconstruct the tree, dropping any groups that become entirely empty.
+pruneTree :: [ConstructionTree] -> [ConstructionTree]
+pruneTree forest = snd (walkForest 0 forest)
+  where
+    -- The set of 0-based leaf indices (in document order) that survive
+    -- pruneLayers.  We recover these by aligning the pruned output against
+    -- the original flat list: whenever the heads match by show we record
+    -- the current index and advance both pointers; otherwise we advance
+    -- only the original pointer.
+    keptIndices :: IS.IntSet
+    keptIndices = IS.fromList (align 0 prunedLayers flatLayers)
+      where
+        flatLayers = concatMap flattenTree forest
+        prunedLayers = pruneLayers flatLayers
+
+        align _ [] _ = []
+        align _ _ [] = []
+        align i (p : ps) (o : os)
+          | show p == show o = i : align (i + 1) ps os
+          | otherwise = align (i + 1) (p : ps) os
+
+    -- Walk a forest left-to-right, threading a leaf counter through.
+    -- Returns the updated counter and the pruned forest.
+    walkForest :: Int -> [ConstructionTree] -> (Int, [ConstructionTree])
+    walkForest i [] = (i, [])
+    walkForest i (t : ts) =
+      let (i', mt) = walkTree i t
+          (i'', rest) = walkForest i' ts
+       in (i'', maybe rest (: rest) mt)
+
+    -- Walk a single tree node, returning the updated counter and
+    -- either the (possibly trimmed) node or Nothing if it was pruned.
+    walkTree :: Int -> ConstructionTree -> (Int, Maybe ConstructionTree)
+    walkTree i (TreeLayer l)
+      | IS.member i keptIndices = (i + 1, Just (TreeLayer l))
+      | otherwise = (i + 1, Nothing)
+    walkTree i (TreeGroup label children) =
+      let (i', children') = walkForest i children
+       in case children' of
+            [] -> (i', Nothing)
+            _ -> (i', Just (TreeGroup label children'))

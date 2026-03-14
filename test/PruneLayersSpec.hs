@@ -1,10 +1,14 @@
-module PruneLayersSpec (pruneLayersTests) where
+module PruneLayersSpec (pruneLayersTests, pruneTreeTests) where
 
 import Data.Colour (Colour)
 import Data.Colour.SRGB (sRGB)
 import Flag.Construction.Layers
   ( ConstructionLayer (..),
     pruneLayers,
+  )
+import Flag.Construction.Tree
+  ( ConstructionTree (..),
+    pruneTree,
   )
 import Flag.Construction.Types (Number)
 import Test.Tasty
@@ -203,4 +207,104 @@ pruneLayersTests =
             fill = LayerTriangle red p00 p01 p11 -- doesn't use p10
             result = pruneLayers [first, dup, fill]
         result @?=~ [fill]
+    ]
+
+-- ---------------------------------------------------------------------------
+-- pruneTree tests
+-- ---------------------------------------------------------------------------
+
+-- | Wrap a single layer in a TreeLayer leaf.
+leaf :: ConstructionLayer -> ConstructionTree
+leaf = TreeLayer
+
+-- | Wrap a list of trees in a named group.
+group :: String -> [ConstructionTree] -> ConstructionTree
+group = TreeGroup
+
+-- | Assert two forests are equal by comparing their 'show' representations.
+(@?=~~) :: [ConstructionTree] -> [ConstructionTree] -> Assertion
+actual @?=~~ expected =
+  show actual @?= show expected
+
+infix 1 @?=~~
+
+pruneTreeTests :: TestTree
+pruneTreeTests =
+  testGroup
+    "pruneTree"
+    [ -- -----------------------------------------------------------------------
+      -- Baseline: structure-preserving when nothing to prune
+      -- -----------------------------------------------------------------------
+      testCase "flat list of needed layers is preserved unchanged" $ do
+        -- geom → p10; fill consumes p10. Nothing to prune; no groups.
+        let geom = leaf (ngonLayer p10)
+            fill = leaf (LayerTriangle red p10 p01 p11)
+        pruneTree [geom, fill] @?=~~ [geom, fill],
+      testCase "group containing only needed layers is preserved" $ do
+        -- The same two layers, but wrapped in a group.
+        let geom = leaf (ngonLayer p10)
+            fill = leaf (LayerTriangle red p10 p01 p11)
+        pruneTree [group "g" [geom, fill]] @?=~~ [group "g" [geom, fill]],
+      -- -----------------------------------------------------------------------
+      -- Dead-computation crosses group boundaries
+      -- -----------------------------------------------------------------------
+      testCase "dead layer inside a group is removed; group survives with remaining children" $ do
+        -- dead (pDead, inside the group) has no consumer anywhere in the forest.
+        -- live (p10, also inside the group) feeds the fill outside the group.
+        -- dead should be pruned; the group should survive with only live.
+        let dead = leaf (ngonLayer pDead)
+            live = leaf (ngonLayer p10)
+            fill = leaf (LayerTriangle red p10 p01 p11)
+            input = [group "g" [dead, live], fill]
+            expected = [group "g" [live], fill]
+        pruneTree input @?=~~ expected,
+      testCase "group becomes empty and is itself removed when all children are dead" $ do
+        -- The group contains only a dead layer; after pruning it vanishes entirely.
+        let dead = leaf (ngonLayer pDead)
+            fill = leaf (LayerTriangle red p00 p01 p11) -- does not use pDead
+            input = [group "dead-group" [dead], fill]
+            expected = [fill]
+        pruneTree input @?=~~ expected,
+      testCase "layer in group A feeds layer in group B (cross-group dependency)" $ do
+        -- geom1 lives in group A and produces p10.
+        -- geom2 lives in group B, takes p10 as an input, and produces pFar.
+        -- The fill outside both groups consumes pFar.
+        -- Both geom layers must survive even though they span two groups.
+        let geom1 = leaf (ngonLayer p10)
+            geom2 = leaf (LayerIntersectLL p10 p01 p00 p11 [pFar])
+            fill = leaf (LayerTriangle red pFar p01 p11)
+            input = [group "A" [geom1], group "B" [geom2], fill]
+        pruneTree input @?=~~ input,
+      -- -----------------------------------------------------------------------
+      -- Duplicate-output crosses group boundaries
+      -- -----------------------------------------------------------------------
+      testCase "duplicate in a later group is removed when earlier group already produced the point" $ do
+        -- group A contains the first NGonVertex producing p10.
+        -- group B contains a second NGonVertex also producing p10 (duplicate).
+        -- The fill uses p10; only the first layer should survive.
+        let first = leaf (ngonLayer p10)
+            dup = leaf (ngonLayer p10)
+            fill = leaf (LayerTriangle red p10 p01 p11)
+            input = [group "A" [first], group "B" [dup], fill]
+            expected = [group "A" [first], fill]
+        -- group B collapses to empty and is dropped
+        pruneTree input @?=~~ expected,
+      -- -----------------------------------------------------------------------
+      -- Nested groups
+      -- -----------------------------------------------------------------------
+      testCase "nested empty group is removed, outer group survives if it has other children" $ do
+        -- Outer group contains: an inner group (all-dead) and a live leaf.
+        let dead = leaf (ngonLayer pDead)
+            live = leaf (ngonLayer p10)
+            fill = leaf (LayerTriangle red p10 p01 p11)
+            input = [group "outer" [group "inner" [dead], live], fill]
+            expected = [group "outer" [live], fill]
+        pruneTree input @?=~~ expected,
+      testCase "entirely dead nested groups collapse all the way up" $ do
+        -- All layers in the tree are dead; the fill uses hard-coded points.
+        let dead = leaf (ngonLayer pDead)
+            fill = leaf (LayerTriangle red p00 p01 p11)
+            input = [group "outer" [group "inner" [dead]], fill]
+            expected = [fill]
+        pruneTree input @?=~~ expected
     ]

@@ -17,7 +17,7 @@ import Flag.Construction.Layers
     layerOutputPoints,
     pointDist,
   )
-import Flag.Construction.Tree (ConstructionTree (..))
+import Flag.Construction.Tree (ConstructionTree (..), pruneTree)
 import Flag.Construction.Types (Point)
 import Flag.Render.JSONHelpers
   ( fromList,
@@ -69,12 +69,12 @@ layerLabel :: ConstructionLayer -> String
 layerLabel LayerIntersectLL {} = "Intersect line\x2013line"
 layerLabel LayerIntersectLC {} = "Intersect line\x2013circle"
 layerLabel LayerIntersectCC {} = "Intersect circle\x2013circle"
-layerLabel LayerNGonVertex {}  = "N-gon vertex"
+layerLabel LayerNGonVertex {} = "N-gon vertex"
 layerLabel (LayerTriangle _ _ _ _) = "Fill triangle"
-layerLabel (LayerCircle _ _ _)     = "Fill circle"
-layerLabel (LayerMasked _ _ _)     = "Masked drawing"
+layerLabel (LayerCircle _ _ _) = "Fill circle"
+layerLabel (LayerMasked _ _ _) = "Masked drawing"
 layerLabel (LayerSVGOverlay p _ _) = "SVG overlay: " ++ p
-layerLabel (LayerLabel name _)     = "Label: " ++ name
+layerLabel (LayerLabel name _) = "Label: " ++ name
 
 -- ---------------------------------------------------------------------------
 -- Point helpers
@@ -109,7 +109,7 @@ writeConstructionJson name isoCode input tree labelList = do
   createDirectoryIfMissing True "out/construction"
 
   let labelMap = Map.fromList labelList
-      (_, numbered) = numberTree 1 tree
+      (_, numbered) = numberTree 1 (pruneTree tree)
       leaves = numberedLeaves numbered
       allLayers = map snd leaves
       initialPts = [fst input, snd input]
@@ -188,8 +188,6 @@ writeConstructionJson name isoCode input tree labelList = do
   BL.writeFile path (Aeson.encode json)
   putStrLn $ "  Wrote " ++ path
 
-
-
 -- ---------------------------------------------------------------------------
 -- Tree → JSON
 -- ---------------------------------------------------------------------------
@@ -220,8 +218,6 @@ treeToJson labelMap entries =
           ("children", Aeson.Array $ fromList (map entryToJson children))
         ]
 
-
-
 -- ---------------------------------------------------------------------------
 -- Fill bounding box helpers
 -- ---------------------------------------------------------------------------
@@ -238,10 +234,6 @@ fillBoundingPoints (LayerCircle _ cc ce) =
    in [(cx - r, cy - r), (cx + r, cy + r)]
 fillBoundingPoints (LayerLabel _ _) = []
 fillBoundingPoints _ = []
-
-
-
-
 
 -- | Show a Double with enough precision
 showF :: Double -> String

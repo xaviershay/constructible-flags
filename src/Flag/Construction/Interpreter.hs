@@ -3,6 +3,7 @@
 module Flag.Construction.Interpreter
   ( Step (..),
     steps,
+    layerStep,
     eval,
     evalCollectNumbers,
     evalLabels,
@@ -11,6 +12,7 @@ where
 
 import Flag.Construction.FieldNumber (FieldNumber)
 import Flag.Construction.Geometry
+import Flag.Construction.Layers (ConstructionLayer (..))
 import Flag.Construction.Types
 
 -- | A labeled construction step for introspection
@@ -25,6 +27,21 @@ data Step
   | -- | an external SVG overlay counts as a single cost
     StepSVGOverlay
   deriving (Show, Eq)
+
+-- | Convert a 'ConstructionLayer' to its corresponding 'Step', if it
+-- represents a geometric construction step.  Drawing primitives
+-- ('LayerTriangle', 'LayerCircle', 'LayerMasked', 'LayerSVGOverlay')
+-- and labels do not count as construction steps and return 'Nothing'.
+layerStep :: ConstructionLayer -> Maybe Step
+layerStep LayerIntersectLL {} = Just StepIntersectLL
+layerStep LayerIntersectLC {} = Just StepIntersectLC
+layerStep LayerIntersectCC {} = Just StepIntersectCC
+layerStep LayerNGonVertex {} = Just StepNGonVertex
+layerStep LayerTriangle {} = Nothing
+layerStep LayerCircle {} = Nothing
+layerStep LayerMasked {} = Nothing
+layerStep LayerSVGOverlay {} = Nothing
+layerStep LayerLabel {} = Nothing
 
 -- | Extract the flat list of geometric construction steps, in order.
 -- Ignores structural wiring ('Arr', 'First', etc.) and only reports
