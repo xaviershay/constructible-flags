@@ -32,6 +32,17 @@
         "sampledAt": "2026-02-15T23:49:29Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-15-4225-tcx.webp"
     },
+    "152-C": {
+        "chip": "images/pantone/152-C.webp",
+        "label": "152-C",
+        "rgb": [
+            231,
+            113,
+            0
+        ],
+        "sampledAt": "2026-03-14T00:30:04Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-152-c.webp"
+    },
     "165-C": {
         "chip": "images/pantone/165-C.webp",
         "label": "165-C",
@@ -95,7 +106,7 @@
             47,
             134
         ],
-        "sampledAt": "2026-03-02T07:49:51Z",
+        "sampledAt": "2026-03-14T00:30:10Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-287-c.webp"
     },
     "294-C": {

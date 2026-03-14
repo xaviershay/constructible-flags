@@ -61,7 +61,7 @@ evalTree (OverlaySVG path) (center, edge) =
 evalTree (Group label f) x =
   let (res, children) = evalTree f x
    in (res, [TreeGroup label children])
-evalTree (LabelPoint _) p = (p, [])
+evalTree (LabelPoint name) p = (p, [TreeLayer (LayerLabel name p)])
 
 -- | Flatten a construction tree back to a list of layers (for rendering).
 flattenTree :: ConstructionTree -> [ConstructionLayer]

@@ -12,6 +12,7 @@ module Flag.Registry
     , unitedKingdom
     , jordan
     , japan
+    , marshallIslands
     , nepal
     , seychelles
     ) where
@@ -28,6 +29,7 @@ import Flag.Country.FRA (france)
 import Flag.Country.GBR (unitedKingdom)
 import Flag.Country.JOR (jordan)
 import Flag.Country.JPN (japan)
+import Flag.Country.MHL (marshallIslands)
 import Flag.Country.NPL (nepal)
 import Flag.Country.SYC (seychelles)
 
@@ -42,6 +44,7 @@ allCountryFlags =
     , unitedKingdom
     , jordan
     , japan
+    , marshallIslands
     , nepal
     , seychelles
     ]

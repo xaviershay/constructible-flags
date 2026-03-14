@@ -29,6 +29,7 @@ expectedCosts =
     ("GBR", 155),
     ("JOR", 65),
     ("JPN", 24),
+    ("MHL", 167),
     ("SYC", 18)
   ]
 

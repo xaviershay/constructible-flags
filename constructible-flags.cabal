@@ -53,6 +53,7 @@ library
       Flag.Country.GBR
       Flag.Country.JOR
       Flag.Country.JPN
+      Flag.Country.MHL
       Flag.Country.NPL
       Flag.Country.SYC
       Flag.Definition

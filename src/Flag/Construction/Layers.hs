@@ -240,4 +240,4 @@ evalLayers (MaskDrawing mode) (content, mask) =
 evalLayers (OverlaySVG path) (center, edge) =
   (DrawSVGOverlay path center edge, [LayerSVGOverlay path center edge])
 evalLayers (Group _ f) x = evalLayers f x
-evalLayers (LabelPoint _) p = (p, [])
+evalLayers (LabelPoint name) p = (p, [LayerLabel name p])

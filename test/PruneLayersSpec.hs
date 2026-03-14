@@ -1,16 +1,23 @@
+{-# LANGUAGE Arrows #-}
+
 module PruneLayersSpec (pruneLayersTests, pruneTreeTests) where
 
 import Data.Colour (Colour)
 import Data.Colour.SRGB (sRGB)
 import Flag.Construction.Layers
   ( ConstructionLayer (..),
+    evalLayers,
+    layerOutputPoints,
     pruneLayers,
   )
 import Flag.Construction.Tree
   ( ConstructionTree (..),
+    evalTree,
+    flattenTree,
     pruneTree,
   )
-import Flag.Construction.Types (Number)
+import Flag.Construction.Types (FlagA (..), Number, Point)
+import Flag.Constructions (intersectLL, label)
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -170,13 +177,38 @@ pruneLayersTests =
             result = pruneLayers [geom1, geom2, fill]
         assertElem "geom1 survives (its output feeds geom2)" geom1 result
         assertElem "geom2 survives (its output feeds the fill)" geom2 result,
-      testCase "dead computation: labeled point is kept even without a downstream fill" $ do
+      testCase "dead computation: labeled point is kept even without a downstream fill (manual layers)" $ do
         -- A point that has no fill consumer but is explicitly labeled should
         -- be retained — it appears in the debug viewer.
+        -- This uses a manually-constructed LayerLabel, which is always present.
         let geom = ngonLayer p10
-            label = LayerLabel "interesting point" p10
-            result = pruneLayers [geom, label]
+            lbl = LayerLabel "interesting point" p10
+            result = pruneLayers [geom, lbl]
         assertElem "geometric layer is kept because its output is labeled" geom result,
+      testCase "dead computation: labeled point is kept even without a downstream fill (via evalLayers)" $ do
+        -- The real bug: evalLayers also emits (p, []) for LabelPoint, so no
+        -- LayerLabel ever appears in the layer list produced by evalLayers.
+        -- pruneLayers therefore has no label anchor and drops the intersection.
+        --
+        -- Lines: (0,0)-(1,1) and (1,0)-(0,1) — they cross at (1/2, 1/2).
+        let construction :: FlagA ((Point, Point), (Point, Point)) Point
+            construction = proc lines -> do
+              p <- intersectLL -< lines
+              label "vertex A" -< p
+
+            input = (((0, 0), (1, 1)), ((1, 0), (0, 1)))
+            (_, layers) = evalLayers construction input
+
+            prunedLayers = pruneLayers layers
+
+        -- Sanity: evalLayers must have produced at least one geometric layer.
+        assertBool
+          ("evalLayers produced no layers; layers = " ++ show layers)
+          (not (null layers))
+
+        -- After pruning, the intersection layer must still be present —
+        -- the label names its output, so it is not dead.
+        show prunedLayers @?= show layers,
       testCase "dead computation: unreferenced layer among useful ones is dropped" $ do
         -- dead produces pDead which nobody uses or labels;
         -- live produces pFar which the fill uses.
@@ -240,6 +272,43 @@ pruneTreeTests =
         let geom = leaf (ngonLayer p10)
             fill = leaf (LayerTriangle red p10 p01 p11)
         pruneTree [geom, fill] @?=~~ [geom, fill],
+      testCase "labeled point with no downstream fill is kept (manual layers)" $ do
+        -- Manually-constructed tree: geom + a LayerLabel leaf.
+        -- This passes regardless of evalTree, confirming pruneLayers logic is sound.
+        let geom = leaf (ngonLayer p10)
+            lbl = leaf (LayerLabel "vertex A" p10)
+        pruneTree [geom, lbl] @?=~~ [geom, lbl],
+      testCase "labeled point with no downstream fill is kept (via evalTree)" $ do
+        -- The real bug: evalTree emits (p, []) for LabelPoint, so no LayerLabel
+        -- node ever appears in the tree.  pruneTree therefore has no label anchor
+        -- to seed neededPoints, and drops the geometric layer that produced p10.
+        --
+        -- Construction: intersectLL produces a point, then LabelPoint names it.
+        -- There is no fill, so the only reason to keep the intersection is the label.
+        --
+        -- Lines: (0,0)-(1,1) and (1,0)-(0,1) — they cross at (1/2, 1/2).
+        let construction :: FlagA ((Point, Point), (Point, Point)) Point
+            construction = proc lines -> do
+              p <- intersectLL -< lines
+              label "vertex A" -< p
+
+            input = (((0, 0), (1, 1)), ((1, 0), (0, 1)))
+            (_, forest) = evalTree construction input
+
+            -- The forest should contain a TreeLayer for the IntersectLL step.
+            -- After pruning it must still be there, because the label protects it.
+            prunedForest = pruneTree forest
+            prunedLayers = concatMap flattenTree prunedForest
+            originalLayers = concatMap flattenTree forest
+
+        -- Sanity: evalTree must have produced at least one geometric layer.
+        assertBool
+          ("evalTree produced no layers; forest = " ++ show forest)
+          (not (null originalLayers))
+
+        -- The pruned result must contain every layer from the original —
+        -- nothing should be dropped, because the label names the only output.
+        show prunedLayers @?= show originalLayers,
       testCase "group containing only needed layers is preserved" $ do
         -- The same two layers, but wrapped in a group.
         let geom = leaf (ngonLayer p10)

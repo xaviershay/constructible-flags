@@ -39,6 +39,7 @@ module Flag.Constructions
     naturalMult,
     rationalMult,
     midpoint,
+    bisectArc,
     quad,
     boxNatural,
     fillRectangle,
@@ -490,12 +491,9 @@ fillStar16InnerC col = group "Fill 16-point star" $ proc (o, innerEdge, v0) -> d
     -- Returns (quarter, antiAxis, anti3, anti2, anti1, p3, p2, p1)
     quarterPoints = proc (ctr, axis) -> do
       (quarter, anti) <- perpendicular -< (ctr, axis)
-      p2' <- midpoint -< (quarter, axis)
-      (anti2, p2) <- intersectLC -< ((ctr, p2'), (ctr, axis))
-      p1' <- midpoint -< (p2, axis)
-      p3' <- midpoint -< (p2, quarter)
-      (anti1, p1) <- intersectLC -< ((ctr, p1'), (ctr, axis))
-      (anti3, p3) <- intersectLC -< ((ctr, p3'), (ctr, axis))
+      (anti2, p2) <- bisectArc -< (ctr, quarter, axis)
+      (anti1, p1) <- bisectArc -< (ctr, p2, axis)
+      (anti3, p3) <- bisectArc -< (ctr, p2, quarter)
       returnA -< (quarter, anti, anti3, anti2, anti1, p3, p2, p1)
 
 fillStar12InnerC :: Colour Double -> FlagA (Point, Point, Point) Drawing
@@ -541,10 +539,8 @@ fillStar12InnerC col = group "Fill 12-point inner star inner" $ proc (o, ivEdge,
   where
     fan = proc (o, ov0) -> do
       (ov2, ov10) <- intersectCC -< ((o, ov0), (ov0, o))
-      ov1' <- midpoint -< (ov0, ov2)
-      (_, ov1) <- intersectLC -< ((o, ov1'), (o, ov0))
-      ov11' <- midpoint -< (ov0, ov10)
-      (_, ov11) <- intersectLC -< ((o, ov11'), (o, ov0))
+      (_, ov1) <- bisectArc -< (o, ov0, ov2)
+      (_, ov11) <- bisectArc -< (o, ov0, ov10)
       returnA -< (ov10, ov11, ov0, ov1, ov2)
     fan12 = proc (o, ov0) -> do
       (ov10, ov11, _, ov1, ov2) <- fan -< (o, ov0)
@@ -755,6 +751,15 @@ midpoint = group "Midpoint" $ proc (a, b) -> do
   -- The line (p, q) is the perpendicular bisector; intersect with (a, b)
   m <- intersectLL -< ((p, q), (a, b))
   returnA -< m
+
+-- | Given a circle defined by its centre @o@ and two points @pA@, @pB@ on
+-- that circle, find the two circle points that lie on the line from @o@
+-- through the midpoint of the chord @pA@–@pB@.  Geometrically this bisects
+-- the arc between @pA@ and @pB@.  Returns @(antiPodal, midArcPoint)@.
+bisectArc :: FlagA (Point, Point, Point) (Point, Point)
+bisectArc = group "Bisect arc" $ proc (o, pA, pB) -> do
+  m <- midpoint -< (pA, pB)
+  intersectLC -< ((o, m), (o, pA))
 
 -- | Given a segment @(a, b)@ representing one unit, return the point
 -- @p/q@ units from @a@ in the direction of @b@, using the classic
