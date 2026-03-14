@@ -24,7 +24,7 @@ where
 import Data.Char (toLower)
 import Data.Function (on)
 import Data.List (groupBy, intercalate, intersperse, nub, partition, sortOn)
-import Flag.Construction.Interpreter (Step (..))
+import Flag.Construction.Interpreter (Step (..), StepCategory (..), StepDoc (..), stepDoc)
 import Flag.Source (Agent (..), Entity (..), Source (..), SourcedElement, elementDisplayPair)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Blaze.Html5 (docTypeHtml, toHtml, toValue, (!))
@@ -57,7 +57,7 @@ generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
         relative "cost".
         """
       H.p ! A.class_ "site-nav" $ do
-        H.a ! A.href "construction.html" $ "Construction methods & principles"
+        H.a ! A.href "construction.html" $ "Construction Methods & Principles"
     H.div ! A.class_ "flag-grid" $ mapM_ flagCard flags
     H.footer ! A.class_ "site-footer" $
       H.p $ do
@@ -95,7 +95,7 @@ generateConstructionPage :: String
 generateConstructionPage = renderHtml $ docTypeHtml $ H.html $ do
   H.head $ do
     H.meta ! A.charset "UTF-8"
-    H.meta ! A.name "viewport" ! A.content "width=device-width, initial-scale=1.0"
+    H.meta ! A.name "viewport" ! A.content "width=device-width,initial-scale=1.0"
     H.title "Construction — Constructible Flags"
     H.link ! A.rel "stylesheet" ! A.href "/static/main.css"
     H.link ! A.rel "stylesheet" ! A.href "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
@@ -128,74 +128,26 @@ generateConstructionPage = renderHtml $ docTypeHtml $ H.html $ do
       straight-edge and compass operations.  Each step counts as one
       unit of construction cost. Lines are infinite in length.
       """
-    H.div ! A.class_ "construction-methods" $ do
-      methodEntry
-        "IntersectLL — Line \8745 Line"
-        "$$\\text{\9472}\\!\\cap\\!\\text{\9472}$$"
-        """Given two lines (each defined by a pair of points), finds their
-        unique point of intersection. Errors an error when lines are parallel or
-        if any line has length zero."""
-        "Input: ((p\8321, p\8322), (p\8323, p\8324))  \8594  Point"
-      methodEntry
-        "IntersectLC — Line \8745 Circle"
-        "$$\\text{\9472}\\!\\cap\\!\\bigcirc$$"
-        """Given a line (two points) and a circle (centre + edge point),
-        finds both points where the line crosses the circle. Errors if line does
-        not intersect circle, if line has length zero, or circle has radius
-        zero."""
-        "Input: ((p\8321, p\8322), (centre, edge))  \8594  (Point, Point)"
-      methodEntry
-        "IntersectCC — Circle \8745 Circle"
-        "$$\\bigcirc\\!\\cap\\!\\bigcirc$$"
-        """Given two circles (each as centre + edge point), finds both points
-        of intersection. Errors if circles do not intersect, or if either radius
-        is zero."""
-        "Input: ((centre\8321, edge\8321), (centre\8322, edge\8322))  \8594  (Point, Point)"
-      methodEntry
-        "NGonVertex — Regular polygon vertex"
-        "$$\\star$$"
-        """Computes the k-th vertex of a regular n-gon inscribed in a given
-        circle (centre + first vertex).  Always marks flag as non-constructible, so only use for n values that can't be constructed with simpler primitives
-        (e.g. n\8201=\8201 7, 9, 11 \8230)."""
-        "Input: (centre, firstVertex)  \8594  Point   [n-gon index k, polygon size n]"
+    H.div ! A.class_ "construction-methods" $
+      mapM_ methodEntry [d | s <- [minBound .. maxBound], let d = stepDoc s, stepCategory d == Geometric]
     H.h3 "Rendering"
     H.p ! A.class_ "methods-desc" $
       """
       Rendering steps produce coloured shapes from already-computed
       points.  They do not count toward construction cost.
       """
-    H.div ! A.class_ "construction-methods" $ do
-      methodEntry
-        "FillTriangle — Filled triangle"
-        "$$\\blacktriangle$$"
-        """Draws a solid-colour triangle from three points."""
-        "Input: (p\8321, p\8322, p\8323)  \8594  Drawing"
-      methodEntry
-        "FillCircle — Filled circle"
-        "$$\\bullet$$"
-        """Draws a solid-colour filled disc. The radius is derived from the
-        Euclidean distance between the centre and an edge point, so no
-        explicit radius value is needed."""
-        "Input: (centre, edgePoint)  \8594  Drawing"
-
-      methodEntry
-        "SVGOverlay — External SVG overlay"
-        "$$+$$"
-        """Composites an external SVG file (e.g. an emblem or coat of arms)
-        on top of the generated flag.  The overlay is positioned and
-        scaled using a centre point and an edge point.  The contents of
-        the overlay are not further analysed."""
-        "Input: (centre, edgePoint)  \8594  Drawing   [file path]"
+    H.div ! A.class_ "construction-methods" $
+      mapM_ methodEntry [d | s <- [minBound .. maxBound], let d = stepDoc s, stepCategory d == Rendering]
   where
-    methodEntry :: String -> String -> String -> String -> H.Html
-    methodEntry title symbol desc sig =
+    methodEntry :: StepDoc -> H.Html
+    methodEntry doc =
       H.div ! A.class_ "method-entry" $ do
         H.div ! A.class_ "method-header" $ do
-          H.h3 ! A.class_ "method-title" $ toHtml title
+          H.h3 ! A.class_ "method-title" $ toHtml (stepTitle doc)
           H.div ! A.class_ "method-symbol" $
-            H.preEscapedToHtml symbol
-        H.p ! A.class_ "method-desc" $ toHtml desc
-        H.p ! A.class_ "method-sig" $ H.code $ toHtml sig
+            H.preEscapedToHtml ("$$" ++ stepSymbol doc ++ "$$")
+        H.p ! A.class_ "method-desc" $ toHtml (stepDesc doc)
+        H.p ! A.class_ "method-sig" $ H.code $ toHtml (stepSig doc)
 
 -- ---------------------------------------------------------------------------
 -- Show page
@@ -233,7 +185,7 @@ generateShowPage (svgFile, name, desc, isoCode, _updatedAt, sources, constructio
           H.h2 "Construction"
           H.div ! A.class_ "construction" $ do
             H.div $ do
-              H.a ! A.href (toValue $ "debug-v2/?flag=" ++ isoLower) $ "Interactive viewer"
+              H.a ! A.href (toValue $ "debug-v2/index.html?flag=" ++ isoLower) $ "Interactive viewer"
               toHtml $ " — " ++ show (length constructionSteps) ++ " cost"
             formatSteps constructionSteps
           H.h2 "Sources"
@@ -342,24 +294,12 @@ screenshotableEntities (SourceApproximation _ _) = []
 formatSteps :: [Step] -> H.Html
 formatSteps [] = H.em "None"
 formatSteps ss =
-  let llCount = length [() | StepIntersectLL <- ss]
-      lcCount = length [() | StepIntersectLC <- ss]
-      ccCount = length [() | StepIntersectCC <- ss]
-      ftCount = length [() | StepFillTriangle <- ss]
-      fcCount = length [() | StepFillCircle <- ss]
-
-      ngonCount = length [() | StepNGonVertex <- ss]
-      svgCount = length [() | StepSVGOverlay <- ss]
+  let count s = length (filter (== s) ss)
       rows =
-        concat
-          [ if llCount > 0 then ["\\text{\9472}\\!\\cap\\!\\text{\9472} &\\times " ++ show llCount] else [],
-            if lcCount > 0 then ["\\text{\9472}\\!\\cap\\!\\bigcirc &\\times " ++ show lcCount] else [],
-            if ccCount > 0 then ["\\bigcirc\\!\\cap\\!\\bigcirc &\\times " ++ show ccCount] else [],
-            if ftCount > 0 then ["\\blacktriangle &\\times " ++ show ftCount] else [],
-            if fcCount > 0 then ["\\bullet &\\times " ++ show fcCount] else [],
-            if ngonCount > 0 then ["\\star &\\times " ++ show ngonCount] else [],
-            if svgCount > 0 then ["+ &\\times " ++ show svgCount] else []
-          ]
+        [ stepSymbol (stepDoc s) ++ " &\\times " ++ show (count s)
+        | s <- [minBound .. maxBound],
+          count s > 0
+        ]
    in if null rows
         then H.em "None"
         else

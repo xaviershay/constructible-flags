@@ -2,6 +2,9 @@
 
 module Flag.Construction.Interpreter
   ( Step (..),
+    StepCategory (..),
+    StepDoc (..),
+    stepDoc,
     steps,
     layerStep,
     eval,
@@ -20,13 +23,108 @@ data Step
   = StepIntersectLL
   | StepIntersectLC
   | StepIntersectCC
+  | StepNGonVertex
   | StepFillTriangle
   | StepFillCircle
   | StepMaskDrawing
-  | StepNGonVertex
-  | -- | an external SVG overlay counts as a single cost
-    StepSVGOverlay
-  deriving (Show, Eq)
+  | StepSVGOverlay
+  deriving (Show, Eq, Bounded, Enum)
+
+-- | Whether a step is a geometric construction or a rendering primitive.
+data StepCategory = Geometric | Rendering
+  deriving (Eq, Ord, Show)
+
+-- | Documentation record for a single construction step.
+data StepDoc = StepDoc
+  { stepCategory :: StepCategory,
+    -- | Human-readable name, e.g. @"IntersectLL — Line ∩ Line"@
+    stepTitle :: String,
+    -- | KaTeX source string, e.g. @"$$\\text{─}\\!\\cap\\!\\text{─}$$"@
+    stepSymbol :: String,
+    -- | Prose description of what the step does.
+    stepDesc :: String,
+    -- | Type signature string, e.g. @"Input: ((p₁,p₂),(p₃,p₄)) → Point"@
+    stepSig :: String
+  }
+
+-- | Documentation for every 'Step' variant.  This is the single source of
+-- truth used by both the construction page and the per-flag step summary.
+-- GHC's incomplete-pattern check ensures every new 'Step' variant must be
+-- handled here before the project will build.
+stepDoc :: Step -> StepDoc
+stepDoc StepIntersectLL =
+  StepDoc
+    Geometric
+    "IntersectLL \8212 Line \8745 Line"
+    "\\text{\9472}\\!\\cap\\!\\text{\9472}"
+    "Given two lines (each defined by a pair of points), finds their \
+    \unique point of intersection. Errors when lines are parallel or \
+    \if any line has length zero."
+    "((p\8321, p\8322), (p\8323, p\8324))  \8594  Point"
+stepDoc StepIntersectLC =
+  StepDoc
+    Geometric
+    "IntersectLC \8212 Line \8745 Circle"
+    "\\text{\9472}\\!\\cap\\!\\bigcirc"
+    "Given a line (two points) and a circle (centre + edge point), \
+    \finds both points where the line crosses the circle. Errors if line does \
+    \not intersect circle, if line has length zero, or circle has radius zero."
+    "((p\8321, p\8322), (centre, edge))  \8594  (Point, Point)"
+stepDoc StepIntersectCC =
+  StepDoc
+    Geometric
+    "IntersectCC \8212 Circle \8745 Circle"
+    "\\bigcirc\\!\\cap\\!\\bigcirc"
+    "Given two circles (each as centre + edge point), finds both points \
+    \of intersection. Errors if circles do not intersect, or if either radius \
+    \is zero."
+    "((centre\8321, edge\8321), (centre\8322, edge\8322))  \8594  (Point, Point)"
+stepDoc StepNGonVertex =
+  StepDoc
+    Geometric
+    "NGonVertex \8212 Regular polygon vertex"
+    "\\star"
+    "Computes the k-th vertex of a regular n-gon inscribed in a given \
+    \circle (centre + first vertex).  Always marks flag as non-constructible, \
+    \so only use for n values that can\8217t be constructed with simpler primitives \
+    \(e.g. n\8201=\8201 7, 9, 11 \8230)."
+    "index \8594 size \8594 (centre, firstVertex)  \8594  Point"
+stepDoc StepFillTriangle =
+  StepDoc
+    Rendering
+    "FillTriangle \8212 Filled triangle"
+    "\\blacktriangle"
+    "Draws a solid-colour triangle from three points."
+    "(p\8321, p\8322, p\8323)  \8594  Drawing"
+stepDoc StepFillCircle =
+  StepDoc
+    Rendering
+    "FillCircle \8212 Filled circle"
+    "\\bullet"
+    "Draws a solid-colour filled disc. The radius is derived from the \
+    \Euclidean distance between the centre and an edge point, so no \
+    \explicit radius value is needed."
+    "(centre, edgePoint)  \8594  Drawing"
+stepDoc StepMaskDrawing =
+  StepDoc
+    Rendering
+    "MaskDrawing \8212 Masked or clipped drawing"
+    "\\square"
+    "Composites one drawing on top of another using a mask or clip. \
+    \In mask mode, the mask drawing defines transparent regions. \
+    \In clip mode, only the area inside the \
+    \clip shapes is preserved."
+    "maskMode \8594 (content :: Drawing, mask :: Drawing)  \8594  Drawing"
+stepDoc StepSVGOverlay =
+  StepDoc
+    Rendering
+    "SVGOverlay \8212 External SVG overlay"
+    "+"
+    "Composites an external SVG file (e.g. an emblem or coat of arms) \
+    \on top of the generated flag.  The overlay is positioned and \
+    \scaled using a centre point and an edge point.  The contents of \
+    \the overlay are not further analysed."
+    "filePath \8594 (centre, edgePoint)  \8594  Drawing"
 
 -- | Convert a 'ConstructionLayer' to its corresponding 'Step', if it
 -- represents a geometric construction step.  Drawing primitives

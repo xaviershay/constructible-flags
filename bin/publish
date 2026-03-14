@@ -23,8 +23,9 @@ cmds << "HOST=https://flags.xaviershay.com bin/build"
 # different file of the same size could fail to be uploaded, but this seems
 # unlikely to occur, particularly with gzip compression.
 
+# NOTE: Not actually using this GZIP infrastructure yet, but kept to match where this code was copied from (xaviershay/blog-v2)
 params = GZIP_EXTS.map {|x| "--include \"*#{x}\"" }.join(" ")
-cmds << "aws s3 sync %s s3://%s/ --size-only --content-encoding gzip --exclude \"*\" #{params} --profile flags --region ap-southeast-4" % [staging, bucket]
+cmds << "aws s3 sync %s s3://%s/ --size-only --exclude \"*\" #{params} --profile flags --region ap-southeast-4" % [staging, bucket]
 
 params = GZIP_EXTS.map {|x| "--exclude \"*#{x}\"" }.join(" ")
 cmds << "aws s3 sync %s s3://%s/ --size-only #{params} --profile flags --region ap-southeast-4" % [staging, bucket]
