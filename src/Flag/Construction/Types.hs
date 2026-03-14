@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Flag.Construction.Types
   ( -- * Core types
@@ -15,6 +16,8 @@ where
 import Control.Arrow
 import Control.Category
 import Data.Colour
+import Data.Colour.SRGB (RGB (..), toSRGB)
+import Data.Hashable (Hashable, hashWithSalt)
 import Flag.Construction.FieldNumber (FieldNumber, toDouble)
 import Numeric (showFFloat)
 import Prelude hiding (id, (.))
@@ -32,7 +35,10 @@ data MaskMode
     Mask
   | -- | Shapes in the mask drawing become the visible area; everything else is hidden.
     Clip
-  deriving (Eq, Show)
+  deriving (Eq, Show, Enum)
+
+instance Hashable MaskMode where
+  hashWithSalt s m = hashWithSalt s (fromEnum m)
 
 -- | An abstract drawing instruction
 data Drawing
@@ -78,6 +84,72 @@ instance Semigroup Drawing where
 
 instance Monoid Drawing where
   mempty = EmptyDrawing
+
+-- | Compare two 'Colour Double' values by their sRGB components.
+eqColour :: Colour Double -> Colour Double -> Bool
+eqColour a b =
+  let RGB r1 g1 b1 = toSRGB a
+      RGB r2 g2 b2 = toSRGB b
+   in r1 == r2 && g1 == g2 && b1 == b2
+
+-- | Hash a 'Colour Double' by converting to sRGB components and hashing
+-- the three Double bit-patterns.
+hashColour :: Int -> Colour Double -> Int
+hashColour s col =
+  let RGB r g b = toSRGB col
+   in s `hashWithSalt` r `hashWithSalt` g `hashWithSalt` b
+
+instance Eq Drawing where
+  EmptyDrawing == EmptyDrawing = True
+  DrawTriangle c1 p1 p2 p3 == DrawTriangle c2 q1 q2 q3 =
+    eqColour c1 c2 && p1 == q1 && p2 == q2 && p3 == q3
+  DrawPath c1 ps1 == DrawPath c2 ps2 =
+    eqColour c1 c2 && ps1 == ps2
+  DrawCircle c1 p1 r1 == DrawCircle c2 p2 r2 =
+    eqColour c1 c2 && p1 == p2 && r1 == r2
+  DrawMasked m1 a1 b1 == DrawMasked m2 a2 b2 =
+    m1 == m2 && a1 == a2 && b1 == b2
+  DrawSVGOverlay p1 c1 e1 == DrawSVGOverlay p2 c2 e2 =
+    p1 == p2 && c1 == c2 && e1 == e2
+  Overlay a1 b1 == Overlay a2 b2 =
+    a1 == a2 && b1 == b2
+  _ == _ = False
+
+instance Hashable Drawing where
+  hashWithSalt s EmptyDrawing =
+    s `hashWithSalt` (0 :: Int)
+  hashWithSalt s (DrawTriangle col (x1, y1) (x2, y2) (x3, y3)) =
+    hashColour (s `hashWithSalt` (1 :: Int)) col
+      `hashWithSalt` x1
+      `hashWithSalt` y1
+      `hashWithSalt` x2
+      `hashWithSalt` y2
+      `hashWithSalt` x3
+      `hashWithSalt` y3
+  hashWithSalt s (DrawPath col pts) =
+    hashColour (s `hashWithSalt` (2 :: Int)) col
+      `hashWithSalt` map (\(x, y) -> (toDouble x, toDouble y)) pts
+  hashWithSalt s (DrawCircle col (cx, cy) r) =
+    hashColour (s `hashWithSalt` (3 :: Int)) col
+      `hashWithSalt` cx
+      `hashWithSalt` cy
+      `hashWithSalt` r
+  hashWithSalt s (DrawMasked mode content maskD) =
+    s
+      `hashWithSalt` (4 :: Int)
+      `hashWithSalt` mode
+      `hashWithSalt` content
+      `hashWithSalt` maskD
+  hashWithSalt s (DrawSVGOverlay path (cx, cy) (ex, ey)) =
+    s
+      `hashWithSalt` (5 :: Int)
+      `hashWithSalt` path
+      `hashWithSalt` cx
+      `hashWithSalt` cy
+      `hashWithSalt` ex
+      `hashWithSalt` ey
+  hashWithSalt s (Overlay a b) =
+    s `hashWithSalt` (6 :: Int) `hashWithSalt` a `hashWithSalt` b
 
 -- ---------------------------------------------------------------------------
 -- Free Arrow GADT

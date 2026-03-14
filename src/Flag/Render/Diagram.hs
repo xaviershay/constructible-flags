@@ -14,11 +14,11 @@ where
 
 import Data.Colour (Colour)
 import Data.Colour.SRGB (RGB (..), toSRGB)
-import Data.Hashable (Hashable, hashWithSalt)
+import Data.Hashable (hash)
 import qualified Data.Text as T
 import Flag.Construction.FieldNumber (FieldNumber, toDouble)
 import Flag.Construction.Layers (ConstructionLayer (..), pointDist)
-import Flag.Construction.Types (Drawing (..), MaskMode (..))
+import Flag.Construction.Types (Drawing (..))
 import qualified Flag.Construction.Types as CT
 import Graphics.Svg
 import Numeric (showFFloat, showHex)
@@ -56,28 +56,9 @@ colHex col =
 pointsAttr :: [(Double, Double)] -> T.Text
 pointsAttr pts = T.intercalate " " [sd x <> "," <> sd y | (x, y) <- pts]
 
--- | Create a valid XML ID from a list of hashable elements by combining
--- their hashes and formatting the result as a hex string.
-sdId :: (Hashable a) => [a] -> T.Text
-sdId xs = T.pack (showHex (fromIntegral combined :: Word) "")
-  where
-    combined = foldl hashWithSalt 0 xs
-
--- ---------------------------------------------------------------------------
--- Drawing key (for stable SVG IDs)
--- ---------------------------------------------------------------------------
-
--- | Extract a small list of representative doubles from a drawing, used to
--- derive a stable hash key for unique SVG IDs.
-drawingKey :: CT.Drawing -> [Double]
-drawingKey (CT.DrawTriangle _ p _ _) = let (x, y) = toDP p in [x, y]
-drawingKey (CT.DrawPath _ (p : _)) = let (x, y) = toDP p in [x, y]
-drawingKey (CT.DrawPath _ []) = [0, 0]
-drawingKey (CT.DrawCircle _ c _) = let (x, y) = toDP c in [x, y]
-drawingKey (CT.DrawSVGOverlay _ p _) = let (x, y) = toDP p in [x, y]
-drawingKey (CT.Overlay d _) = drawingKey d
-drawingKey (CT.DrawMasked _ d _) = drawingKey d
-drawingKey CT.EmptyDrawing = [0, 0]
+-- | Create a stable SVG ID fragment from the hash of a 'Drawing'.
+sdId :: CT.Drawing -> T.Text
+sdId d = T.pack (showHex (fromIntegral (hash d) :: Word) "")
 
 -- ---------------------------------------------------------------------------
 -- Shape-only rendering (for use inside <mask> and <clipPath>)
@@ -123,7 +104,7 @@ drawingToShapes col (CT.DrawCircle _ center rd) =
         ]
 drawingToShapes col (CT.DrawMasked CT.Mask content maskD) =
   -- Nested Mask: white background with black shapes punched out, then recoloured.
-  let innerId = "smsk-" <> sdId (drawingKey content)
+  let innerId = "smsk-" <> sdId content
    in defs_
         []
         ( mask_
@@ -143,7 +124,7 @@ drawingToShapes col (CT.DrawMasked CT.Mask content maskD) =
           (drawingToShapes col content)
 drawingToShapes col (CT.DrawMasked CT.Clip content maskD) =
   -- Nested Clip: clip shapes define the visible region, then recolour.
-  let innerId = "sclp-" <> sdId (drawingKey content)
+  let innerId = "sclp-" <> sdId content
    in defs_
         []
         (clipPath_ [makeAttribute "id" innerId] (drawingToShapes col maskD))
@@ -186,7 +167,7 @@ drawingToElement (CT.DrawCircle col center rd) =
 -- \| Mask mode: white background rect makes everything visible by default;
 -- black shapes from the mask drawing punch transparent holes in the content.
 drawingToElement (CT.DrawMasked CT.Mask content maskD) =
-  let maskId = "msk-" <> sdId (drawingKey content)
+  let maskId = "msk-" <> sdId content
       contentElem = drawingToElement content
       maskShapes = drawingToShapes "black" maskD
    in defs_
@@ -207,7 +188,7 @@ drawingToElement (CT.DrawMasked CT.Mask content maskD) =
 -- \| Clip mode: shapes from the mask drawing define the visible region;
 -- everything outside those shapes is hidden.
 drawingToElement (CT.DrawMasked CT.Clip content maskD) =
-  let clipId = "clp-" <> sdId (drawingKey content)
+  let clipId = "clp-" <> sdId content
       contentElem = drawingToElement content
       clipShapes = drawingToShapes "black" maskD
    in defs_

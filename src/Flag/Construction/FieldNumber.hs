@@ -43,6 +43,7 @@ module Flag.Construction.FieldNumber
   )
 where
 
+import Data.Hashable (Hashable, hashWithSalt)
 import Data.List (find)
 import Data.Ratio (Rational, denominator, numerator, (%))
 
@@ -274,3 +275,7 @@ instance Floating FieldNumber where
   asinh (FieldNumber _ d) = FieldNumber FReal (asinh d)
   acosh (FieldNumber _ d) = FieldNumber FReal (acosh d)
   atanh (FieldNumber _ d) = FieldNumber FReal (atanh d)
+
+-- | Hash a 'FieldNumber' by its underlying Double bit-pattern.
+instance Hashable FieldNumber where
+  hashWithSalt s fn = hashWithSalt s (toDouble fn)

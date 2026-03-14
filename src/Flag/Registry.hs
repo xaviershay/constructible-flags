@@ -10,6 +10,7 @@ module Flag.Registry
     , algeria
     , france
     , unitedKingdom
+    , greenland
     , jordan
     , japan
     , marshallIslands
@@ -27,6 +28,7 @@ import Flag.Country.BWA (botswana)
 import Flag.Country.DZA (algeria)
 import Flag.Country.FRA (france)
 import Flag.Country.GBR (unitedKingdom)
+import Flag.Country.GRL (greenland)
 import Flag.Country.JOR (jordan)
 import Flag.Country.JPN (japan)
 import Flag.Country.MHL (marshallIslands)
@@ -42,6 +44,7 @@ allCountryFlags =
     , algeria
     , france
     , unitedKingdom
+    , greenland
     , jordan
     , japan
     , marshallIslands
