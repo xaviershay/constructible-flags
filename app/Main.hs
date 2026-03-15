@@ -7,8 +7,7 @@ import Control.Monad (forM_, unless, when)
 import Data.Char (toLower, toUpper)
 import Data.List (nub)
 import Effectful (runPureEff)
-import Flag.Construction.FieldNumber (Field (..), FieldNumber, fieldOf, isInteger, isNatural)
-import Flag.Construction.Interpreter (Step, evalCollectNumbers, evalLabels)
+import Flag.Construction.Interpreter (Step, eval, evalLabels)
 import Flag.Construction.Tree (evalTree, prunedSteps)
 import Flag.Construction.Types (Point)
 import Flag.Definition (Flag (..))
@@ -69,9 +68,9 @@ writeConstructionJsonForFlag flag = do
 -- ---------------------------------------------------------------------------
 
 -- Helper to drop the editor note for index page
--- (a,b,c,d,e,f,g,h,i) -> (a,b,c,d,e,f,g,h)
-dropEditorNote :: (a, b, c, d, e, f, g, h, i) -> (a, b, c, d, e, f, g, h)
-dropEditorNote (a, b, c, d, e, f, g, h, _) = (a, b, c, d, e, f, g, h)
+-- (a,b,c,d,e,f,g,h) -> (a,b,c,d,e,f,g)
+dropEditorNote :: (a, b, c, d, e, f, g, h) -> (a, b, c, d, e, f, g)
+dropEditorNote (a, b, c, d, e, f, g, _) = (a, b, c, d, e, f, g)
 
 buildHtml :: Maybe String -> [Flag (Sourced : '[])] -> IO ()
 buildHtml mFilter flags = do
@@ -82,7 +81,7 @@ buildHtml mFilter flags = do
 
   -- Generate show pages for each flag
   mapM_
-    ( \fd@(_, _, _, iso, _, _, _, _, _) -> do
+    ( \fd@(_, _, _, iso, _, _, _, _) -> do
         let showHtml = generateShowPage fd
             showPath = "out/" ++ map toLower iso ++ ".html"
         writeFile showPath showHtml
@@ -123,8 +122,8 @@ copyDirRecursive src dst = do
     putStrLn $ "Copied " ++ src ++ " -> " ++ dst
 
 -- | Process a single flag: render SVG, generate PROV XML, and extract metadata
--- Returns: (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, fieldStr, editorNote)
-processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, String, [SourcedElement], [Step], String, String)
+-- Returns: (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, editorNote)
+processFlag :: Flag (Sourced : '[]) -> IO (String, String, String, String, String, [SourcedElement], [Step], String)
 processFlag flag = do
   let isoLower = map toLower (flagIsoCode flag)
       svgFile = isoLower ++ ".svg"
@@ -135,7 +134,7 @@ processFlag flag = do
 
   -- Evaluate the arrow on a unit input to get the Drawing
   let flagInput = ((0, 0), (1, 0)) :: (Point, Point)
-      (drawing, intermediateNumbers) = evalCollectNumbers flagArrow flagInput
+      drawing = eval flagArrow flagInput
       svgOutputWidth = 300 :: Double
 
   -- render the optimized drawing using the shared pipeline (including
@@ -162,25 +161,6 @@ processFlag flag = do
   let (_, tree) = evalTree flagArrow flagInput
       constructionSteps = prunedSteps tree
 
-  -- Determine the number field from all intermediate construction points
-  let fieldStr = classifyField intermediateNumbers
-
   putStrLn $ "Generated " ++ svgFile ++ " (" ++ flagName flag ++ ")"
 
-  pure (svgFile, flagName flag, description, flagIsoCode flag, flagUpdatedAt flag, allSources, constructionSteps, fieldStr, flagEditorNote flag)
-
--- | Classify the number field required by all intermediate construction points.
-classifyField :: [FieldNumber] -> String
-classifyField nums
-  | null nums = "\\mathbb{N}"
-  | otherwise =
-      let maxField = maximum (map fieldOf nums)
-       in case maxField of
-            FReal -> "\\mathbb{R}"
-            FCyclomatic -> "\\mathbb{Q}(\\cos)"
-            FIrrational -> "\\mathbb{Q}(\\sqrt{\\cdot})"
-            FRational -> "\\mathbb{Q}"
-            FInteger
-              | all isNatural nums -> "\\mathbb{N}"
-              | all isInteger nums -> "\\mathbb{Z}"
-              | otherwise -> "\\mathbb{Q}"
+  pure (svgFile, flagName flag, description, flagIsoCode flag, flagUpdatedAt flag, allSources, constructionSteps, flagEditorNote flag)

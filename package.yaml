@@ -109,7 +109,7 @@ tests:
             - ConstructionSpec
             - GeometrySpec
             - HtmlSpec
-            - InterpreterSpec
+
             - NGonVertexSpec
             - OptimizeSpec
             - FillOperationsSpec

@@ -8,12 +8,10 @@ module Flag.Construction.Interpreter
     steps,
     layerStep,
     eval,
-    evalCollectNumbers,
     evalLabels,
   )
 where
 
-import Flag.Construction.FieldNumber (FieldNumber)
 import Flag.Construction.Geometry
 import Flag.Construction.Layers (ConstructionLayer (..))
 import Flag.Construction.Types
@@ -182,47 +180,6 @@ eval (MaskDrawing mode) = \(content, mask) -> DrawMasked mode content mask
 eval (OverlaySVG path) = \(center, edge) -> DrawSVGOverlay path center edge
 eval (Group _ f) = eval f
 eval (LabelPoint _) = id
-
--- | Evaluate a construction arrow, collecting all 'Number' values
--- produced by intersection operations (intermediate construction points).
-evalCollectNumbers :: FlagA a b -> a -> (b, [FieldNumber])
-evalCollectNumbers (Arr _ f) a = let b = f a in b `seq` (b, [])
-evalCollectNumbers (Compose f g) a =
-  let (b, r1) = evalCollectNumbers f a
-      (c, r2) = evalCollectNumbers g b
-   in (c, r1 ++ r2)
-evalCollectNumbers (First f) (a, c) =
-  let (b, rs) = evalCollectNumbers f a
-   in ((b, c), rs)
-evalCollectNumbers (Par f g) (a, c) =
-  let (b, r1) = evalCollectNumbers f a
-      (d, r2) = evalCollectNumbers g c
-   in ((b, d), r1 ++ r2)
-evalCollectNumbers (LeftChoice f) e = case e of
-  Left a -> let (b, rs) = evalCollectNumbers f a in (Left b, rs)
-  Right c -> (Right c, [])
-evalCollectNumbers IntersectLL input =
-  let p@(x, y) = evalIntersectLL' input
-   in (p, [x, y])
-evalCollectNumbers IntersectLC input =
-  let ps@((x1, y1), (x2, y2)) = evalIntersectLC' input
-   in (ps, [x1, y1, x2, y2])
-evalCollectNumbers IntersectCC input =
-  let ps@((x1, y1), (x2, y2)) = evalIntersectCC' input
-   in (ps, [x1, y1, x2, y2])
-evalCollectNumbers (NGonVertex n k) input =
-  let p@(x, y) = evalNGonVertex n k input
-   in (p, [x, y])
-evalCollectNumbers (FillTriangle c) (p1, p2, p3) =
-  (DrawTriangle c p1 p2 p3, [])
-evalCollectNumbers (FillCircle c) (center, edge) =
-  (DrawCircle c center (dist center edge), [])
-evalCollectNumbers (MaskDrawing mode) (content, mask) =
-  (DrawMasked mode content mask, [])
-evalCollectNumbers (OverlaySVG path) (center, edge) =
-  (DrawSVGOverlay path center edge, [])
-evalCollectNumbers (Group _ f) a = evalCollectNumbers f a
-evalCollectNumbers (LabelPoint _) p = (p, [])
 
 -- | Walk the construction DAG collecting all 'LabelPoint' annotations.
 -- Returns a list of @(point, name)@ pairs in encounter order.

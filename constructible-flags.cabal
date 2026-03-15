@@ -246,7 +246,6 @@ test-suite constructible-flags-test
       ConstructionSpec
       GeometrySpec
       HtmlSpec
-      InterpreterSpec
       NGonVertexSpec
       OptimizeSpec
       FillOperationsSpec

@@ -7,7 +7,7 @@ import Codec.Picture
 
 import Effectful (runPureEff)
 import TestImageUtils (diffImage, imagesEqual, writePngImage)
-import Flag.Construction.Interpreter (evalCollectNumbers)
+import Flag.Construction.Interpreter (eval)
 import Flag.Construction.Types (Point)
 import Flag.Definition (Flag (..))
 import Flag.Registry (allCountryFlags)
@@ -53,7 +53,7 @@ goldenTestFor flag = do
   -- Resolve the FlagA arrow and evaluate on unit input
   let flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
       flagInput = ((0, 0), (1, 0)) :: (Point, Point)
-      (drawing, _intermediateNumbers) = evalCollectNumbers flagArrow flagInput
+      drawing = eval flagArrow flagInput
 
   renderDrawing PNGBackend tmpPath svgWidth drawing
 

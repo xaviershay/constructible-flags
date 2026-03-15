@@ -36,8 +36,8 @@ import qualified Text.Blaze.Html5.Attributes as A
 -- ---------------------------------------------------------------------------
 
 -- | Generate the index.html content
--- Tuple: (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, field)
-generateIndex :: [(String, String, String, String, String, [SourcedElement], [Step], String)] -> String
+-- Tuple: (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps)
+generateIndex :: [(String, String, String, String, String, [SourcedElement], [Step])] -> String
 generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
   H.head $ do
     H.meta ! A.charset "UTF-8"
@@ -67,7 +67,7 @@ generateIndex flags = renderHtml $ docTypeHtml $ H.html $ do
         " · Made by "
         H.a ! A.href "https://blog.xaviershay.com" $ "Xavier Shay"
   where
-    flagCard (svgFile, name, _desc, isoCode, updatedAt, _sources, constructionSteps, _field) =
+    flagCard (svgFile, name, _desc, isoCode, updatedAt, _sources, constructionSteps) =
       let isoLower = map toLower isoCode
           flagPage = isoLower ++ ".html"
           isConstructible = null [() | StepNGonVertex <- constructionSteps]
@@ -154,9 +154,9 @@ generateConstructionPage = renderHtml $ docTypeHtml $ H.html $ do
 -- ---------------------------------------------------------------------------
 
 -- | Generate a show page for a single flag
--- (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, field, editorNote)
-generateShowPage :: (String, String, String, String, String, [SourcedElement], [Step], String, String) -> String
-generateShowPage (svgFile, name, desc, isoCode, _updatedAt, sources, constructionSteps, _field, editorNote) =
+-- (svgFile, name, desc, isoCode, updatedAt, sources, constructionSteps, editorNote)
+generateShowPage :: (String, String, String, String, String, [SourcedElement], [Step], String) -> String
+generateShowPage (svgFile, name, desc, isoCode, _updatedAt, sources, constructionSteps, editorNote) =
   let isoLower = map toLower isoCode
    in renderHtml $ docTypeHtml $ H.html $ do
         H.head $ do

@@ -7,7 +7,7 @@ import FillOperationsSpec (fillOperationsTests)
 import qualified GeometrySpec
 import qualified HtmlSpec
 import ImageGoldenSpec (imageGoldenTests)
-import InterpreterSpec (interpreterTests)
+
 import qualified NGonVertexSpec
 import OptimizeSpec (optimizeTests)
 import PruneLayersSpec (pruneLayersTests, pruneTreeTests)
@@ -26,7 +26,7 @@ main =
           HtmlSpec.htmlTests,
           imageGoldenTests,
           constructionCostTests,
-          interpreterTests,
+
           optimizeTests,
           pruneLayersTests,
           pruneTreeTests,
