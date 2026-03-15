@@ -23,7 +23,7 @@ where
 
 import Data.Char (toLower)
 import Data.Function (on)
-import Data.List (groupBy, intercalate, intersperse, nub, partition, sortOn)
+import Data.List (groupBy, intercalate, intersperse, isSuffixOf, nub, partition, sortOn)
 import Flag.Construction.Interpreter (Step (..), StepCategory (..), StepDoc (..), stepDoc)
 import Flag.Source (Agent (..), Entity (..), Source (..), SourcedElement, elementDisplayPair)
 import Text.Blaze.Html.Renderer.String (renderHtml)
@@ -204,20 +204,49 @@ generateShowPage (svgFile, name, desc, isoCode, _updatedAt, sources, constructio
 -- Sources are first grouped by exact Source match (merging elements that share
 -- a source), then groups with the same element names are merged (so e.g.
 -- multiple Pantone chips for "RGB Conversion" appear in one card).
+-- | Normalize a source for grouping: treat SourceImpliedReference the same
+-- as SourceReference so the same entity is not listed twice.
+normalizeSource :: Source -> Source
+normalizeSource (SourceImpliedReference e) = SourceReference e
+normalizeSource s = s
+
+-- | Return True if this source is an implied reference.
+isImplied :: Source -> Bool
+isImplied (SourceImpliedReference _) = True
+isImplied _ = False
+
 formatSourceCards :: [SourcedElement] -> H.Html
 formatSourceCards [] = H.em "None"
 formatSourceCards elems =
-  let pairs = map elementDisplayPair elems
-      -- Pass 1: group elements by identical Source
-      bySource = groupBy ((==) `on` snd) $ sortOn (sourceKey . snd) pairs
-      -- Each group becomes (elementNames, [sources])
+  let -- Annotate each pair with whether it is implied, then normalize the source
+      rawPairs = map elementDisplayPair elems
+      annotated = [(name, isImplied src, normalizeSource src) | (name, src) <- rawPairs]
+      -- Pass 1: group elements by identical (normalized) Source
+      bySource =
+        groupBy ((==) `on` (\(_, _, s) -> s)) $
+          sortOn (\(_, _, s) -> sourceKey s) annotated
+      -- Each group becomes (elementNames with implied annotation, [sources])
       sourceGroups =
-        [ (nub $ map fst grp, [snd g])
+        [ ( deduplicateImplied $ map (\(n, impl, _) -> if impl then n ++ " (implied)" else n) grp,
+            [(\(_, _, s) -> s) g]
+          )
         | grp@(g : _) <- bySource
         ]
       -- Pass 2: merge groups that share the same element names
       merged = mergeByNames $ sortOn fst sourceGroups
    in H.div ! A.class_ "source-cards" $ mapM_ formatMergedCard merged
+
+-- | Remove "Foo (implied)" from a list when "Foo" is also present, then nub.
+deduplicateImplied :: [String] -> [String]
+deduplicateImplied names =
+  let bare = filter (not . isSuffixedImplied) names
+      suffixed = filter isSuffixedImplied names
+      impliedNeeded = [n | n <- suffixed, stripImplied n `notElem` bare]
+   in nub (bare ++ impliedNeeded)
+  where
+    impliedSuffix = " (implied)" :: String
+    isSuffixedImplied n = impliedSuffix `isSuffixOf` n
+    stripImplied n = take (length n - length impliedSuffix) n
 
 -- | Merge adjacent groups that share the same element name list.
 mergeByNames :: [([String], [Source])] -> [([String], [Source])]
@@ -250,7 +279,7 @@ formatMergedCard (names, srcs) =
 -- | Render the source heading (link + type annotation).
 formatSourceHeading :: Source -> H.Html
 formatSourceHeading (SourceReference e) = formatEntityLink e
-formatSourceHeading (SourceImpliedReference e) = formatEntityLink e <> " (implied)"
+formatSourceHeading (SourceImpliedReference e) = formatEntityLink e
 formatSourceHeading (SourceUnsightedReference e _) = formatEntityLink e <> " (unsighted)"
 formatSourceHeading (SourceEditorial refs) = mconcat $ intersperse ", " $ map formatEntityLink refs
 formatSourceHeading (SourceApproximation approxOf _) = "Approximation of " <> H.em (toHtml approxOf)
@@ -309,7 +338,7 @@ formatSteps ss =
 
 sourceKey :: Source -> String
 sourceKey (SourceReference e) = "1" ++ entityTitle e
-sourceKey (SourceImpliedReference e) = "2" ++ entityTitle e
+sourceKey (SourceImpliedReference e) = "1" ++ entityTitle e
 sourceKey (SourceUnsightedReference e _) = "3" ++ entityTitle e
 sourceKey (SourceEditorial _) = "4"
 sourceKey (SourceApproximation approxOf _) = "5" ++ approxOf
