@@ -1,6 +1,7 @@
 module Flag.GeneratedPantone (generatedPantoneRGB, generatedPantoneSourceUrl, generatedPantoneList) where
 
 generatedPantoneRGB :: String -> Maybe (Int, Int, Int)
+generatedPantoneRGB "108-C" = Just (253,221,0)
 generatedPantoneRGB "116-C" = Just (255,205,0)
 generatedPantoneRGB "122-C" = Just (254,210,63)
 generatedPantoneRGB "15-4225-TCX" = Just (111,168,210)
@@ -20,6 +21,7 @@ generatedPantoneRGB "REFLEX-BLUE-C" = Just (1,20,139)
 generatedPantoneRGB _ = Nothing
 
 generatedPantoneSourceUrl :: String -> Maybe String
+generatedPantoneSourceUrl "108-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-108-c.webp"
 generatedPantoneSourceUrl "116-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-116-c.webp"
 generatedPantoneSourceUrl "122-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-122-c.webp"
 generatedPantoneSourceUrl "15-4225-TCX" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-15-4225-tcx.webp"
@@ -40,6 +42,7 @@ generatedPantoneSourceUrl _ = Nothing
 
 generatedPantoneList :: [(String, (Int, Int, Int, String, String))]
 generatedPantoneList = [
+    ("108-C", (253,221,0,"images/pantone/108-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-108-c.webp")),
     ("116-C", (255,205,0,"images/pantone/116-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-116-c.webp")),
     ("122-C", (254,210,63,"images/pantone/122-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-122-c.webp")),
     ("15-4225-TCX", (111,168,210,"images/pantone/15-4225-TCX.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-15-4225-tcx.webp")),

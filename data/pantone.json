@@ -1,4 +1,15 @@
 {
+    "108-C": {
+        "chip": "images/pantone/108-C.webp",
+        "label": "108-C",
+        "rgb": [
+            253,
+            221,
+            0
+        ],
+        "sampledAt": "2026-03-15T00:57:28Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-108-c.webp"
+    },
     "116-C": {
         "chip": "images/pantone/116-C.webp",
         "label": "116-C",
@@ -150,7 +161,7 @@
             39,
             31
         ],
-        "sampledAt": "2026-02-15T23:49:51Z",
+        "sampledAt": "2026-03-15T00:57:22Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-485-c.webp"
     },
     "RED-032-C": {

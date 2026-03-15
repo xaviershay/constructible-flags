@@ -219,6 +219,9 @@ evalLayers (Par f g) (a, c) =
   let (b, l1) = evalLayers f a
       (d, l2) = evalLayers g c
    in ((b, d), l1 ++ l2)
+evalLayers (LeftChoice f) e = case e of
+  Left a -> let (b, ls) = evalLayers f a in (Left b, ls)
+  Right c -> (Right c, [])
 evalLayers IntersectLL inp@((lp1, lp2), (lp3, lp4)) =
   let p = evalIntersectLL' inp
    in (p, [LayerIntersectLL lp1 lp2 lp3 lp4 [p]])

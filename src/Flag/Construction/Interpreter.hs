@@ -158,6 +158,7 @@ steps (FillCircle _) = [StepFillCircle]
 steps (MaskDrawing _) = [StepMaskDrawing]
 steps (OverlaySVG _) = [StepSVGOverlay]
 steps (Group _ f) = steps f
+steps (LeftChoice f) = steps f
 steps (LabelPoint _) = []
 
 -- | Evaluate a construction arrow to produce a concrete function.
@@ -168,6 +169,9 @@ eval (Arr _ f) = \a -> let b = f a in b `seq` b
 eval (Compose f g) = eval g . eval f
 eval (First f) = \(a, c) -> (eval f a, c)
 eval (Par f g) = \(a, c) -> (eval f a, eval g c)
+eval (LeftChoice f) = \e -> case e of
+  Left a -> Left (eval f a)
+  Right c -> Right c
 eval IntersectLL = evalIntersectLL'
 eval IntersectLC = evalIntersectLC'
 eval IntersectCC = evalIntersectCC'
@@ -194,6 +198,9 @@ evalCollectNumbers (Par f g) (a, c) =
   let (b, r1) = evalCollectNumbers f a
       (d, r2) = evalCollectNumbers g c
    in ((b, d), r1 ++ r2)
+evalCollectNumbers (LeftChoice f) e = case e of
+  Left a -> let (b, rs) = evalCollectNumbers f a in (Left b, rs)
+  Right c -> (Right c, [])
 evalCollectNumbers IntersectLL input =
   let p@(x, y) = evalIntersectLL' input
    in (p, [x, y])
@@ -227,6 +234,9 @@ evalLabels (Compose f g) a =
    in evalLabels f a ++ evalLabels g b
 evalLabels (First f) (a, _) = evalLabels f a
 evalLabels (Par f g) (a, c) = evalLabels f a ++ evalLabels g c
+evalLabels (LeftChoice f) e = case e of
+  Left a -> evalLabels f a
+  Right _ -> []
 evalLabels IntersectLL _ = []
 evalLabels IntersectLC _ = []
 evalLabels IntersectCC _ = []

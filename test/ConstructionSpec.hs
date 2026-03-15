@@ -230,11 +230,10 @@ constructionTests =
         "translate"
         [ testProperty "result passes through the given point" $
             \(a :: Point) (b :: Point) (p :: Point) ->
-              let mid = ((fst b + fst p) / 2, (snd b + snd p) / 2)
-               in a /= b && mid /= a ==>
-                    let (r, _) = evalTrans ((a, b), p)
-                     in (abs (toDouble (fst r - fst p)) < 1e-9)
-                          && (abs (toDouble (snd r - snd p)) < 1e-9),
+              a /= b ==>
+                let (r, _) = evalTrans ((a, b), p)
+                 in (abs (toDouble (fst r - fst p)) < 1e-9)
+                      && (abs (toDouble (snd r - snd p)) < 1e-9),
           testCase "result is translated vector (unit)" $ do
             let ((a, b), p) = (((0, 0), (1, 0)), (0, 1))
                 (_, q) = evalTrans ((a, b), p)
@@ -264,11 +263,36 @@ constructionTests =
                 (dx2, dy2) = (fst q - fst p, snd q - snd p)
                 cross = dx1 * dy2 - dy1 * dx2
             approxEqualD "cross product should be 0" 0 cross,
-          testCase "zero-length segment returns (p,p)" $
+          testCase "b==p: result starts at p" $ do
             let a = (0, 0) :: Point
-                b = a
-                p = (1, 2) :: Point
-             in evalTrans ((a, b), p) @?= (p, p)
+                b = (1, 0) :: Point
+                p = b
+                (r, _) = evalTrans ((a, b), p)
+            approxEqual "starts at p" p r,
+          testCase "b==p: result has same length as (a,b)" $ do
+            let a = (0, 0) :: Point
+                b = (1, 0) :: Point
+                p = b
+                (_, q) = evalTrans ((a, b), p)
+            approxEqualD "length" (dist a b) (dist p q),
+          testCase "b==p: result is parallel to (a,b)" $ do
+            let a = (0, 0) :: Point
+                b = (1, 0) :: Point
+                p = b
+                (_, q) = evalTrans ((a, b), p)
+                (dx1, dy1) = (fst b - fst a, snd b - snd a)
+                (dx2, dy2) = (fst q - fst p, snd q - snd p)
+                cross = dx1 * dy2 - dy1 * dx2
+            approxEqualD "cross product should be 0" 0 cross,
+          testCase "b==p diagonal: result is parallel to (a,b)" $ do
+            let a = (0, 0) :: Point
+                b = (1, 1) :: Point
+                p = b
+                (_, q) = evalTrans ((a, b), p)
+                (dx1, dy1) = (fst b - fst a, snd b - snd a)
+                (dx2, dy2) = (fst q - fst p, snd q - snd p)
+                cross = dx1 * dy2 - dy1 * dx2
+            approxEqualD "cross product should be 0" 0 cross
         ],
       testGroup
         "fillStar5"

@@ -38,6 +38,9 @@ evalTree (Par f g) (a, c) =
   let (b, t1) = evalTree f a
       (d, t2) = evalTree g c
    in ((b, d), t1 ++ t2)
+evalTree (LeftChoice f) e = case e of
+  Left a -> let (b, ts) = evalTree f a in (Left b, ts)
+  Right c -> (Right c, [])
 evalTree IntersectLL inp@((lp1, lp2), (lp3, lp4)) =
   let p = evalIntersectLL' inp
    in (p, [TreeLayer (LayerIntersectLL lp1 lp2 lp3 lp4 [p])])

@@ -55,6 +55,7 @@ library
       Flag.Country.JOR
       Flag.Country.JPN
       Flag.Country.MHL
+      Flag.Country.MKD
       Flag.Country.NPL
       Flag.Country.SYC
       Flag.Definition

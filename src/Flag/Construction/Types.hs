@@ -13,7 +13,8 @@ module Flag.Construction.Types
   )
 where
 
-import Control.Arrow
+import Control.Arrow (ArrowChoice (..))
+import Control.Arrow hiding (left)
 import Control.Category
 import Data.Colour
 import Data.Colour.SRGB (RGB (..), toSRGB)
@@ -172,6 +173,9 @@ data FlagA a b where
   Compose :: FlagA a b -> FlagA b c -> FlagA a c
   First :: FlagA a b -> FlagA (a, c) (b, c)
   Par :: FlagA a b -> FlagA c d -> FlagA (a, c) (b, d)
+  -- | Lift an arrow to operate on the Left branch of an Either, passing Right through unchanged.
+  -- Required for ArrowChoice, which enables if/case in proc notation.
+  LeftChoice :: FlagA a b -> FlagA (Either a c) (Either b c)
   -- Geometric primitives (take defining points directly)
   IntersectLL :: FlagA ((Point, Point), (Point, Point)) Point
   IntersectLC :: FlagA ((Point, Point), (Point, Point)) (Point, Point)
@@ -208,6 +212,9 @@ instance Arrow FlagA where
   (***) = Par
   f &&& g = Arr "dup" (\a -> (a, a)) >>> Par f g
 
+instance ArrowChoice FlagA where
+  left = LeftChoice
+
 instance Show (FlagA a b) where
   show = showFlagA 0
 
@@ -219,6 +226,7 @@ showFlagA n fa =
     Compose f g -> ">>>\n" ++ showFlagA (n + 2) f ++ "\n" ++ showFlagA (n + 2) g
     First f -> "First\n" ++ showFlagA (n + 2) f
     Par f g -> "***\n" ++ showFlagA (n + 2) f ++ "\n" ++ showFlagA (n + 2) g
+    LeftChoice f -> "LeftChoice\n" ++ showFlagA (n + 2) f
     IntersectLL -> "IntersectLL"
     IntersectLC -> "IntersectLC"
     IntersectCC -> "IntersectCC"

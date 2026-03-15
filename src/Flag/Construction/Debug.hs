@@ -39,6 +39,9 @@ trace fa input = do
       b <- go n f a
       d <- go n g c
       pure (b, d)
+    go n (LeftChoice f) e = case e of
+      Left a -> Left <$> go n f a
+      Right c -> pure (Right c)
     go n IntersectLL input' = do
       let result = evalIntersectLL' input'
       putStrLn $ indent n ++ "IntersectLL " ++ show input' ++ " => " ++ show result

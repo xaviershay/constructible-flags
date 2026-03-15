@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE TupleSections #-}
 
 module Flag.Constructions
   ( -- * Geometric primitives
@@ -48,7 +49,7 @@ module Flag.Constructions
   )
 where
 
-import Control.Arrow (arr, first, returnA, second, (***))
+import Control.Arrow (arr, first, returnA, second, (***), (|||))
 import Data.Colour
 import Data.Ratio (Ratio, denominator, numerator)
 import Flag.Construction.Types
@@ -652,27 +653,37 @@ bisectAngle = group "Angle bisector" $ proc (o, (a, b)) -> do
 -- each other, so @midpoint(b, p) = midpoint(a, q)@. We find
 -- @M = midpoint(b, p)@, then reflect @a@ through @M@ to obtain
 -- @q = 2M − a = p + (b − a)@.
+--
+-- Special case: when @b == p@ the parallelogram collapses and
+-- @midpoint(b, p)@ degenerates to a zero-radius circle.  Instead we
+-- intersect the line through @b@ and @a@ with the circle centred at @b@
+-- with radius @|b − a|@, which directly yields @a@ and @q = 2b − a@.
 translate :: FlagA ((Point, Point), Point) (Point, Point)
 translate = group "Translate vector" $ proc ((a, b), p) -> do
-  m <- midpoint -< (b, p)
-  -- Degenerate case: midpoint(b,p) == a would pass a zero-length line to
-  -- IntersectLC.  Detect it here and raise an explicit (unimplemented)
-  -- error so callers / tests observe the limitation instead of getting
-  -- a lower-level division-by-zero.
-  -- evaluate check inside an `arr` that receives `m` and `a` so the
-  -- ArrowProc-bound values are visible to the pure function
-  _ <-
-    arr
-      ( \(m', a') ->
-          if m' == a'
-            then error "translate: degenerate midpoint (midpoint == a) - unimplemented"
-            else ()
-      )
+  -- Route into the degenerate branch when b == p, general branch otherwise.
+  eInput <-
+    arr (\((a', b'), p') -> if b' == p' then Right (a', b') else Left ((a', b'), p'))
       -<
-        (m, a)
+        ((a, b), p)
+  eResult <- (generalCase ||| degenerateCase) -< eInput
+  returnA -< eResult
+  where
+    -- Normal path: b /= p, so midpoint is well-defined.
+    generalCase :: FlagA ((Point, Point), Point) (Point, Point)
+    generalCase = group "Translate (general)" $ proc ((a, b), p) -> do
+      m <- midpoint -< (b, p)
+      (_, q) <- intersectLC -< ((a, m), (m, a))
+      returnA -< (p, q)
 
-  (_, q) <- intersectLC -< ((a, m), (m, a))
-  returnA -< (p, q)
+    -- Degenerate path: b == p, so the vector has zero displacement.
+    -- intersectLC on ((b, a), (b, a)) gives the two points on the line
+    -- through b and a that lie on the circle centred at b with radius |b-a|:
+    -- namely a itself and q = 2b - a.  We pick the non-a result as q.
+    degenerateCase :: FlagA (Point, Point) (Point, Point)
+    degenerateCase = group "Translate (b=p)" $ proc (a, b) -> do
+      (x1, x2) <- intersectLC -< ((b, a), (b, a))
+      let q = if x1 == a then x2 else x1
+      returnA -< (b, q)
 
 -- | Given a line (two points) and a point, return a line parallel to the
 -- given line passing through the point.
