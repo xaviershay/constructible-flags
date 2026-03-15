@@ -87,7 +87,7 @@ australia =
           flagSpec
           ( -- "On middle line of Union Jack, one-quarter width of flag from
             -- bottom edge of flag."
-            (1 % 4 :: Ratio Int, 3 % 4),
+            (1 % 4 :: Ratio Int, 3 % 4 :: Ratio Int),
             -- "On middle line, one-sixth from bottom edge."
             (0 :: Ratio Int, 1 % 6),
             -- "One-quarter from middle line, at right angles on left to a

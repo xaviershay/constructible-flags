@@ -5,7 +5,6 @@ where
 
 import Data.Colour
 import Data.Colour.SRGB (channelBlue, channelGreen, channelRed, toSRGB)
-import Data.List (foldl')
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as S
@@ -67,7 +66,7 @@ optimize = buildDrawing . processGroups . flatten
     -- Merge all triangles of a colour into boundary cycles (DrawPath)
     mergeGroup :: (Colour Double, [(Point, Point, Point)]) -> [Drawing]
     mergeGroup (col, tris) =
-      let edgeCounts = foldl' (\tbl e -> M.insertWith (+) e 1 tbl) M.empty (concatMap triEdges tris)
+      let edgeCounts = foldl' (\tbl e -> M.insertWith (+) e (1 :: Int) tbl) M.empty (concatMap triEdges tris)
           boundaryEdges = M.keysSet $ M.filter (== 1) edgeCounts
           adj = buildAdjacency boundaryEdges
           cycles = extractCycles boundaryEdges adj

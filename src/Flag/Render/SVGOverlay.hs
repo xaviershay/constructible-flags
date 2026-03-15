@@ -77,14 +77,16 @@ assembleSVG svgW (minX, minY, maxX, maxY) content overlaySources placements =
             Height_ <<- showT svgH
           ]
       baseSvg = prettyText doc
-  in if null placements
-       then baseSvg
-       else TL.fromStrict
-              (injectOverlays
+   in if null placements
+        then baseSvg
+        else
+          TL.fromStrict
+            ( injectOverlays
                 (TL.toStrict baseSvg)
                 overlaySources
                 placements
-                (minX, minY, maxY))
+                (minX, minY, maxY)
+            )
 
 -- | Write an SVG 'Element' to a file at the given pixel width, injecting
 -- overlays in memory before writing.  No file read-back occurs.
@@ -97,13 +99,13 @@ writeSVG path svgW bbox content overlaySources placements =
 -- this module does not need to import 'Flag.Render.Diagram' (which would
 -- create a cycle via 'SVGBuilderBackend').
 renderDrawingToText :: (Drawing -> Element) -> FilePath -> Double -> Drawing -> IO ()
-renderDrawingToText toElement outPath svgWidth drawing = do
+renderDrawingToText toElem outPath svgWidth drawing = do
   let optimized = optimize drawing
       bbox = case drawingBounds optimized of
-               Just bb -> bb
-               Nothing -> (0, 0, 1, 1)
+        Just bb -> bb
+        Nothing -> (0, 0, 1, 1)
       placements = extractOverlayPlacements optimized
-      canvas     = toElement optimized
+      canvas = toElem optimized
   overlaySources <- loadOverlaySources optimized
   TLIO.writeFile outPath (assembleSVG svgWidth bbox canvas overlaySources placements)
 

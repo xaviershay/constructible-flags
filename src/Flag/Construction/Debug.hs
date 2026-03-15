@@ -51,6 +51,8 @@ trace fa input = do
       let result = evalIntersectCC' input'
       putStrLn $ indent n ++ "IntersectCC " ++ show input' ++ " => " ++ show result
       pure result
+    go _ (OverlaySVG path) (center, edge) =
+      pure $ DrawSVGOverlay path center edge
     go _ (FillTriangle c) (p1, p2, p3) =
       pure $ DrawTriangle c p1 p2 p3
     go _ (FillCircle c) (center, edge) =

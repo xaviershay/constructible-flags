@@ -45,7 +45,7 @@ where
 
 import Data.Hashable (Hashable, hashWithSalt)
 import Data.List (find)
-import Data.Ratio (Rational, denominator, numerator, (%))
+import Data.Ratio (denominator, numerator, (%))
 
 -- ---------------------------------------------------------------------------
 -- Core types

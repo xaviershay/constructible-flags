@@ -48,7 +48,7 @@ module Flag.Constructions
   )
 where
 
-import Control.Arrow (arr, first, returnA, second, (***), (>>>))
+import Control.Arrow (arr, first, returnA, second, (***))
 import Data.Colour
 import Data.Ratio (Ratio, denominator, numerator)
 import Flag.Construction.Types
@@ -635,7 +635,7 @@ perpendicular = group "Perpendicular points" $ proc (a, b) -> do
 bisectAngle :: FlagA (Point, (Point, Point)) (Point, Point)
 bisectAngle = group "Angle bisector" $ proc (o, (a, b)) -> do
   -- point on ray o->b at same distance from o as a
-  (b1, b2) <- intersectLC -< ((o, b), (o, a))
+  (_, b2) <- intersectLC -< ((o, b), (o, a))
   let b' = b2
   -- intersections of circles centred at a and b' with radius |a - o|
   -- Both circles pass through o, so one intersection is always o.

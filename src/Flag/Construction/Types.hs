@@ -62,7 +62,6 @@ data Drawing
 formatDrawing :: Int -> Drawing -> String
 formatDrawing n d = unlines (go n d)
   where
-    indent _ = ""
     showDbl r = showFFloat (Just 6) (toDouble r) ""
     showPoint (x, y) = "(" ++ showDbl x ++ ", " ++ showDbl y ++ ")"
     go :: Int -> Drawing -> [String]

@@ -10,7 +10,7 @@ module Flag.Country.MHL
 where
 
 import Control.Arrow (arr, returnA, (>>>))
-import Data.Colour.SRGB (Colour (..), sRGB24)
+import Data.Colour.SRGB (Colour, sRGB24)
 import Data.Ratio
 import Effectful
 import Flag.Construction.Types (Drawing, FlagA, Point)
@@ -69,7 +69,7 @@ marshallIslands =
       blueC <- referencePantoneAsRGB flagSpec ("Blue", "287-C")
       orangeC <- referencePantoneAsRGB flagSpec ("Orange", "152-C")
       whiteC <- editorial "White" [] (sRGB24 255 255 255)
-      pHoist <- reference "Hoist" flagSpec 1
+      _ <- reference "Hoist" flagSpec (1 :: Int)
       pFly <- reference "Fly" flagSpec (19 % 10)
       pOuterUnionDiameter <- reference "Outer Union Diameter" flagSpec (620 % 1000)
       pInnerUnionDiameter <- reference "Inner Union Diameter" flagSpec (444 % 1000)

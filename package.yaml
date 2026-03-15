@@ -113,6 +113,8 @@ tests:
             - NGonVertexSpec
             - OptimizeSpec
             - FillOperationsSpec
+            - PruneLayersSpec
+            - TestImageUtils
         ghc-options:
             - -threaded
             - -rtsopts

@@ -6,43 +6,41 @@ module FillOperationsSpec (fillOperationsTests) where
 import Codec.Picture
 import Data.Colour (Colour)
 import Data.Colour.SRGB (sRGB24)
-import Data.Colour.Names (red)
 import Data.Ratio ((%))
+import Flag.Construction.Interpreter (evalLabels)
+import Flag.Construction.Tree (evalTree)
+import Flag.Construction.Types (Drawing, FlagA, Point)
+import Flag.Constructions
+  ( fillBox,
+    fillCircle,
+    fillCrescent,
+    fillRectangle,
+    fillStar12InnerC,
+    fillStar16InnerC,
+    fillStar5,
+    fillStar5Inner,
+    fillStar7Inner,
+    fillStar7x2,
+    fillStar7x3,
+    fillTriangle,
+    ngonVertex,
+  )
+import Flag.Render.Backend (renderDrawing)
+import Flag.Render.DebugV2 (writeConstructionJson)
+import Flag.Render.PNGBackend (PNGBackend (..))
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((</>))
 import Test.Tasty
 import Test.Tasty.HUnit
-
 import TestImageUtils (diffImage, imagesEqual, writePngImage)
-import Flag.Constructions
-  ( fillTriangle,
-    fillCircle,
-    fillCrescent,
-    fillRectangle,
-    fillBox,
-    fillStar5,
-    fillStar5Inner,
-    fillStar7x2,
-    fillStar7x3,
-    fillStar7Inner,
-    fillStar12InnerC,
-    fillStar16InnerC,
-    ngonVertex,
-    midpoint,
-  )
-import Flag.Construction.Interpreter (evalLabels)
-import Flag.Construction.Tree (evalTree)
-import Flag.Construction.Types (Point, Drawing, FlagA)
-import Flag.Render.Backend (renderDrawing)
-import Flag.Render.DebugV2 (writeConstructionJson, writeDebugViewer)
-import Flag.Render.PNGBackend (PNGBackend (..))
 
 -- | All fill operation tests with golden image comparison and debug viewer output
 fillOperationsTests :: TestTree
 fillOperationsTests =
   testGroup
     "Fill Operations"
-    [ testGroup "fillTriangle"
+    [ testGroup
+        "fillTriangle"
         [ goldenFillTest "fillTriangle-equilateral" "Equilateral Triangle" $
             fillTriangle testColor
               `withInput` ((0, 0), (1, 0), (0.5, sqrt 3 / 2))
@@ -56,7 +54,8 @@ fillOperationsTests =
               `withInput` ((0, 0), (1, 0), (0.5, 1))
               `withSize` 600
         ],
-      testGroup "fillCircle"
+      testGroup
+        "fillCircle"
         [ goldenFillTest "fillCircle-unit" "Unit Circle" $
             fillCircle testColor
               `withInput` ((0, 0), (1, 0))
@@ -66,7 +65,8 @@ fillOperationsTests =
               `withInput` ((2, 3), (3, 3))
               `withSize` 600
         ],
-      testGroup "fillCrescent"
+      testGroup
+        "fillCrescent"
         [ goldenFillTest "fillCrescent-simple" "Simple Crescent" $
             fillCrescent testColor
               `withInput` (((0, 0), (1, 0)), ((0.3, 0), (0.9, 0)))
@@ -76,7 +76,8 @@ fillOperationsTests =
               `withInput` (((0, 0), (1, 0)), ((-0.3, 0), (0.7, 0)))
               `withSize` 600
         ],
-      testGroup "fillRectangle"
+      testGroup
+        "fillRectangle"
         [ goldenFillTest "fillRectangle-square" "Unit Square" $
             fillRectangle testColor
               `withInput` ((0, 0), (1, 0), (1, 1), (0, 1))
@@ -86,7 +87,8 @@ fillOperationsTests =
               `withInput` ((0, 0), (2, 0), (2, 1), (0, 1))
               `withSize` 600
         ],
-      testGroup "fillBox"
+      testGroup
+        "fillBox"
         [ goldenFillTest "fillBox-3x2" "3×2 Box" $
             fillBox testColor 3 2
               `withInput` ((0, 0), (1, 0))
@@ -96,13 +98,15 @@ fillOperationsTests =
               `withInput` ((0, 0), (1, 0))
               `withSize` 600
         ],
-      testGroup "fillStar5"
+      testGroup
+        "fillStar5"
         [ goldenFillTest "fillStar5-unit" "{5/2} Pentagram" $
             fillStar5 testColor
               `withInput` ((0, 0), (1, 0))
               `withSize` 600
         ],
-      testGroup "fillStar5Inner"
+      testGroup
+        "fillStar5Inner"
         [ goldenFillTest "fillStar5Inner-half" "{5/2} Inner Star (1/2)" $
             fillStar5Inner (1 % 2) testColor
               `withInput` ((0, 0), (1, 0))
@@ -112,19 +116,22 @@ fillOperationsTests =
               `withInput` ((0, 0), (1, 0))
               `withSize` 600
         ],
-      testGroup "fillStar7x2"
+      testGroup
+        "fillStar7x2"
         [ goldenFillTest "fillStar7x2-unit" "{7/2} Heptagram" $
             fillStar7x2 testColor
               `withInput` ((0, 0), (1, 0))
               `withSize` 600
         ],
-      testGroup "fillStar7x3"
+      testGroup
+        "fillStar7x3"
         [ goldenFillTest "fillStar7x3-unit" "{7/3} Heptagram" $
             fillStar7x3 testColor
               `withInput` ((0, 0), (1, 0))
               `withSize` 600
         ],
-      testGroup "fillStar7Inner"
+      testGroup
+        "fillStar7Inner"
         [ goldenFillTest "fillStar7Inner-half" "7-point Inner Star (1/2)" $
             fillStar7Inner (1 % 2) testColor
               `withInput` ((0, 0), (1, 0))
@@ -134,11 +141,13 @@ fillOperationsTests =
               `withInput` ((0, 0), (1, 0))
               `withSize` 600
         ],
-      testGroup "fillStar12InnerC"
+      testGroup
+        "fillStar12InnerC"
         [ goldenFillTest "fillStar12InnerC-unit" "12-point Inner Star" $
             testStar12InnerC
         ],
-      testGroup "fillStar16InnerC"
+      testGroup
+        "fillStar16InnerC"
         [ goldenFillTest "fillStar16InnerC-unit" "16-point Inner Star" $
             testStar16InnerC
         ]
@@ -195,7 +204,7 @@ debugDir :: FilePath
 debugDir = "out/debug-v2"
 
 -- | Create a golden test for a fill operation with debug viewer support
-goldenFillTest :: (Show a) => String -> String -> FillTestConfig a -> TestTree
+goldenFillTest :: String -> String -> FillTestConfig a -> TestTree
 goldenFillTest name displayName config = testCase name $ do
   -- Create output directories
   createDirectoryIfMissing True goldenDir

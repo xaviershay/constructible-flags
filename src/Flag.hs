@@ -9,16 +9,3 @@ module Flag
   ( -- * Re-exports
   )
 where
-
-import Flag.Construction.FieldNumber
-import Flag.Construction.Geometry
-import Flag.Construction.Interpreter
-import Flag.Construction.Layers
-import Flag.Construction.Optimize
-import Flag.Construction.Tree
-import Flag.Construction.Types
-import Flag.Constructions
-import Flag.Definition
-import Flag.Pantone
-import Flag.Registry
-import Flag.Source

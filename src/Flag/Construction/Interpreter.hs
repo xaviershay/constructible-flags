@@ -225,7 +225,7 @@ evalLabels (Arr _ f) a = let b = f a in b `seq` []
 evalLabels (Compose f g) a =
   let b = eval f a
    in evalLabels f a ++ evalLabels g b
-evalLabels (First f) (a, c) = evalLabels f a
+evalLabels (First f) (a, _) = evalLabels f a
 evalLabels (Par f g) (a, c) = evalLabels f a ++ evalLabels g c
 evalLabels IntersectLL _ = []
 evalLabels IntersectLC _ = []

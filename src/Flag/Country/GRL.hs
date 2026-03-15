@@ -9,7 +9,7 @@ module Flag.Country.GRL
   )
 where
 
-import Control.Arrow (arr, returnA, (>>>))
+import Control.Arrow (returnA)
 import Data.Colour.SRGB (sRGB24)
 import Data.Ratio
 import Effectful
@@ -18,7 +18,6 @@ import Flag.Constructions
 import Flag.Definition (Flag, editorNote, mkCountryFlag)
 import Flag.Pantone (referencePantoneAsRGB)
 import Flag.Source
-import Foreign (addForeignPtrFinalizerEnv)
 
 greenland :: (Sourced :> es) => Flag es
 greenland =

@@ -7,7 +7,6 @@ import Data.Colour.SRGB (sRGB)
 import Flag.Construction.Layers
   ( ConstructionLayer (..),
     evalLayers,
-    layerOutputPoints,
     pruneLayers,
   )
 import Flag.Construction.Tree
@@ -57,8 +56,6 @@ ngonLayer p = LayerNGonVertex p00 p10 [p]
 
 -- | A LayerIntersectLL using p00,p10 / p01,p11 as defining points and
 -- claiming the given point as output.
-intersectLayer :: (Number, Number) -> ConstructionLayer
-intersectLayer p = LayerIntersectLL p00 p10 p01 p11 [p]
 
 -- | A fill triangle that does not use any of our variable points —
 -- useful as an always-present sentinel that must survive pruning.
@@ -143,10 +140,10 @@ pruneLayersTests =
         -- produced by an earlier geometric step.  Labels are transparent
         -- annotations and must never be removed by dedup.
         let geom = ngonLayer p10
-            label = LayerLabel "vertex A" p10
+            lbl = LayerLabel "vertex A" p10
             fill = LayerTriangle red p10 p01 p11
-            result = pruneLayers [geom, label, fill]
-        assertElem "label is present in result" label result,
+            result = pruneLayers [geom, lbl, fill]
+        assertElem "label is present in result" lbl result,
       testCase "duplicate output: fill layer after a duplicate is still kept" $ do
         -- The dup is dropped but the fill that follows must survive.
         let first = ngonLayer p10
@@ -192,8 +189,8 @@ pruneLayersTests =
         --
         -- Lines: (0,0)-(1,1) and (1,0)-(0,1) — they cross at (1/2, 1/2).
         let construction :: FlagA ((Point, Point), (Point, Point)) Point
-            construction = proc lines -> do
-              p <- intersectLL -< lines
+            construction = proc inputLines -> do
+              p <- intersectLL -< inputLines
               label "vertex A" -< p
 
             input = (((0, 0), (1, 1)), ((1, 0), (0, 1)))
@@ -288,8 +285,8 @@ pruneTreeTests =
         --
         -- Lines: (0,0)-(1,1) and (1,0)-(0,1) — they cross at (1/2, 1/2).
         let construction :: FlagA ((Point, Point), (Point, Point)) Point
-            construction = proc lines -> do
-              p <- intersectLL -< lines
+            construction = proc inputLines -> do
+              p <- intersectLL -< inputLines
               label "vertex A" -< p
 
             input = (((0, 0), (1, 1)), ((1, 0), (0, 1)))
