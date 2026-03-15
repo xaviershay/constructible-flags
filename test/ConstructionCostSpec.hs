@@ -31,6 +31,7 @@ expectedCosts =
     ("JOR", 72),
     ("JPN", 24),
     ("MHL", 167),
+    ("MKD", 187),
     ("NPL", 200),
     ("SYC", 18)
   ]
