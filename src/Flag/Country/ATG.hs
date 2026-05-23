@@ -30,9 +30,10 @@ antiguaAndBarbuda =
         There is no official specification, and even the
         government website uses two different versions.
         Many construction sheets have a pointier star, I instead used a narrower
-        geometry measured from the Tokyo 2020 games flag, which is similar to
-        that used in the government website header. Simarly for colors, I used
-        ones on the deeper end of the spectrum.
+        geometry measured from the Tokyo 2020 games flag where the inner radius
+        is the same as the height of the blue bar. This is similar to that used
+        in the government website header. Simarly for colors, I used ones on the
+        deeper end of the spectrum.
         """
     )
     design
