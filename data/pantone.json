@@ -131,6 +131,17 @@
         "sampledAt": "2026-02-26T08:53:07Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-294-c.webp"
     },
+    "300-C": {
+        "chip": "images/pantone/300-C.webp",
+        "label": "300-C",
+        "rgb": [
+            0,
+            94,
+            183
+        ],
+        "sampledAt": "2026-05-23T08:20:41Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-300-c.webp"
+    },
     "342-C": {
         "chip": "images/pantone/342-C.webp",
         "label": "342-C",

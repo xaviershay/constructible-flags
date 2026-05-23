@@ -20,7 +20,8 @@ import Test.Tasty.HUnit
 -- are removed before counting).
 expectedCosts :: [(String, Int)]
 expectedCosts =
-  [ ("AUS", 442),
+  [ ("ATG", 101),
+    ("AUS", 442),
     ("BGD", 46),
     ("BTN", 21),
     ("BWA", 61),

@@ -38,15 +38,7 @@ bhutan =
     constructedAt = "2026-02-21"
     gov = mkAgentOrg "bgd_gov" "Government of Bhutan"
 
-    -- London Organising Committee of the Olympic Games and Paralympic Games Limited
-    tocEntity = mkAgentOrg "toc2020" "Tokyo Organising Committee of the Olympic and Paralympic Games"
-
-    toc =
-      screenshot constructedAt "btn/toc.png" $
-        attributeTo tocEntity $
-          mkEntity
-            "Flags and Anthems Manual, Tokyo 2020"
-            "https://library.olympics.com/Default/doc/SYRACUSE/1568069/flags-and-anthems-manual-tokyo-2020-the-tokyo-organising-committee-of-the-olympic-and-paralympic-gam?_lg=en-GB"
+    toc = screenshot constructedAt "btn/toc.png" tokyoOlympicsFlagsManual
 
     locWithScreenshot = screenshot constructedAt "btn/loc.png" londonOlympicsFlagsManual
 
