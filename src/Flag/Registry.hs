@@ -3,6 +3,7 @@
 
 module Flag.Registry
     ( allCountryFlags
+    , alandIslands
     , antiguaAndBarbuda
     , australia
     , bangladesh
@@ -23,6 +24,7 @@ module Flag.Registry
 import Flag.Source (Sourced)
 import Flag.Definition (Flag)
 
+import Flag.Country.ALA (alandIslands)
 import Flag.Country.ATG (antiguaAndBarbuda)
 import Flag.Country.AUS (australia)
 import Flag.Country.BGD (bangladesh)
@@ -41,7 +43,8 @@ import Flag.Country.SYC (seychelles)
 
 allCountryFlags :: [Flag (Sourced : '[])]
 allCountryFlags =
-    [ antiguaAndBarbuda
+    [ alandIslands
+    , antiguaAndBarbuda
     , australia
     , bangladesh
     , bhutan

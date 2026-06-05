@@ -4,6 +4,7 @@
 module Main (main) where
 
 import Control.Monad (forM_, unless, when)
+import qualified Data.ByteString.Lazy as BSL
 import Data.Char (toLower, toUpper)
 import Data.List (nub)
 import Effectful (runPureEff)
@@ -154,7 +155,7 @@ processFlag flag = do
   let provFile = isoLower ++ "-prov.json"
       provPath = "out/" ++ provFile
       provJson = generateProvJson (flagIsoCode flag) (flagName flag) allSources
-  writeFile provPath provJson
+  BSL.writeFile provPath provJson
 
   -- Extract construction steps from the pruned tree, so the cost and
   -- breakdown shown on the flag page match what the debug viewer displays.

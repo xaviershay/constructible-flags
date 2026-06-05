@@ -44,6 +44,7 @@ library
       Flag.Construction.Tree
       Flag.Construction.Types
       Flag.Constructions
+      Flag.Country.ALA
       Flag.Country.ATG
       Flag.Country.AUS
       Flag.Country.BGD
