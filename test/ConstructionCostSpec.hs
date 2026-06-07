@@ -8,51 +8,62 @@ import Flag.Construction.Tree (evalTree, prunedSteps)
 import Flag.Construction.Types (Point)
 import Flag.Definition (Flag (..))
 import Flag.Registry (allCountryFlags)
-import Flag.Source (runSourcedPure)
+import Flag.Source (Sourced, runSourcedPure)
 import FlagsUnderConstruction (underConstruction)
+import System.Directory (createDirectoryIfMissing, doesFileExist)
+import System.FilePath ((</>))
 import Test.Tasty
 import Test.Tasty.HUnit
 
--- | Map of expected construction step counts per flag ISO code.
--- Only geometric steps (IntersectLL, IntersectLC, IntersectCC, NGonVertex)
--- are counted — drawing primitives (fills, overlays) and labels are excluded.
--- Counts reflect the pruned tree (duplicate outputs and dead computations
--- are removed before counting).
-expectedCosts :: [(String, Int)]
-expectedCosts =
-  [ ("ALA", 94),
-    ("ATG", 101),
-    ("AUS", 442),
-    ("BGD", 46),
-    ("BTN", 21),
-    ("BWA", 61),
-    ("DZA", 85),
-    ("FRA", 19),
-    ("GBR", 155),
-    ("GRL", 40),
-    ("JOR", 72),
-    ("JPN", 24),
-    ("MHL", 167),
-    ("MKD", 187),
-    ("NPL", 200),
-    ("SYC", 18),
-    ("TTO", 49)
-  ]
-
--- Tests to prevent performance regressions in construction.
+-- | Tests to prevent performance regressions in construction.
+-- On first run for a flag, the computed cost is written to a golden file and
+-- the test fails so the value can be reviewed and committed.
+-- On subsequent runs the recorded value is used for comparison.
 constructionCostTests :: TestTree
 constructionCostTests =
   testGroup
     "ConstructionCost"
-    [ testCase (flagIsoCode f) $ do
-        let iso = flagIsoCode f
-            flagArrow = runPureEff $ runSourcedPure $ flagDesign f
-            input = ((0, 0), (1, 0)) :: (Point, Point)
-            (_, trees) = evalTree flagArrow input
-            cost = length (prunedSteps trees)
-        case lookup iso expectedCosts of
-          Nothing -> assertFailure $ "No expected cost recorded for " ++ iso ++ ". Current computed cost: " ++ show cost ++ "."
-          Just expected -> assertEqual ("construction cost for " ++ iso) expected cost
+    [ testCase (flagIsoCode f) (goldenCostTestFor f)
     | f <- allCountryFlags,
       flagIsoCode f `notElem` underConstruction
     ]
+
+-- Paths
+
+goldenDir :: FilePath
+goldenDir = "test/golden"
+
+goldenPathFor :: String -> FilePath
+goldenPathFor iso = goldenDir </> (map toLower iso ++ ".cost")
+
+-- | Single-flag golden cost test.
+goldenCostTestFor :: Flag (Sourced : '[]) -> Assertion
+goldenCostTestFor flag = do
+  createDirectoryIfMissing True goldenDir
+
+  let iso = flagIsoCode flag
+      flagArrow = runPureEff $ runSourcedPure $ flagDesign flag
+      input = ((0, 0), (1, 0)) :: (Point, Point)
+      (_, trees) = evalTree flagArrow input
+      cost = length (prunedSteps trees)
+      path = goldenPathFor iso
+
+  goldenExists <- doesFileExist path
+  if not goldenExists
+    then do
+      writeFile path (show cost)
+      assertFailure $
+        "Golden cost created for " ++ iso ++ " (" ++ show cost ++ ") at " ++ path ++ ". Review and commit to accept."
+    else do
+      recorded <- readFile path
+      case reads recorded of
+        [(expected, "")] ->
+          assertEqual ("construction cost for " ++ iso) (expected :: Int) cost
+        _ ->
+          assertFailure $ "Could not parse golden cost file " ++ path ++ ": " ++ show recorded
+
+-- | Convert to lower-case without importing Data.Char
+toLower :: Char -> Char
+toLower c
+  | 'A' <= c && c <= 'Z' = toEnum (fromEnum c + 32)
+  | otherwise = c
