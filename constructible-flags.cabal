@@ -60,6 +60,7 @@ library
       Flag.Country.MKD
       Flag.Country.NPL
       Flag.Country.SYC
+      Flag.Country.TTO
       Flag.Definition
       Flag.Design.UnionJack
       Flag.Pantone

@@ -19,6 +19,7 @@ module Flag.Registry
     , northMacedonia
     , nepal
     , seychelles
+    , trinidadAndTobago
     ) where
 
 import Flag.Source (Sourced)
@@ -40,6 +41,7 @@ import Flag.Country.MHL (marshallIslands)
 import Flag.Country.MKD (northMacedonia)
 import Flag.Country.NPL (nepal)
 import Flag.Country.SYC (seychelles)
+import Flag.Country.TTO (trinidadAndTobago)
 
 allCountryFlags :: [Flag (Sourced : '[])]
 allCountryFlags =
@@ -59,4 +61,5 @@ allCountryFlags =
     , northMacedonia
     , nepal
     , seychelles
+    , trinidadAndTobago
     ]

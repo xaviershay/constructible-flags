@@ -35,7 +35,8 @@ expectedCosts =
     ("MHL", 167),
     ("MKD", 187),
     ("NPL", 200),
-    ("SYC", 18)
+    ("SYC", 18),
+    ("TTO", 49)
   ]
 
 -- Tests to prevent performance regressions in construction.
