@@ -445,13 +445,26 @@ encodeAnimation cfg fmt framesDir outPath = do
   let pat = framesDir </> "frame-%05d.png"
       fps = show (acFps cfg)
   case fmt of
-    FmtGif ->
-      -- Direct GIF encode.  We previously tried palette-optimised two-pass
-      -- and split-filter pipelines, but both have known fragility on
-      -- common ffmpeg builds (e.g. "Internal bug, should not have happened"
-      -- under image2 + paletteuse, or a single output frame from the split
-      -- filter).  The direct encode is reliable and our flag palettes are
-      -- small enough that file sizes stay reasonable.
+    FmtGif -> do
+      -- Two-pass palette-optimised GIF encode.
+      --
+      -- A direct encode (or ffmpeg's default 256-colour palette) does not
+      -- contain enough neutral greys, so cross-fades between flag layers
+      -- get quantised to the nearest available colours -- which tend to
+      -- carry a warm cast, producing visible yellowing on mid-greys.
+      --
+      -- We previously avoided the two-pass approach because of fragility
+      -- with the single-command @split + paletteuse@ filtergraph (only
+      -- one output frame) and "Internal bug, should not have happened"
+      -- crashes under @image2 + paletteuse@ in one invocation.  Splitting
+      -- it into two separate @ffmpeg@ runs with an explicit intermediate
+      -- palette PNG sidesteps both issues and is well-supported across
+      -- ffmpeg builds.
+      --
+      -- @stats_mode=full@ weights every frame equally so the palette
+      -- covers the full fade range; @sierra2_4a@ dithering gives smooth
+      -- gradients without the colour drift of @bayer@.
+      let palettePath = framesDir </> "palette.png"
       callProcess
         "ffmpeg"
         [ "-y",
@@ -459,6 +472,21 @@ encodeAnimation cfg fmt framesDir outPath = do
           fps,
           "-i",
           pat,
+          "-vf",
+          "palettegen=stats_mode=full",
+          palettePath
+        ]
+      callProcess
+        "ffmpeg"
+        [ "-y",
+          "-framerate",
+          fps,
+          "-i",
+          pat,
+          "-i",
+          palettePath,
+          "-lavfi",
+          "paletteuse=dither=sierra2_4a",
           "-loop",
           "0",
           outPath
