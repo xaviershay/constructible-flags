@@ -242,32 +242,38 @@ drawingToElement d =
 -- ---------------------------------------------------------------------------
 
 -- | Render a complete layer (construction geometry + fill).
-renderLayer :: ConstructionLayer -> Element
-renderLayer l = renderConstructionGeom l <> renderFill l
+-- @geomScale@ is the conversion factor (diagram-units per output pixel),
+-- used to size construction markers proportionally to the canvas.  Pass
+-- @bboxWidth / svgWidthPx@ for the current frame's viewport.
+renderLayer :: Double -> ConstructionLayer -> Element
+renderLayer s l = renderConstructionGeom s l <> renderFill l
 
 -- | Render the ephemeral construction geometry (dotted lines/circles)
 -- and result-point dots for a single step.
-renderConstructionGeom :: ConstructionLayer -> Element
-renderConstructionGeom (LayerIntersectLL p1 p2 p3 p4 pts) =
-  renderLine (toDP p1) (toDP p2)
-    <> renderLine (toDP p3) (toDP p4)
-    <> renderDots (map toDP pts)
-renderConstructionGeom (LayerIntersectLC p1 p2 cc ce pts) =
-  renderLine (toDP p1) (toDP p2)
-    <> renderCircle (toDP cc) (toD (pointDist cc ce))
-    <> renderDots (map toDP pts)
-renderConstructionGeom (LayerIntersectCC c1 e1 c2 e2 pts) =
-  renderCircle (toDP c1) (toD (pointDist c1 e1))
-    <> renderCircle (toDP c2) (toD (pointDist c2 e2))
-    <> renderDots (map toDP pts)
-renderConstructionGeom (LayerNGonVertex _ _ _) = mempty
-renderConstructionGeom (LayerTriangle _ _ _ _) = mempty
-renderConstructionGeom (LayerCircle _ center edge) =
-  renderCircle (toDP center) (toD (pointDist center edge))
-    <> renderDots (map toDP [center, edge])
-renderConstructionGeom (LayerMasked _ _ _) = mempty
-renderConstructionGeom (LayerSVGOverlay _ _ _) = mempty
-renderConstructionGeom (LayerLabel _ p) = renderDots [toDP p]
+-- @geomScale@ converts target pixel sizes to diagram-coordinate sizes so
+-- that markers appear at a consistent visual size regardless of the flag's
+-- internal coordinate scale.  Pass @bboxWidth / svgWidthPx@.
+renderConstructionGeom :: Double -> ConstructionLayer -> Element
+renderConstructionGeom s (LayerIntersectLL p1 p2 p3 p4 pts) =
+  renderLine s (toDP p1) (toDP p2)
+    <> renderLine s (toDP p3) (toDP p4)
+    <> renderDots s (map toDP pts)
+renderConstructionGeom s (LayerIntersectLC p1 p2 cc ce pts) =
+  renderLine s (toDP p1) (toDP p2)
+    <> renderCircle s (toDP cc) (toD (pointDist cc ce))
+    <> renderDots s (map toDP pts)
+renderConstructionGeom s (LayerIntersectCC c1 e1 c2 e2 pts) =
+  renderCircle s (toDP c1) (toD (pointDist c1 e1))
+    <> renderCircle s (toDP c2) (toD (pointDist c2 e2))
+    <> renderDots s (map toDP pts)
+renderConstructionGeom _ (LayerNGonVertex _ _ _) = mempty
+renderConstructionGeom _ (LayerTriangle _ _ _ _) = mempty
+renderConstructionGeom s (LayerCircle _ center edge) =
+  renderCircle s (toDP center) (toD (pointDist center edge))
+    <> renderDots s (map toDP [center, edge])
+renderConstructionGeom _ (LayerMasked _ _ _) = mempty
+renderConstructionGeom _ (LayerSVGOverlay _ _ _) = mempty
+renderConstructionGeom s (LayerLabel _ p) = renderDots s [toDP p]
 
 -- | Render the persistent fill for a layer.
 renderFill :: ConstructionLayer -> Element
@@ -299,35 +305,41 @@ renderFill (LayerMasked mode content maskD) =
 renderFill _ = mempty
 
 -- | Render a dotted construction line connecting two points.
-renderLine :: (Double, Double) -> (Double, Double) -> Element
-renderLine (x1, y1) (x2, y2) =
+-- @geomScale@ is diagram-units per output pixel; stroke and dash sizes are
+-- expressed as pixel values multiplied by this factor so they stay visually
+-- constant regardless of the flag's coordinate scale.
+renderLine :: Double -> (Double, Double) -> (Double, Double) -> Element
+renderLine s (x1, y1) (x2, y2) =
   line_
     [ X1_ <<- sd x1,
       Y1_ <<- sd y1,
       X2_ <<- sd x2,
       Y2_ <<- sd y2,
       Stroke_ <<- "grey",
-      Stroke_width_ <<- sd 0.02,
-      Stroke_dasharray_ <<- "0.05,0.05"
+      Stroke_width_ <<- sd (2.0 * s),
+      Stroke_dasharray_ <<- (sd (5.0 * s) <> "," <> sd (5.0 * s))
     ]
 
 -- | Render a dotted construction circle.
-renderCircle :: (Double, Double) -> Double -> Element
-renderCircle (cx, cy) r =
+-- See 'renderLine' for the @geomScale@ convention.
+renderCircle :: Double -> (Double, Double) -> Double -> Element
+renderCircle s (cx, cy) r =
   circle_
     [ Cx_ <<- sd cx,
       Cy_ <<- sd cy,
       R_ <<- sd r,
       Fill_ <<- "none",
       Stroke_ <<- "grey",
-      Stroke_width_ <<- sd 0.02,
-      Stroke_dasharray_ <<- "0.08,0.05"
+      Stroke_width_ <<- sd (2.0 * s),
+      Stroke_dasharray_ <<- (sd (8.0 * s) <> "," <> sd (5.0 * s))
     ]
 
 -- | Render intersection points as black dots.
-renderDots :: [(Double, Double)] -> Element
-renderDots pts =
+-- @geomScale@ is diagram-units per output pixel; the dot radius is expressed
+-- as a pixel target so it stays visually constant across flag coordinate scales.
+renderDots :: Double -> [(Double, Double)] -> Element
+renderDots s pts =
   mconcat
-    [ circle_ [Cx_ <<- sd x, Cy_ <<- sd y, R_ <<- "0.04", Fill_ <<- "black", Stroke_ <<- "none"]
+    [ circle_ [Cx_ <<- sd x, Cy_ <<- sd y, R_ <<- sd (4.0 * s), Fill_ <<- "black", Stroke_ <<- "none"]
     | (x, y) <- pts
     ]

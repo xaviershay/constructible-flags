@@ -54,8 +54,10 @@ import Flag.Construction.Types (Drawing (..))
 import Flag.Render.Bounds (BBox, applyPadding, drawingBounds)
 import Flag.Render.Diagram (drawingToElement, renderConstructionGeom)
 import Flag.Render.SVGOverlay
-  ( assembleSVG,
+  ( OverlayPlacement,
+    OverlaySource,
     extractOverlayPlacements,
+    injectOverlays,
     loadOverlaySources,
   )
 import Graphics.Svg
@@ -199,7 +201,7 @@ buildFrames cfg finalDrawing layers paths =
               f
               bbox
               (optimize settled)
-              (activeOverlay cfg layers i)
+              (activeOverlay cfg bbox layers i)
               (pathFor i)
 
       mkHold h = HoldFrame (nBuildup + h) bbox finalDrawing
@@ -230,9 +232,15 @@ layerToFill _ = EmptyDrawing
 -- from 'trailMaxOpacity' (most recent step) down to 'trailMinOpacity'
 -- (oldest step in the trail), so a long trail still leaves the active step
 -- visually dominant without making old history vanish.
-activeOverlay :: AnimationConfig -> [ConstructionLayer] -> Int -> Element
-activeOverlay cfg layers i =
-  let active = renderConstructionGeom (layers !! i)
+--
+-- @bbox@ is used to derive a @geomScale@ factor (@bboxWidth / svgWidthPx@)
+-- so that construction markers (dots, strokes, dashes) are sized in pixels
+-- rather than diagram-coordinate units, giving a consistent visual size
+-- regardless of the flag's internal coordinate scale.
+activeOverlay :: AnimationConfig -> BBox -> [ConstructionLayer] -> Int -> Element
+activeOverlay cfg (minX, _, maxX, _) layers i =
+  let geomScale = (maxX - minX) / acWidth cfg
+      active = renderConstructionGeom geomScale (layers !! i)
       trailIdxs = [max 0 (i - acTrailSteps cfg) .. i - 1]
       total = length trailIdxs
       -- pos 0 = oldest in the trail, pos (total - 1) = most recent.
@@ -246,7 +254,7 @@ activeOverlay cfg layers i =
         mconcat
           [ g_
               [makeAttribute "opacity" (opacityText (opacityFor pos))]
-              (renderConstructionGeom (layers !! j))
+              (renderConstructionGeom geomScale (layers !! j))
           | (pos, j) <- zip [0 :: Int ..] trailIdxs
           ]
    in trailEls <> active
@@ -289,19 +297,55 @@ whiteBackground (minX, minY, maxX, maxY) =
 writeFrameSVG :: AnimationConfig -> FilePath -> Frame -> IO ()
 writeFrameSVG cfg outPath (BuildupFrame _ bbox settled overlay path) = do
   let canvas = whiteBackground bbox <> drawingToElement settled <> overlay
-      base = assembleSVG (acWidth cfg) bbox canvas Map.empty []
       caption = formatGroupPath path
-      svgText
-        | T.null caption = base
-        | otherwise = injectCaption bbox (acWidth cfg) caption base
-  TLIO.writeFile outPath svgText
+      captionEl =
+        if T.null caption
+          then mempty
+          else buildCaptionElement bbox (acWidth cfg) caption
+  TLIO.writeFile outPath (assembleSVGWithCaption (acWidth cfg) bbox canvas captionEl Map.empty [])
 writeFrameSVG cfg outPath (HoldFrame _ bbox drawing) = do
   let opt = optimize drawing
       placements = extractOverlayPlacements opt
       canvas = whiteBackground bbox <> drawingToElement opt
   sources <- loadOverlaySources opt
-  let svgText = assembleSVG (acWidth cfg) bbox canvas sources placements
-  TLIO.writeFile outPath svgText
+  TLIO.writeFile outPath (assembleSVGWithCaption (acWidth cfg) bbox canvas mempty sources placements)
+
+-- | Assemble a frame SVG document in memory.  @content@ is placed inside a
+-- y-flip transform group (diagram coordinates → SVG coordinates).
+-- @captionEl@ is placed as a direct sibling of that group — outside the
+-- y-flip — so it is rendered right-side-up.  Pass 'mempty' for @captionEl@
+-- when no caption is required.
+assembleSVGWithCaption ::
+  Double ->
+  BBox ->
+  Element ->
+  Element ->
+  Map.Map FilePath OverlaySource ->
+  [OverlayPlacement] ->
+  TL.Text
+assembleSVGWithCaption svgW (minX, minY, maxX, maxY) content captionEl overlaySources placements =
+  let vbW = maxX - minX
+      vbH = maxY - minY
+      svgH = svgW * vbH / vbW
+      xform = "translate(" <> showT (- minX) <> "," <> showT maxY <> ") scale(1,-1)"
+      doc =
+        with
+          (svg11_ (g_ [Transform_ <<- xform] content <> captionEl))
+          [ ViewBox_ <<- ("0 0 " <> showT vbW <> " " <> showT vbH),
+            Width_ <<- showT svgW,
+            Height_ <<- showT svgH
+          ]
+      baseSvg = prettyText doc
+   in if null placements
+        then baseSvg
+        else
+          TL.fromStrict
+            ( injectOverlays
+                (TL.toStrict baseSvg)
+                overlaySources
+                placements
+                (minX, minY, maxY)
+            )
 
 -- | Format a group path for display as a single caption line.  Empty
 -- entries are filtered out; remaining entries are joined with " \x2013 "
@@ -312,85 +356,65 @@ formatGroupPath :: [String] -> T.Text
 formatGroupPath =
   T.intercalate (T.pack " \x2013 ") . map T.pack . filter (not . null)
 
--- | Insert a small caption in the lower left corner of a rendered SVG
--- document, on top of a half-opacity black bar that spans the full bottom
--- edge.  Both elements are appended before the closing \</svg\> tag.
+-- | Build a caption bar 'Element' positioned at the bottom of the SVG
+-- viewBox.
 --
--- The caption is wrapped in a nested @<svg>@ element with its own
--- pixel-sized @viewBox@.  This is a workaround for poor text rasterisation
--- in @rsvg-convert@ (versions \<= 2.54): when @font-size@ is a tiny
--- floating-point number in viewBox units (e.g. @0.2@), individual glyph
--- strokes drop out and the text comes out "splotchy" and unreadable.
--- Establishing a child coordinate system in pixels keeps all glyph
--- metrics in normal integer-sized units, which rsvg-convert hints and
--- rasterises cleanly.
---
--- The nested @<svg>@ sits as a sibling of the y-flipped diagram group, so
--- it is not affected by the diagram's y-flip transform.
-injectCaption :: BBox -> Double -> T.Text -> TL.Text -> TL.Text
-injectCaption (minX, minY, maxX, maxY) svgW caption svgText =
+-- The caption is wrapped in a nested @\<svg\>@ element with its own
+-- pixel-sized @viewBox@.  This keeps the @font-size@ in normal
+-- integer-sized pixel units, which @rsvg-convert@ (versions \<= 2.54)
+-- rasterises cleanly — tiny fractional viewBox units cause individual
+-- glyph strokes to drop out and produce splotchy, unreadable text.
+-- The nested @\<svg\>@ is placed as a sibling of the y-flipped diagram
+-- group by 'assembleSVGWithCaption', so it is not affected by the
+-- diagram's y-flip transform.
+buildCaptionElement :: BBox -> Double -> T.Text -> Element
+buildCaptionElement (minX, minY, maxX, maxY) svgW caption =
   let vbW = maxX - minX
       vbH = maxY - minY
-      -- Pixel-space metrics.  Working in pixels here keeps the caption a
-      -- predictable visual size in the rendered PNG and sidesteps the
-      -- rsvg-convert small-font-size rendering bug described above.
+      -- Pixel-space metrics
       fontPx = 14 :: Double
       paddingPx = 6 :: Double
       marginPx = 10 :: Double
       barHpx = fontPx + 2 * paddingPx
-      -- Position/size of the nested <svg> in the outer viewBox's units.
+      -- Convert pixels to outer viewBox units
       pxToUnits px = px * vbW / svgW
       barHunits = pxToUnits barHpx
       barYunits = vbH - barHunits
-      -- Inner coordinates: 1 inner unit = 1 output pixel, so glyph metrics
-      -- like font-size sit at human-scale integers.
+      -- Inner coordinate system: 1 unit = 1 output pixel, so glyph
+      -- metrics like font-size sit at human-scale integer values.
       innerVbW = svgW
       innerVbH = barHpx
       -- Text baseline: place it so descenders sit within the bar.
       textY = barHpx - paddingPx
-      element =
-        TL.fromStrict $
-          T.concat
-            [ "\n<svg x=\"0\" y=\"",
-              showT barYunits,
-              "\" width=\"",
-              showT vbW,
-              "\" height=\"",
-              showT barHunits,
-              "\" viewBox=\"0 0 ",
-              showT innerVbW,
-              " ",
-              showT innerVbH,
-              "\" preserveAspectRatio=\"none\">",
-              "<rect x=\"0\" y=\"0\" width=\"",
-              showT innerVbW,
-              "\" height=\"",
-              showT innerVbH,
-              "\" fill=\"black\" fill-opacity=\"0.5\" stroke=\"none\"/>",
-              "<text x=\"",
-              showT marginPx,
-              "\" y=\"",
-              showT textY,
-              "\" font-family=\"sans-serif\" font-size=\"",
-              showT fontPx,
-              "\" text-anchor=\"start\" fill=\"white\">",
-              escapeXml caption,
-              "</text>",
-              "</svg>\n"
-            ]
-      closeTag = TL.pack "</svg>"
-      (before, after) = TL.breakOnEnd closeTag svgText
-   in if TL.null before
-        then svgText -- no </svg> found; leave document untouched
-        else TL.dropEnd (TL.length closeTag) before <> element <> closeTag <> after
-
--- | Minimal XML escaping for text node content (no attributes need to be
--- escaped here, since the only user-controlled string is the caption body).
-escapeXml :: T.Text -> T.Text
-escapeXml =
-  T.replace "&" "&amp;"
-    . T.replace "<" "&lt;"
-    . T.replace ">" "&gt;"
+   in with
+        ( svg11_
+            ( rect_
+                [ X_ <<- "0",
+                  Y_ <<- "0",
+                  Width_ <<- showT innerVbW,
+                  Height_ <<- showT innerVbH,
+                  Fill_ <<- "black",
+                  Fill_opacity_ <<- "0.5",
+                  Stroke_ <<- "none"
+                ]
+                <> text_
+                  [ X_ <<- showT marginPx,
+                    Y_ <<- showT textY,
+                    makeAttribute "font-family" "sans-serif",
+                    makeAttribute "font-size" (showT fontPx),
+                    makeAttribute "text-anchor" "start",
+                    Fill_ <<- "white"
+                  ]
+                  (toElement caption)
+            )
+        )
+        [ X_ <<- "0",
+          Y_ <<- showT barYunits,
+          Width_ <<- showT vbW,
+          Height_ <<- showT barHunits,
+          ViewBox_ <<- ("0 0 " <> showT innerVbW <> " " <> showT innerVbH),
+          makeAttribute "preserveAspectRatio" "none"
+        ]
 
 -- | Show a 'Double' with reasonable precision for SVG numeric attributes.
 showT :: Double -> T.Text
