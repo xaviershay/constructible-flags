@@ -393,14 +393,18 @@ function SvgViewer({
         startVb: null,
     });
 
-    // Track SVG pixel width via ResizeObserver to avoid forced layout reads during render
-    const svgWidthRef = useRef(600);
+    // Track SVG pixel width so dot/hit radii are correct from first paint.
+    // null = not yet measured; the SVG is hidden until the effect fires and
+    // sets the real width, so the wrong-sized first render is never visible.
+    const [svgWidth, setSvgWidth] = useState(null);
     useEffect(() => {
         const svg = svgRef.current;
         if (!svg) return;
-        svgWidthRef.current = svg.getBoundingClientRect().width || 600;
+        const measured = svg.getBoundingClientRect().width;
+        if (measured > 0) setSvgWidth(measured);
         const obs = new ResizeObserver((entries) => {
-            svgWidthRef.current = entries[0].contentRect.width || 600;
+            const w = entries[0].contentRect.width;
+            if (w > 0) setSvgWidth(w);
         });
         obs.observe(svg);
         return () => obs.disconnect();
@@ -534,8 +538,8 @@ function SvgViewer({
     const viewBoxStr = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
 
     // Fixed screen-size radii: convert target pixel sizes to viewBox units.
-    // svgWidthRef is kept current by a ResizeObserver (no DOM read during render).
-    const pxToVb = vb.w / svgWidthRef.current;
+    // svgWidth is null until measured; fall back to 600 for the hidden first render.
+    const pxToVb = vb.w / (svgWidth ?? 600);
     const hitRadius = pxToVb * 30;
     const dotRadiusOuter = pxToVb * 5;
     const dotRadiusInner = pxToVb * 4;
@@ -547,6 +551,7 @@ function SvgViewer({
             viewBox=${viewBoxStr}
             class="construction-svg"
             xmlns="http://www.w3.org/2000/svg"
+            style=${{ visibility: svgWidth === null ? "hidden" : "visible" }}
             onPointerDown=${onPointerDown}
             onPointerMove=${onPointerMove}
             onPointerUp=${onPointerUp}
@@ -813,9 +818,7 @@ const StepNode = memo(function StepNode({
                 style=${{ paddingLeft: depth * 16 + 8 + "px" }}
                 onClick=${() => onToggleGroup(node.label)}
             >
-                <span class="step-group-toggle"
-                    >${isExpanded ? "▼" : "▶"}</span
-                >
+                <span class="step-group-toggle">${isExpanded ? "▼" : "▶"}</span>
                 <span class="step-group-label">${node.label}</span>
                 <span class="step-group-count">(${groupLeaves.length})</span>
             </div>
