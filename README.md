@@ -26,6 +26,45 @@ sudo apt install librsvg2-bin
 brew install librsvg
 ```
 
+### `ffmpeg` (optional, for `bin/animate`)
+
+`bin/animate` shells out to `ffmpeg` to assemble PNG frames into the final
+movie file. It is only required if you want to generate construction
+animations.
+
+```bash
+# Debian/Ubuntu
+sudo apt install ffmpeg
+
+# macOS
+brew install ffmpeg
+```
+
+## Generating construction animations
+
+The `bin/animate` script renders an animated movie of the construction
+steps for a single flag, ending on a held frame of the canonical SVG.
+The output is written to `out/animation/<iso>.<ext>`.
+
+Each build-up frame is captioned in the lower-right with the path of
+enclosing construction-group labels for the active step (e.g.
+`Horizontal stripes – Quad`).  Low-level primitive operations like
+`Intersect line/circle` are intentionally not shown — the caption is a
+high-level summary of which named building block is currently being built,
+not the underlying compass-and-straightedge step.  Layers that are not
+nested inside any named group show no caption.
+
+```bash
+bin/animate TTO                     # Trinidad and Tobago, defaults (GIF)
+bin/animate JPN --format mp4        # Japan as MP4
+bin/animate FRA --width 800 --fps 24
+```
+
+Supported formats: `gif` (default), `mp4`, `webm`, `apng`, `webp`.
+GIF is the most universally embeddable; MP4 is much smaller for long
+constructions but needs an HTML `<video>` tag rather than `<img>`. Run
+`bin/animate --help` for all options.
+
 ## Regenerating golden tests
 
 Each flag has a pixel-exact golden image in `test/golden/`. To regenerate after visual changes (e.g. updated Pantone colours):

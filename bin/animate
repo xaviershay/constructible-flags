@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
+# Wrapper that runs the project's `animate` executable via stack and
+# forwards all provided arguments.
+exec stack exec animate -- "$@"

@@ -66,6 +66,7 @@ library
       Flag.Pantone
       Flag.Pantone.Cli
       Flag.Registry
+      Flag.Render.Animation
       Flag.Render.Backend
       Flag.Render.Bounds
       Flag.Render.DebugV2
@@ -92,6 +93,38 @@ library
     , blaze-html
     , bytestring
     , colour
+    , containers
+    , directory
+    , effectful-core
+    , filepath
+    , hashable
+    , http-conduit
+    , process
+    , svg-builder
+    , text
+    , time
+    , unordered-containers
+    , webp
+  default-language: Haskell2010
+
+executable animate
+  main-is: AnimateCli.hs
+  other-modules:
+      Paths_constructible_flags
+  autogen-modules:
+      Paths_constructible_flags
+  hs-source-dirs:
+      app-animate
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded
+  build-depends:
+      JuicyPixels
+    , aeson
+    , aeson-pretty
+    , base >=4.7 && <5
+    , blaze-html
+    , bytestring
+    , colour
+    , constructible-flags
     , containers
     , directory
     , effectful-core
@@ -254,6 +287,7 @@ test-suite constructible-flags-test
       FillOperationsSpec
       PruneLayersSpec
       TestImageUtils
+      AnimationSpec
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N1

@@ -93,6 +93,13 @@ executables:
             - -threaded
         dependencies:
             - constructible-flags
+    animate:
+        main: AnimateCli.hs
+        source-dirs: app-animate
+        ghc-options:
+            - -threaded
+        dependencies:
+            - constructible-flags
 tests:
     constructible-flags-test:
         main: Spec.hs
@@ -115,6 +122,7 @@ tests:
             - FillOperationsSpec
             - PruneLayersSpec
             - TestImageUtils
+            - AnimationSpec
         ghc-options:
             - -threaded
             - -rtsopts

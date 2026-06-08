@@ -1,5 +1,6 @@
 module Main (main) where
 
+import AnimationSpec (animationTests)
 import ConstructionCostSpec (constructionCostTests)
 import qualified ConstructionSpec
 import FieldNumberSpec (fieldNumberTests)
@@ -32,5 +33,6 @@ main =
           pruneTreeTests,
           SVGOverlaySpec.svgOverlayTests,
           fieldNumberTests,
-          fillOperationsTests
+          fillOperationsTests,
+          animationTests
         ]

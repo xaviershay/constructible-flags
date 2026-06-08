@@ -6,6 +6,7 @@ module Flag.Construction.Tree
     flattenTree,
     pruneTree,
     prunedSteps,
+    layerGroupPaths,
   )
 where
 
@@ -70,6 +71,19 @@ evalTree (LabelPoint name) p = (p, [TreeLayer (LayerLabel name p)])
 flattenTree :: ConstructionTree -> [ConstructionLayer]
 flattenTree (TreeLayer l) = [l]
 flattenTree (TreeGroup _ children) = concatMap flattenTree children
+
+-- | For each leaf layer in @forest@ (in document order), return the list of
+-- enclosing 'TreeGroup' labels, outermost first.  The result aligns 1:1 with
+-- @concatMap 'flattenTree' forest@, so callers can zip the two lists to
+-- associate a group-path with each layer.
+--
+-- Layers that are not nested inside any group get an empty path.
+layerGroupPaths :: [ConstructionTree] -> [[String]]
+layerGroupPaths = concatMap (go [])
+  where
+    go path (TreeLayer _) = [path]
+    go path (TreeGroup label children) =
+      concatMap (go (path ++ [label])) children
 
 -- | The canonical cost calculation: prune the forest, flatten to layers,
 -- and return only the geometric construction steps (no drawing primitives,

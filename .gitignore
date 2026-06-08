@@ -9,3 +9,4 @@ test/tmp
 test/failures
 .DS_Store
 plans
+tmp
