@@ -4,6 +4,8 @@
 module Flag.Render.Diagram
   ( drawingToElement,
     renderConstructionGeom,
+    renderConstructionStrokes,
+    renderConstructionDots,
     renderFill,
     renderLayer,
     renderLine,
@@ -254,26 +256,43 @@ renderLayer s l = renderConstructionGeom s l <> renderFill l
 -- that markers appear at a consistent visual size regardless of the flag's
 -- internal coordinate scale.  Pass @bboxWidth / svgWidthPx@.
 renderConstructionGeom :: Double -> ConstructionLayer -> Element
-renderConstructionGeom s (LayerIntersectLL p1 p2 p3 p4 pts) =
+renderConstructionGeom s l = renderConstructionStrokes s l <> renderConstructionDots s l
+
+-- | Render only the dotted strokes (lines/circles) of a layer's
+-- construction geometry, omitting the result-point dots.  Useful when
+-- those two parts need separate styling (e.g. fading the strokes while
+-- keeping the dots fully opaque).
+renderConstructionStrokes :: Double -> ConstructionLayer -> Element
+renderConstructionStrokes s (LayerIntersectLL p1 p2 p3 p4 _) =
   renderLine s (toDP p1) (toDP p2)
     <> renderLine s (toDP p3) (toDP p4)
-    <> renderDots s (map toDP pts)
-renderConstructionGeom s (LayerIntersectLC p1 p2 cc ce pts) =
+renderConstructionStrokes s (LayerIntersectLC p1 p2 cc ce _) =
   renderLine s (toDP p1) (toDP p2)
     <> renderCircle s (toDP cc) (toD (pointDist cc ce))
-    <> renderDots s (map toDP pts)
-renderConstructionGeom s (LayerIntersectCC c1 e1 c2 e2 pts) =
+renderConstructionStrokes s (LayerIntersectCC c1 e1 c2 e2 _) =
   renderCircle s (toDP c1) (toD (pointDist c1 e1))
     <> renderCircle s (toDP c2) (toD (pointDist c2 e2))
-    <> renderDots s (map toDP pts)
-renderConstructionGeom _ (LayerNGonVertex _ _ _) = mempty
-renderConstructionGeom _ (LayerTriangle _ _ _ _) = mempty
-renderConstructionGeom s (LayerCircle _ center edge) =
+renderConstructionStrokes _ (LayerNGonVertex _ _ _) = mempty
+renderConstructionStrokes _ (LayerTriangle _ _ _ _) = mempty
+renderConstructionStrokes s (LayerCircle _ center edge) =
   renderCircle s (toDP center) (toD (pointDist center edge))
-    <> renderDots s (map toDP [center, edge])
-renderConstructionGeom _ (LayerMasked _ _ _) = mempty
-renderConstructionGeom _ (LayerSVGOverlay _ _ _) = mempty
-renderConstructionGeom s (LayerLabel _ p) = renderDots s [toDP p]
+renderConstructionStrokes _ (LayerMasked _ _ _) = mempty
+renderConstructionStrokes _ (LayerSVGOverlay _ _ _) = mempty
+renderConstructionStrokes _ (LayerLabel _ _) = mempty
+
+-- | Render only the result-point dots of a layer's construction geometry,
+-- omitting the dotted strokes.  Complement of 'renderConstructionStrokes'.
+renderConstructionDots :: Double -> ConstructionLayer -> Element
+renderConstructionDots s (LayerIntersectLL _ _ _ _ pts) = renderDots s (map toDP pts)
+renderConstructionDots s (LayerIntersectLC _ _ _ _ pts) = renderDots s (map toDP pts)
+renderConstructionDots s (LayerIntersectCC _ _ _ _ pts) = renderDots s (map toDP pts)
+renderConstructionDots _ (LayerNGonVertex _ _ _) = mempty
+renderConstructionDots _ (LayerTriangle _ _ _ _) = mempty
+renderConstructionDots s (LayerCircle _ center edge) =
+  renderDots s (map toDP [center, edge])
+renderConstructionDots _ (LayerMasked _ _ _) = mempty
+renderConstructionDots _ (LayerSVGOverlay _ _ _) = mempty
+renderConstructionDots s (LayerLabel _ p) = renderDots s [toDP p]
 
 -- | Render the persistent fill for a layer.
 renderFill :: ConstructionLayer -> Element

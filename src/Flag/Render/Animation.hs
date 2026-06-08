@@ -52,7 +52,12 @@ import Flag.Construction.Optimize (optimize)
 import Flag.Construction.Tree (ConstructionTree, flattenTree, layerGroupPaths, pruneTree)
 import Flag.Construction.Types (Drawing (..))
 import Flag.Render.Bounds (BBox, applyPadding, drawingBounds)
-import Flag.Render.Diagram (drawingToElement, renderConstructionGeom)
+import Flag.Render.Diagram
+  ( drawingToElement,
+    renderConstructionDots,
+    renderConstructionGeom,
+    renderConstructionStrokes,
+  )
 import Flag.Render.SVGOverlay
   ( OverlayPlacement,
     OverlaySource,
@@ -231,7 +236,11 @@ layerToFill _ = EmptyDrawing
 -- previous steps drawn at reduced opacity.  Trail opacity fades linearly
 -- from 'trailMaxOpacity' (most recent step) down to 'trailMinOpacity'
 -- (oldest step in the trail), so a long trail still leaves the active step
--- visually dominant without making old history vanish.
+-- visually dominant without making old history vanish.  The fade applies
+-- only to the dotted strokes (lines/circles); result-point dots are kept
+-- fully opaque and accumulated across /all/ previous steps (independent
+-- of 'acTrailSteps'), so every constructed point stays visible for the
+-- remainder of the animation.
 --
 -- @bbox@ is used to derive a @geomScale@ factor (@bboxWidth / svgWidthPx@)
 -- so that construction markers (dots, strokes, dashes) are sized in pixels
@@ -250,14 +259,21 @@ activeOverlay cfg (minX, _, maxX, _) layers i =
         | otherwise =
             let frac = fromIntegral pos / fromIntegral (total - 1) :: Double
              in trailMinOpacity + (trailMaxOpacity - trailMinOpacity) * frac
-      trailEls =
+      trailStrokeEls =
         mconcat
           [ g_
               [makeAttribute "opacity" (opacityText (opacityFor pos))]
-              (renderConstructionGeom geomScale (layers !! j))
+              (renderConstructionStrokes geomScale (layers !! j))
           | (pos, j) <- zip [0 :: Int ..] trailIdxs
           ]
-   in trailEls <> active
+      -- Dots from every prior step, drawn at full opacity so the set of
+      -- constructed points only ever grows.
+      priorDotEls =
+        mconcat
+          [ renderConstructionDots geomScale (layers !! j)
+          | j <- [0 .. i - 1]
+          ]
+   in priorDotEls <> trailStrokeEls <> active
   where
     trailMinOpacity = 0.2
     trailMaxOpacity = 0.6
