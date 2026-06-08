@@ -257,7 +257,7 @@ const LeafLayer = memo(function LeafLayer({
     hitRadius,
     dotRadiusOuter,
     dotRadiusInner,
-    dotRadiusLabel,
+    labelFontSize,
     setHoveredPoint,
 }) {
     const pts = leaf.points || [];
@@ -311,6 +311,8 @@ const LeafLayer = memo(function LeafLayer({
                                         y="0"
                                         transform=${`translate(${pt.x + dotRadiusOuter * 1.6}, ${pt.y}) scale(1,-1) translate(0, ${dotRadiusOuter * 1.6})`}
                                         class="point-label"
+                                        font-size=${labelFontSize}
+                                        stroke-width=${labelFontSize * 0.15}
                                         pointer-events="none"
                                         >${pt.label}</text
                                     >
@@ -393,18 +395,23 @@ function SvgViewer({
         startVb: null,
     });
 
-    // Track SVG pixel width so dot/hit radii are correct from first paint.
-    // null = not yet measured; the SVG is hidden until the effect fires and
-    // sets the real width, so the wrong-sized first render is never visible.
-    const [svgWidth, setSvgWidth] = useState(null);
+    // Track the SVG's rendered pixel size so dot/hit/label sizes are correct
+    // from first paint.  We need both dimensions: with preserveAspectRatio
+    // "meet" (the default), the on-screen scale is set by the limiting axis,
+    // which is the height for tall flags (e.g. NPL) and the width for wide
+    // ones (e.g. TTO).  null = not yet measured; the SVG stays hidden until
+    // the effect fires so the wrong-sized first render is never visible.
+    const [svgSize, setSvgSize] = useState(null);
     useEffect(() => {
         const svg = svgRef.current;
         if (!svg) return;
-        const measured = svg.getBoundingClientRect().width;
-        if (measured > 0) setSvgWidth(measured);
+        const r = svg.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0)
+            setSvgSize({ w: r.width, h: r.height });
         const obs = new ResizeObserver((entries) => {
-            const w = entries[0].contentRect.width;
-            if (w > 0) setSvgWidth(w);
+            const cr = entries[0].contentRect;
+            if (cr.width > 0 && cr.height > 0)
+                setSvgSize({ w: cr.width, h: cr.height });
         });
         obs.observe(svg);
         return () => obs.disconnect();
@@ -538,12 +545,16 @@ function SvgViewer({
     const viewBoxStr = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
 
     // Fixed screen-size radii: convert target pixel sizes to viewBox units.
-    // svgWidth is null until measured; fall back to 600 for the hidden first render.
-    const pxToVb = vb.w / (svgWidth ?? 600);
+    // With preserveAspectRatio "meet", the rendered scale is set by the
+    // limiting axis, so units-per-pixel is the LARGER of the two ratios.
+    // svgSize is null until measured; fall back to 600 for the hidden first render.
+    const sizeW = svgSize?.w ?? 600;
+    const sizeH = svgSize?.h ?? 600;
+    const pxToVb = Math.max(vb.w / sizeW, vb.h / sizeH);
     const hitRadius = pxToVb * 30;
     const dotRadiusOuter = pxToVb * 5;
     const dotRadiusInner = pxToVb * 4;
-    const dotRadiusLabel = pxToVb * 5;
+    const labelFontSize = pxToVb * 18;
 
     return html`
         <svg
@@ -551,7 +562,7 @@ function SvgViewer({
             viewBox=${viewBoxStr}
             class="construction-svg"
             xmlns="http://www.w3.org/2000/svg"
-            style=${{ visibility: svgWidth === null ? "hidden" : "visible" }}
+            style=${{ visibility: svgSize === null ? "hidden" : "visible" }}
             onPointerDown=${onPointerDown}
             onPointerMove=${onPointerMove}
             onPointerUp=${onPointerUp}
@@ -568,7 +579,7 @@ function SvgViewer({
                             hitRadius=${hitRadius}
                             dotRadiusOuter=${dotRadiusOuter}
                             dotRadiusInner=${dotRadiusInner}
-                            dotRadiusLabel=${dotRadiusLabel}
+                            labelFontSize=${labelFontSize}
                             setHoveredPoint=${setHoveredPoint}
                         />
                     `,
@@ -1251,16 +1262,16 @@ const styles = `
     fill: #e74c3c;
   }
 
-  /* Persistent point labels */
+  /* Persistent point labels.
+     font-size and stroke-width are set as SVG presentation attributes
+     on each <text> element (in viewBox user units via pxToVb) so they
+     remain a consistent pixel size regardless of flag coordinate scale. */
   .point-label {
-    font-size: 0.06px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     fill: #1a1a1a;
     font-weight: 600;
-    vector-effect: non-scaling-stroke;
     paint-order: stroke fill;
     stroke: white;
-    stroke-width: 0.02px;
     stroke-linejoin: round;
   }
 `;
