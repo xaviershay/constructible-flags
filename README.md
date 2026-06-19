@@ -26,6 +26,14 @@ sudo apt install librsvg2-bin
 brew install librsvg
 ```
 
+### `libwebmp` 
+
+Need to remove this dependency, it got added accidentally. But it's there for now.
+
+```bash
+sudo apt install libwebp-dev
+```
+
 ### `ffmpeg` (optional, for `bin/animate`)
 
 `bin/animate` shells out to `ffmpeg` to assemble PNG frames into the final
