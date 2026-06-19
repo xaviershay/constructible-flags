@@ -179,7 +179,7 @@ main = do
 
   putStrLn $ "Encoding " ++ outputExtension (optFormat opts) ++ " to " ++ outPath
   encodeAnimation cfg (optFormat opts) framesDir outPath
-  putStrLn $ "Wrote " ++ outPath
+  -- putStrLn $ "Wrote " ++ outPath
 
   unless (optKeepFrames opts) $ do
     exists <- doesDirectoryExist framesDir

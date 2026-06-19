@@ -186,7 +186,7 @@ writeConstructionJson name isoCode input tree labelList = do
   let isoLower = map toLower isoCode
       path = "out/construction/" ++ isoLower ++ ".json"
   BL.writeFile path (Aeson.encode json)
-  putStrLn $ "  Wrote " ++ path
+  -- putStrLn $ "  Wrote " ++ path
 
 -- ---------------------------------------------------------------------------
 -- Tree → JSON

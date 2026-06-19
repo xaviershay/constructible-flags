@@ -7,4 +7,4 @@ for arg in "$@"; do
     args+=("$arg")
   fi
 done
-exec stack test constructible-flags:test:constructible-flags-test --fast --ta "${args[*]}"
+exec stack test constructible-flags:test:constructible-flags-test --fast --ta "--hide-successes ${args[*]}"
