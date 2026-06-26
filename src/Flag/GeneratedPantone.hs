@@ -14,9 +14,12 @@ generatedPantoneRGB "280-C" = Just (0,34,102)
 generatedPantoneRGB "287-C" = Just (0,47,134)
 generatedPantoneRGB "294-C" = Just (0,48,104)
 generatedPantoneRGB "300-C" = Just (0,94,183)
+generatedPantoneRGB "3415-C" = Just (1,120,73)
 generatedPantoneRGB "342-C" = Just (2,102,71)
 generatedPantoneRGB "356-C" = Just (1,123,57)
 generatedPantoneRGB "485-C" = Just (220,39,31)
+generatedPantoneRGB "BLACK-C" = Just (45,41,40)
+generatedPantoneRGB "PQ-1235C" = Just (254,184,28)
 generatedPantoneRGB "RED-032-C" = Just (241,49,64)
 generatedPantoneRGB "REFLEX-BLUE-C" = Just (1,20,139)
 generatedPantoneRGB _ = Nothing
@@ -35,9 +38,12 @@ generatedPantoneSourceUrl "280-C" = Just "https://www.pantone.com/media/color-fi
 generatedPantoneSourceUrl "287-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-287-c.webp"
 generatedPantoneSourceUrl "294-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-294-c.webp"
 generatedPantoneSourceUrl "300-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-300-c.webp"
+generatedPantoneSourceUrl "3415-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-3415-c.webp"
 generatedPantoneSourceUrl "342-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-342-c.webp"
 generatedPantoneSourceUrl "356-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-356-c.webp"
 generatedPantoneSourceUrl "485-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-485-c.webp"
+generatedPantoneSourceUrl "BLACK-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-black-c.webp"
+generatedPantoneSourceUrl "PQ-1235C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-pq-1235c.webp"
 generatedPantoneSourceUrl "RED-032-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-red-032-c.webp"
 generatedPantoneSourceUrl "REFLEX-BLUE-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-reflex-blue-c.webp"
 generatedPantoneSourceUrl _ = Nothing
@@ -57,9 +63,12 @@ generatedPantoneList = [
     ("287-C", (0,47,134,"images/pantone/287-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-287-c.webp")),
     ("294-C", (0,48,104,"images/pantone/294-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-294-c.webp")),
     ("300-C", (0,94,183,"images/pantone/300-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-300-c.webp")),
+    ("3415-C", (1,120,73,"images/pantone/3415-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-3415-c.webp")),
     ("342-C", (2,102,71,"images/pantone/342-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-342-c.webp")),
     ("356-C", (1,123,57,"images/pantone/356-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-356-c.webp")),
     ("485-C", (220,39,31,"images/pantone/485-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-485-c.webp")),
+    ("BLACK-C", (45,41,40,"images/pantone/BLACK-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-black-c.webp")),
+    ("PQ-1235C", (254,184,28,"images/pantone/PQ-1235C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-pq-1235c.webp")),
     ("RED-032-C", (241,49,64,"images/pantone/RED-032-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-red-032-c.webp")),
     ("REFLEX-BLUE-C", (1,20,139,"images/pantone/REFLEX-BLUE-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-reflex-blue-c.webp"))
     ]

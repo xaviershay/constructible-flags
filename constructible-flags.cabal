@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.39.1.
+-- This file has been generated from package.yaml by hpack version 0.39.6.
 --
 -- see: https://github.com/sol/hpack
 
@@ -54,6 +54,7 @@ library
       Flag.Country.FRA
       Flag.Country.GBR
       Flag.Country.GRL
+      Flag.Country.JAM
       Flag.Country.JOR
       Flag.Country.JPN
       Flag.Country.MHL

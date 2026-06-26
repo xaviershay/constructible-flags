@@ -34,6 +34,7 @@ module Flag.Constructions
 
     -- * Composite constructors
     perpendicular,
+    rotate90CW,
     translate,
     bisectAngle,
     parallel,
@@ -621,6 +622,11 @@ fillRectangle c = group "Fill rectangle" $ proc (v1, v2, v3, v4) -> do
   t1 <- fillTriangle c -< (v1, v2, v3)
   t2 <- fillTriangle c -< (v3, v4, v1)
   returnA -< t1 <> t2
+
+rotate90CW :: FlagA (Point, Point) (Point, Point)
+rotate90CW = group "Rotate 90 CW" $ proc (a, b) -> do
+  (_, c) <- perpendicular -< (a, b)
+  returnA -< (a, c)
 
 perpendicular :: FlagA (Point, Point) (Point, Point)
 perpendicular = group "Perpendicular points" $ proc (a, b) -> do

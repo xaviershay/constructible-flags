@@ -99,3 +99,7 @@ Ideally, numbers would be represented with exact algebra. I tried this a few way
     bin/publish
     
     stack ghci --test
+
+## TODO
+
+* Decide on how to handle black: use pantone approx or RGB solid? Should be consistent across flags, right?
