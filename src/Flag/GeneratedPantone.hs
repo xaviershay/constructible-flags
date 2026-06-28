@@ -13,6 +13,7 @@ generatedPantoneRGB "200-C" = Just (186,11,47)
 generatedPantoneRGB "280-C" = Just (0,34,102)
 generatedPantoneRGB "287-C" = Just (0,47,134)
 generatedPantoneRGB "294-C" = Just (0,48,104)
+generatedPantoneRGB "299-C" = Just (0,163,224)
 generatedPantoneRGB "300-C" = Just (0,94,183)
 generatedPantoneRGB "3415-C" = Just (1,120,73)
 generatedPantoneRGB "342-C" = Just (2,102,71)
@@ -37,6 +38,7 @@ generatedPantoneSourceUrl "200-C" = Just "https://www.pantone.com/media/color-fi
 generatedPantoneSourceUrl "280-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-280-c.webp"
 generatedPantoneSourceUrl "287-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-287-c.webp"
 generatedPantoneSourceUrl "294-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-294-c.webp"
+generatedPantoneSourceUrl "299-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-299-c.webp"
 generatedPantoneSourceUrl "300-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-300-c.webp"
 generatedPantoneSourceUrl "3415-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-3415-c.webp"
 generatedPantoneSourceUrl "342-C" = Just "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-342-c.webp"
@@ -62,6 +64,7 @@ generatedPantoneList = [
     ("280-C", (0,34,102,"images/pantone/280-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-280-c.webp")),
     ("287-C", (0,47,134,"images/pantone/287-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-287-c.webp")),
     ("294-C", (0,48,104,"images/pantone/294-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-294-c.webp")),
+    ("299-C", (0,163,224,"images/pantone/299-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-299-c.webp")),
     ("300-C", (0,94,183,"images/pantone/300-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-300-c.webp")),
     ("3415-C", (1,120,73,"images/pantone/3415-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-3415-c.webp")),
     ("342-C", (2,102,71,"images/pantone/342-C.webp","https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-342-c.webp")),

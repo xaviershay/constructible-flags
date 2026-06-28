@@ -19,6 +19,7 @@ module Flag.Registry
     , marshallIslands
     , northMacedonia
     , nepal
+    , rwanda
     , seychelles
     , trinidadAndTobago
     ) where
@@ -42,6 +43,7 @@ import Flag.Country.JPN (japan)
 import Flag.Country.MHL (marshallIslands)
 import Flag.Country.MKD (northMacedonia)
 import Flag.Country.NPL (nepal)
+import Flag.Country.RWA (rwanda)
 import Flag.Country.SYC (seychelles)
 import Flag.Country.TTO (trinidadAndTobago)
 
@@ -63,6 +65,7 @@ allCountryFlags =
     , marshallIslands
     , northMacedonia
     , nepal
+    , rwanda
     , seychelles
     , trinidadAndTobago
     ]

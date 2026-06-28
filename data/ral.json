@@ -1,0 +1,35 @@
+{
+    "1003": {
+        "chip": "images/ral/ral-1003.png",
+        "label": "RAL 1003",
+        "rgb": [
+            249,
+            169,
+            0
+        ],
+        "sampledAt": "2026-06-28T03:28:16Z",
+        "sourceUrl": "https://qconv.com/en/colors/ral-1003"
+    },
+    "1023": {
+        "chip": "images/ral/ral-1023.png",
+        "label": "RAL 1023",
+        "rgb": [
+            247,
+            181,
+            0
+        ],
+        "sampledAt": "2026-06-28T03:28:29Z",
+        "sourceUrl": "https://qconv.com/en/colors/ral-1023"
+    },
+    "6029": {
+        "chip": "images/ral/ral-6029.png",
+        "label": "RAL 6029",
+        "rgb": [
+            0,
+            111,
+            61
+        ],
+        "sampledAt": "2026-06-28T03:28:42Z",
+        "sourceUrl": "https://qconv.com/en/colors/ral-6029"
+    }
+}

@@ -66,6 +66,7 @@ library:
     source-dirs: src
     other-modules:
         - Flag.GeneratedPantone
+        - Flag.GeneratedRAL
 
 executables:
     constructible-flags-exe:
@@ -89,6 +90,13 @@ executables:
     pantone-sample:
         main: PantoneCli.hs
         source-dirs: app-pantone
+        ghc-options:
+            - -threaded
+        dependencies:
+            - constructible-flags
+    ral-sample:
+        main: RalCli.hs
+        source-dirs: app-ral
         ghc-options:
             - -threaded
         dependencies:

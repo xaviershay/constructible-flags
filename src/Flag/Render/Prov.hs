@@ -51,6 +51,7 @@ generateProvJson isoCode flagName' sources =
     sourceEntities (SourcedAttr _ (SourceEditorial refs)) = refs
     sourceEntities (SourcedAttr _ (SourceApproximation _ refs)) = refs
     sourceEntities (DerivedAttr _ _ e) = [e]
+    sourceEntities (ConvertedAttr _ _ e) = [e]
 
     -- The primary source entity for a directly-sourced attribute (Nothing for editorial)
     primaryEntity :: Source -> Maybe Entity
@@ -70,6 +71,7 @@ generateProvJson isoCode flagName' sources =
     sourceAgents (SourcedAttr _ (SourceEditorial refs)) = concatMap maybeAgent refs
     sourceAgents (SourcedAttr _ (SourceApproximation _ refs)) = concatMap maybeAgent refs
     sourceAgents (DerivedAttr _ _ e) = maybeAgent e
+    sourceAgents (ConvertedAttr _ _ e) = maybeAgent e
 
     maybeAgent :: Entity -> [Agent]
     maybeAgent e = maybe [] (: []) (entityAgent e)
@@ -80,6 +82,10 @@ generateProvJson isoCode flagName' sources =
     -- Entities that are the via-entity in a DerivedAttr (trigger color-sample activities)
     derivedEntities :: [Entity]
     derivedEntities = nub [e | DerivedAttr _ _ e <- sources]
+
+    -- Entities that are the converter in a ConvertedAttr (trigger rgb-conversion activities)
+    convertedEntities :: [Entity]
+    convertedEntities = nub [e | ConvertedAttr _ _ e <- sources]
 
     -- -------------------------------------------------------------------------
     -- ID helpers
@@ -102,6 +108,9 @@ generateProvJson isoCode flagName' sources =
 
     colorSampleActivityId :: Entity -> String
     colorSampleActivityId e = cf ("color-sample-" ++ escId (entityTitle e))
+
+    conversionActivityId :: Entity -> String
+    conversionActivityId e = cf ("rgb-conversion-" ++ escId (entityTitle e))
 
     -- -------------------------------------------------------------------------
     -- Agents
@@ -193,6 +202,7 @@ generateProvJson isoCode flagName' sources =
                 let n = case se of
                       SourcedAttr n' _ -> n'
                       DerivedAttr n' _ _ -> n'
+                      ConvertedAttr n' _ _ -> n'
               ]
         ]
 
@@ -245,6 +255,16 @@ generateProvJson isoCode flagName' sources =
           )
         | e <- derivedEntities
         ]
+        ++
+        -- RGB-conversion activities (one per unique converted entity)
+        [ ( conversionActivityId e,
+            object
+              [ "prov:label" .= ("Conversion" :: String),
+                "prov:type" .= qname "cf:rgb-conversion"
+              ]
+          )
+        | e <- convertedEntities
+        ]
 
     -- -------------------------------------------------------------------------
     -- Relations
@@ -273,12 +293,18 @@ generateProvJson isoCode flagName' sources =
         [ object ["prov:entity" .= cf (attrId name), "prov:activity" .= colorSampleActivityId e]
         | DerivedAttr name _ e <- sources
         ]
+        ++
+        -- ConvertedAttr wasGeneratedBy rgb-conversion
+        [ object ["prov:entity" .= cf (attrId name), "prov:activity" .= conversionActivityId e]
+        | ConvertedAttr name _ e <- sources
+        ]
 
-    -- SourcedAttr names that are consumed by a DerivedAttr or approximated by a
+    -- SourcedAttr names that are consumed by a DerivedAttr/ConvertedAttr or approximated by a
     -- SourceApproximation (i.e. intermediates, not directly used by the construction).
     intermediateNames :: [String]
     intermediateNames =
       [from | DerivedAttr _ from _ <- sources]
+        ++ [from | ConvertedAttr _ from _ <- sources]
         ++ [approxOf | SourcedAttr _ (SourceApproximation approxOf _) <- sources]
 
     -- used
@@ -293,6 +319,11 @@ generateProvJson isoCode flagName' sources =
         -- ... plus derived attrs (the terminal converted values, e.g. "Green Pantone (RGB)")
         [ object ["prov:activity" .= constructionId, "prov:entity" .= cf (attrId name)]
         | DerivedAttr name _ _ <- sources
+        ]
+        ++
+        -- ... plus converted attrs
+        [ object ["prov:activity" .= constructionId, "prov:entity" .= cf (attrId name)]
+        | ConvertedAttr name _ _ <- sources
         ]
         ++
         -- View used source entity
@@ -313,6 +344,11 @@ generateProvJson isoCode flagName' sources =
         -- Color-sample used its via-entity
         [ object ["prov:activity" .= colorSampleActivityId e, "prov:entity" .= cf (entityIdStr e)]
         | e <- derivedEntities
+        ]
+        ++
+        -- Conversion used its converter entity
+        [ object ["prov:activity" .= conversionActivityId e, "prov:entity" .= cf (entityIdStr e)]
+        | e <- convertedEntities
         ]
 
     -- wasDerivedFrom
@@ -345,6 +381,13 @@ generateProvJson isoCode flagName' sources =
       ]
     -- DerivedAttr: attr-to-attr link (e.g. "RGB Conversion" wasDerivedFrom "Green Pantone")
     attrWasDerivedFrom (DerivedAttr name from _) =
+      [ object
+          [ "prov:generatedEntity" .= cf (attrId name),
+            "prov:usedEntity" .= cf (attrId from)
+          ]
+      ]
+    -- ConvertedAttr: attr-to-attr link (e.g. "Green (RGB)" wasDerivedFrom "Green (RAL standard)")
+    attrWasDerivedFrom (ConvertedAttr name from _) =
       [ object
           [ "prov:generatedEntity" .= cf (attrId name),
             "prov:usedEntity" .= cf (attrId from)
@@ -391,6 +434,12 @@ generateProvJson isoCode flagName' sources =
         -- Color-sample associated with editor
         [ object ["prov:activity" .= colorSampleActivityId e, "prov:agent" .= cf "editor"]
         | e <- derivedEntities
+        ]
+        ++
+        -- Conversion associated with the converter's agent (e.g. qconv)
+        [ object ["prov:activity" .= conversionActivityId e, "prov:agent" .= cf (agentId a)]
+        | e <- convertedEntities
+        , Just a <- [entityAgent e]
         ]
 
     -- wasInfluencedBy

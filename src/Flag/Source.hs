@@ -21,6 +21,7 @@ module Flag.Source
     , editorial
     , approximation
     , derivedFrom
+    , convertedFrom
     , mkAgentOrg
     , mkEntity
     , attributeTo
@@ -71,6 +72,11 @@ data Sourced :: Effect where
              -> Entity   -- ^ entity used during the derivation (e.g. a Pantone chip)
              -> a
              -> Sourced m a
+  GetConverted :: String   -- ^ label for this attribute
+               -> String   -- ^ label of the parent attribute it was converted from
+               -> Entity   -- ^ entity that performed the conversion (e.g. a qconv page)
+               -> a
+               -> Sourced m a
 
 type instance DispatchOf Sourced = 'Dynamic
 
@@ -106,11 +112,16 @@ approximation :: Sourced :> es => String -> String -> [Entity] -> a -> Eff es a
 approximation name approxOf refs val = sourced name (SourceApproximation approxOf refs) val
 
 -- | Value derived from a previously-sourced attribute, via a specific entity.
--- Use this when one attribute is computed from another (e.g. Pantone→RGB).
--- The parent attribute name creates a wasDerivedFrom link in PROV output,
--- and the via-entity becomes the subject of a color-sample (or similar) activity.
+-- Use this when one attribute is physically sampled from another (e.g. Pantone chip→RGB).
+-- Renders as a color-sample activity in PROV output.
 derivedFrom :: Sourced :> es => String -> String -> Entity -> a -> Eff es a
 derivedFrom name from entity val = send (GetDerived name from entity val)
+
+-- | Value converted from a previously-sourced attribute by an external agent (e.g. qconv).
+-- Use this when the conversion is computational rather than physical sampling.
+-- Renders as an rgb-conversion activity in PROV output, associated with the entity's agent.
+convertedFrom :: Sourced :> es => String -> String -> Entity -> a -> Eff es a
+convertedFrom name from entity val = send (GetConverted name from entity val)
 
 -- | Create an agent representing an organization
 mkAgentOrg :: String -> String -> Agent
@@ -142,8 +153,9 @@ translated date entity = entity { entityTranslated = Just date }
 -- | Interpreter that just returns the value (ignores source metadata)
 runSourcedPure :: Eff (Sourced : es) a -> Eff es a
 runSourcedPure = interpret_ $ \case
-  GetSourced _ _ val     -> pure val
-  GetDerived _ _ _ val   -> pure val
+  GetSourced _ _ val       -> pure val
+  GetDerived _ _ _ val     -> pure val
+  GetConverted _ _ _ val   -> pure val
 
 -- | Interpreter that traces all sourced values
 runSourcedTrace :: Eff (Sourced : es) a -> Eff es (a, [String])
@@ -160,21 +172,26 @@ runSourcedTrace = reinterpret_ (runState @[String] []) $ \case
   GetDerived name from _ val -> do
     modify (++ [name ++ " derived from " ++ from])
     pure val
+  GetConverted name from _ val -> do
+    modify (++ [name ++ " converted from " ++ from])
+    pure val
 
--- | A sourced element: either directly sourced from a document, or derived
--- from another named attribute via a specific entity (e.g. Pantone chip).
+-- | A sourced element: either directly sourced from a document, physically sampled
+-- (Pantone chip), or computationally converted (e.g. qconv RAL→RGB).
 data SourcedElement
   = SourcedAttr String Source
   | DerivedAttr String String Entity
-  -- ^ DerivedAttr name parentAttrName viaEntity
+  -- ^ DerivedAttr name parentAttrName viaEntity — physical color sampling
+  | ConvertedAttr String String Entity
+  -- ^ ConvertedAttr name parentAttrName converterEntity — computational conversion
   deriving (Show, Eq)
 
 -- | Convert any 'SourcedElement' to a @(name, Source)@ pair suitable for
--- display purposes. 'DerivedAttr' is rendered as a 'SourceReference' to
--- its via-entity.
+-- display purposes.
 elementDisplayPair :: SourcedElement -> (String, Source)
 elementDisplayPair (SourcedAttr name src) = (name, src)
 elementDisplayPair (DerivedAttr name _ e) = (name, SourceReference e)
+elementDisplayPair (ConvertedAttr name _ e) = (name, SourceReference e)
 
 -- | Interpreter that collects all sourced elements with their sources
 runSourcedCollect :: Eff (Sourced : es) a -> Eff es (a, [SourcedElement])
@@ -184,4 +201,7 @@ runSourcedCollect = reinterpret_ (runState @[SourcedElement] []) $ \case
     pure val
   GetDerived name from entity val -> do
     modify (++ [DerivedAttr name from entity])
+    pure val
+  GetConverted name from entity val -> do
+    modify (++ [ConvertedAttr name from entity])
     pure val

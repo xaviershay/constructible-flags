@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
+# Wrapper that runs the project's `ral-sample` via stack and
+# forwards all provided arguments.
+exec stack exec ral-sample -- "$@"

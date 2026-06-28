@@ -14,6 +14,8 @@ main :: IO ()
 main = do
     putStrLn "Generating src/Flag/GeneratedPantone.hs..."
     generatePantoneModule
+    putStrLn "Generating src/Flag/GeneratedRAL.hs..."
+    generateRALModule
     putStrLn "Generating src/Flag/Registry.hs..."
     generateRegistry
     defaultMain
@@ -85,6 +87,56 @@ generateRegistry = do
         putStrLn $ "Wrote " ++ outFile
 
  
+
+-- Generate Haskell module from data/ral.json so lookups are compiled in
+generateRALModule :: IO ()
+generateRALModule = do
+    let inFile = "data/ral.json"
+        outFile = "src/Flag/GeneratedRAL.hs"
+    exists <- doesFileExist inFile
+    unless exists $ do
+        putStrLn $ "Warning: " ++ inFile ++ " does not exist, writing empty mapping"
+        createDirectoryIfMissing True (takeDirectory outFile)
+        writeFile outFile $ unlines
+            [ "module Flag.GeneratedRAL (generatedRALRGB, generatedRALSourceUrl, generatedRALList) where"
+            , ""
+            , "generatedRALRGB :: String -> Maybe (Int, Int, Int)"
+            , "generatedRALRGB _ = Nothing"
+            , ""
+            , "generatedRALSourceUrl :: String -> Maybe String"
+            , "generatedRALSourceUrl _ = Nothing"
+            , ""
+            , "generatedRALList :: [(String, (Int, Int, Int, String, String))]"
+            , "generatedRALList = []"
+            ]
+    when exists $ do
+        raw <- BL.readFile inFile
+        entries <- case eitherDecode raw of
+            Left err -> fail $ "Failed to parse " ++ inFile ++ ": " ++ err
+            Right val -> return (parsePantoneEntries val)
+        let makeRGBCase (k,(r,g,b,_,_)) = "generatedRALRGB " ++ show k ++ " = Just (" ++ show r ++ "," ++ show g ++ "," ++ show b ++ ")"
+            makeSrcCase (k,(_,_,_,_chip,src)) = "generatedRALSourceUrl " ++ show k ++ " = Just " ++ show src
+            casesRGB = map makeRGBCase entries
+            casesSrc = map makeSrcCase entries
+            listEntries = map (\(k,(r,g,b,chip,src)) -> "(" ++ show k ++ ", (" ++ show r ++ "," ++ show g ++ "," ++ show b ++ "," ++ show chip ++ "," ++ show src ++ "))") entries
+            out = unlines $ concat
+                [ ["module Flag.GeneratedRAL (generatedRALRGB, generatedRALSourceUrl, generatedRALList) where", ""]
+                , ["generatedRALRGB :: String -> Maybe (Int, Int, Int)"]
+                , casesRGB
+                , ["generatedRALRGB _ = Nothing", ""]
+                , ["generatedRALSourceUrl :: String -> Maybe String"]
+                , casesSrc
+                , ["generatedRALSourceUrl _ = Nothing", ""]
+                , ["generatedRALList :: [(String, (Int, Int, Int, String, String))]"]
+                , ["generatedRALList = ["]
+                , (case listEntries of
+                    [] -> []
+                    xs -> map (\e -> "    " ++ e ++ ",") (init xs) ++ ["    " ++ last xs])
+                , ["    ]"]
+                ]
+        createDirectoryIfMissing True (takeDirectory outFile)
+        writeFile outFile out
+        putStrLn $ "Wrote " ++ outFile
 
 -- Generate Haskell module from data/pantone.json so lookups are compiled in
 generatePantoneModule :: IO ()
