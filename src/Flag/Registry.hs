@@ -22,6 +22,7 @@ module Flag.Registry
     , rwanda
     , seychelles
     , trinidadAndTobago
+    , tanzania
     ) where
 
 import Flag.Source (Sourced)
@@ -46,6 +47,7 @@ import Flag.Country.NPL (nepal)
 import Flag.Country.RWA (rwanda)
 import Flag.Country.SYC (seychelles)
 import Flag.Country.TTO (trinidadAndTobago)
+import Flag.Country.TZA (tanzania)
 
 allCountryFlags :: [Flag (Sourced : '[])]
 allCountryFlags =
@@ -68,4 +70,5 @@ allCountryFlags =
     , rwanda
     , seychelles
     , trinidadAndTobago
+    , tanzania
     ]

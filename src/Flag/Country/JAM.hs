@@ -16,16 +16,17 @@ import Effectful
 import Flag.Construction.Types (Point, Drawing, FlagA)
 import Flag.Constructions
 import Flag.Source
-import Flag.Definition (Flag, mkCountryFlag)
+import Flag.Definition (Flag, mkCountryFlag, editorNote)
 import Flag.Pantone (referencePantoneAsRGB)
 
 jamaica :: Sourced :> es => Flag es
-jamaica = mkCountryFlag
-  "JAM"
-  "Jamaica"
-  constructedAt
-  (reference "Description" flagSpec "The emblem has a diagonal cross or saltire with four triangles in juxtaposition. The cross is in GOLD and the width of each of its bends (arms) is one-sixth of the length of the fly of the flag. The top and bottom triangles are in GREEN, and the hoist and fly triangles are in BLACK. It follows the ‘Admiralty Pattern’ and the width-to-length ratio of the flag is 1:2.")
-  design
+jamaica = editorNote "Unlike most other flags, the black color is actually specified as a pantone reference. For consistency with other flags, I've chosen to use solid black rather than a softer approximation." $
+  mkCountryFlag
+    "JAM"
+    "Jamaica"
+    constructedAt
+    (reference "Description" flagSpec "The emblem has a diagonal cross or saltire with four triangles in juxtaposition. The cross is in GOLD and the width of each of its bends (arms) is one-sixth of the length of the fly of the flag. The top and bottom triangles are in GREEN, and the hoist and fly triangles are in BLACK. It follows the ‘Admiralty Pattern’ and the width-to-length ratio of the flag is 1:2.")
+    design
 
   where
     constructedAt = "2026-06-27"
@@ -37,7 +38,8 @@ jamaica = mkCountryFlag
 
     design :: Sourced :> es => Eff es (FlagA (Point, Point) Drawing)
     design = do
-        blackC <- referencePantoneAsRGB flagSpec ("Black", "BLACK-C")
+        --blackC <- referencePantoneAsRGB flagSpec ("Black", "BLACK-C")
+        blackC <- reference "Black" flagSpec (sRGB24 0 0 0)
         greenC <- referencePantoneAsRGB flagSpec ("Green", "3415-C")
         goldC <- referencePantoneAsRGB flagSpec ("Gold", "PQ-1235C")
         pure $ proc origin -> do

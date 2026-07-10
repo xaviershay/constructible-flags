@@ -18,7 +18,7 @@
             205,
             0
         ],
-        "sampledAt": "2026-02-20T22:20:06Z",
+        "sampledAt": "2026-07-10T20:45:05Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-116-c.webp"
     },
     "122-C": {
@@ -139,7 +139,7 @@
             163,
             224
         ],
-        "sampledAt": "2026-06-28T02:45:30Z",
+        "sampledAt": "2026-07-10T20:46:23Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-299-c.webp"
     },
     "300-C": {
@@ -185,6 +185,17 @@
         ],
         "sampledAt": "2026-02-27T23:48:35Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-356-c.webp"
+    },
+    "361-C": {
+        "chip": "images/pantone/361-C.webp",
+        "label": "361-C",
+        "rgb": [
+            67,
+            176,
+            41
+        ],
+        "sampledAt": "2026-07-10T20:46:20Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-361-c.webp"
     },
     "485-C": {
         "chip": "images/pantone/485-C.webp",
