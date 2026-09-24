@@ -175,6 +175,17 @@
         "sampledAt": "2026-02-15T23:52:28Z",
         "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-342-c.webp"
     },
+    "3425-C": {
+        "chip": "images/pantone/3425-C.webp",
+        "label": "3425-C",
+        "rgb": [
+            1,
+            98,
+            65
+        ],
+        "sampledAt": "2026-09-24T21:03:15Z",
+        "sourceUrl": "https://www.pantone.com/media/color-finder/img/chips/pantone-color-chip-3425-c.webp"
+    },
     "356-C": {
         "chip": "images/pantone/356-C.webp",
         "label": "356-C",

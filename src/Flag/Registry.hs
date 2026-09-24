@@ -12,6 +12,7 @@ module Flag.Registry
     , algeria
     , france
     , unitedKingdom
+    , ghana
     , greenland
     , jamaica
     , jordan
@@ -37,6 +38,7 @@ import Flag.Country.BWA (botswana)
 import Flag.Country.DZA (algeria)
 import Flag.Country.FRA (france)
 import Flag.Country.GBR (unitedKingdom)
+import Flag.Country.GHA (ghana)
 import Flag.Country.GRL (greenland)
 import Flag.Country.JAM (jamaica)
 import Flag.Country.JOR (jordan)
@@ -60,6 +62,7 @@ allCountryFlags =
     , algeria
     , france
     , unitedKingdom
+    , ghana
     , greenland
     , jamaica
     , jordan

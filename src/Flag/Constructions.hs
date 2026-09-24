@@ -16,6 +16,7 @@ module Flag.Constructions
     fillStar7x2,
     fillStar7x3,
     fillStar5,
+    fillStar5BetweenLines,
     fillStar5Inner,
     fillStar7Inner,
     fillStar12InnerC,
@@ -306,8 +307,17 @@ fillStar5 col = group "Fill {5/2} star" $ proc (o, a) -> do
   (v1, v4) <- intersectLC -< ((g1, g1q), (o, a)) -- 72° and 288°
   (v2, v3) <- intersectLC -< ((g2, g2q), (o, a)) -- 144° and 216°
 
+  fillStar5Vertices col -< (v0, v1, v2, v3, v4)
+
+-- | Fill a {5/2} star given its five outer vertices in cyclic order.
+--
+-- Computes the inner pentagon vertices by intersecting adjacent star edges
+-- (edge k connects v_k to v_{k+2 mod 5}; inner vertex i_k = edge k ∩ edge
+-- (k+1 mod 5)), then fills 5 spike triangles plus a 3-triangle fan for the
+-- pentagonal core.
+fillStar5Vertices :: Colour Double -> FlagA (Point, Point, Point, Point, Point) Drawing
+fillStar5Vertices col = proc (v0, v1, v2, v3, v4) -> do
   -- === Inner pentagon via star edge intersections ===
-  -- Edge k: v_k → v_{k+2 mod 5}.  i_k = edge k ∩ edge (k+1 mod 5).
   i0 <- intersectLL -< ((v0, v2), (v1, v3))
   i1 <- intersectLL -< ((v1, v3), (v2, v4))
   i2 <- intersectLL -< ((v2, v4), (v3, v0))
@@ -337,6 +347,77 @@ fillStar5 col = group "Fill {5/2} star" $ proc (o, a) -> do
         <> c0
         <> c1
         <> c2
+
+-- | Inscribe a {5/2} star between two parallel lines: the apex on the
+-- upper line, the two lower points on the lower line.
+--
+-- Input is @(a, p, z)@, where @a@ is the apex and @p@ a second point on
+-- the upper line, and @z@ is any point on the lower line.  The compass
+-- radius @r@ is @|a - p|@; about half the line spacing works well.
+--
+-- No scale is ever computed: once the apex sits on the upper line and the
+-- star's angles are fixed, the base points landing on the lower line fix
+-- the size.  Every line of an upright pentagram meets the parallels at 0°,
+-- 36° or 72°, so the construction is just a matter of erecting those
+-- angles at the apex and at the base points.  Aside from the two
+-- 'bisectAngle' calls at the base points (which open the compass to the
+-- arm length instead, for the same bisector), every circle below has the
+-- same radius @r@: a rusty compass suffices.
+fillStar5BetweenLines :: Colour Double -> FlagA (Point, Point, Point) Drawing
+fillStar5BetweenLines col = group "Fill {5/2} star between lines" $ proc (a, p, z) -> do
+  -- The lower line: through z, parallel to the upper line.
+  (_, z') <- translate -< ((a, p), z)
+
+  -- circle(a) meets the upper line at p and, opposite it, at u1.
+  (u1, _) <- intersectLC -< ((a, p), (a, p))
+
+  -- === A right angle at a (Thales) ===
+  -- e on circle(a) ∩ circle(p); f the antipode of p on circle(e), so that
+  -- a-f is perpendicular to the lines.  Either choice of e gives that same
+  -- line, so take the first.
+  (e, _) <- intersectCC -< ((a, p), (p, a))
+  (_, f) <- intersectLC -< ((p, e), (e, a))
+
+  -- Where it meets the lower line, which orients "down" unambiguously, and
+  -- d on circle(a) on that side of a.
+  m <- intersectLL -< ((a, f), (z, z'))
+  (_, d) <- intersectLC -< ((a, m), (a, p))
+
+  -- === The golden length: |a - w| = r/φ ===
+  -- u2 is 2r along the upper line, on the u1 side; the bisector of angle
+  -- (a, d, u2) cuts the upper line at w.
+  u2 <- naturalMult 2 -< (a, u1)
+  dw <- bisectAngle -< (d, (a, u2))
+  w <- intersectLL -< (dw, (a, p))
+
+  -- === The 72° directions ===
+  -- circle(a) ∩ circle(w) are the two points r from a at 72° to the upper
+  -- line.  Take them along their common chord — the perpendicular through
+  -- the midpoint of a-w — so that the lower one is unambiguous.
+  mw <- midpoint -< (a, w)
+  (_, mwDown) <- translate -< ((a, d), mw)
+  (vUp, v) <- intersectLC -< ((mw, mwDown), (a, p))
+  (_, v') <- intersectLC -< ((vUp, a), (a, p)) -- v mirrored onto the p side
+
+  -- === The two base points, where those rays meet the lower line ===
+  b2 <- intersectLL -< ((a, v), (z, z'))
+  b3 <- intersectLL -< ((a, v'), (z, z'))
+
+  -- === Side lines from the apex toward the two upper points ===
+  (j1, j2) <- intersectCC -< ((u1, a), (v, a))
+  let j = if j1 == a then j2 else j1
+  (j1', j2') <- intersectCC -< ((p, a), (v', a))
+  let j' = if j1' == a then j2' else j1'
+
+  -- The star edge leaving each base point bisects the angle between that
+  -- point's apex edge and the lower line; it meets the opposite side line
+  -- at an upper point.
+  e2 <- bisectAngle -< (b2, (a, b3))
+  b4 <- intersectLL -< (e2, (a, j'))
+  e3 <- bisectAngle -< (b3, (a, b2))
+  b1 <- intersectLL -< (e3, (a, j))
+
+  fillStar5Vertices col -< (a, b1, b2, b3, b4)
 
 -- | Inscribe a simple five-pointed star in the given circle
 -- (centre, edge point) and fill it with the given colour.
